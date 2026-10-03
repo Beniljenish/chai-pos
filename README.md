@@ -119,3 +119,27 @@ empty 304 when nothing changed, which matters on patchy shop internet.
   and confirming it fails.
 - `test_tenant_gate.py` now covers **every method** on every `/{id}` route, plus
   another shop's ids smuggled inside request bodies.
+
+## Hosting: Supabase Postgres
+
+Production database: Supabase project `chai-pos` (ref `dffvdkxprmoxytbbummz`,
+Postgres 17, region `ap-northeast-2` Seoul). CI and Docker Compose also use
+Postgres 17 so tests run on the same major version.
+
+**Supabase-specific security.** Supabase publishes every `public` table through
+its Data API with a public "anon" key. Migration `d9b48b507dcc` turns on row-level
+security with no policies (deny all) on every table and revokes the Data API
+roles' grants. The backend connects as the table owner, so it is unaffected.
+`tests/test_database_security.py` fails if any new table lacks RLS.
+Supabase's linter will list "RLS enabled, no policy" as INFO: that is intended.
+
+**Applying migrations to Supabase.** From any machine that can reach the DB:
+`DATABASE_URL=<supabase session pooler URL> alembic upgrade head`.
+Without direct access: `alembic upgrade <current>:head --sql`, unescape `%%` -> `%`,
+review, and apply the SQL (it updates `alembic_version` too).
+
+**Connection string (Phase 4).** Use the **session pooler** (port 5432) from the
+Supabase dashboard's Connect button, with the `postgresql+psycopg://` prefix. The
+transaction pooler (6543) breaks psycopg's prepared statements unless
+`prepare_threshold=None` is set. The password goes only into the host's env
+settings, never into the repo.
