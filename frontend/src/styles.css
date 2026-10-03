@@ -252,8 +252,18 @@ input {
   .sync-badge .short {
     display: inline;
   }
+  /* Log out sits beside the shop name, so the tabs and sync badge keep one row. */
+  .topbar {
+    position: relative;
+  }
+  .where {
+    padding-right: 80px;
+  }
   .topbar .quiet {
-    margin-left: auto;
+    position: absolute;
+    top: var(--s1);
+    right: var(--s2);
+    min-height: 40px;
     padding: 0 var(--s2);
   }
 }
