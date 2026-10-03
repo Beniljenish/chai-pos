@@ -1,5 +1,5 @@
 /**
- * Day end in a real browser: wastage, the blind count with a recount, the
+ * Day end in a real browser: wastage, the owner reconciling against the balance, the
  * owner's variance report and approval; and the cashier's restricted view.
  * Today's count is left unapproved so later specs' sales are unaffected; the
  * approval is exercised on yesterday (a quiet day: everything exact).
@@ -24,7 +24,7 @@ async function login(page: Page, phone: string, tablet: string) {
   }
 }
 
-test('owner: wastage, blind count with recount, variance, approval', async ({ page }) => {
+test('owner: wastage, reconcile against the balance, variance, approval', async ({ page }) => {
   test.setTimeout(120_000);
   await login(page, OWNER, 'E2E dayend phone');
 
@@ -47,28 +47,24 @@ test('owner: wastage, blind count with recount, variance, approval', async ({ pa
   await w.getByRole('button', { name: 'Record wastage' }).click();
   await expect(w.getByRole('status')).toContainText('Recorded: 1 × Masala tea, spilled / dropped');
 
-  // ---- Blind count: everything zero. Decoction and others that moved get a recount. ----
+  // ---- Owner count: the balance is shown; "Matches" or the real amount ----
   const count = page.locator('.count');
-  await expect(count).not.toContainText('expected');
+  const decoctionRow = count.locator('.count-list li', { hasText: 'Tea decoction' });
+  await expect(decoctionRow).toContainText('Should be');
   const zeros = count.getByRole('button', { name: 'It is zero' });
   const n = await zeros.count();
   for (let i = 0; i < n; i++) await zeros.nth(i).click();
-  await shot(page, '40-count');
+  await expect(decoctionRow).toContainText('vs balance'); // zero on the shelf, record says otherwise
+  await shot(page, '40-owner-count');
   await count.getByRole('button', { name: 'Send count' }).click();
-  await expect(count.getByRole('heading', { name: 'Please count these again' })).toBeVisible();
-  await expect(count.locator('.count-list li', { hasText: 'Tea decoction' })).toBeVisible();
-  await shot(page, '41-recount');
-  const again = count.getByRole('button', { name: 'It is zero' });
-  const m = await again.count();
-  for (let i = 0; i < m; i++) await again.nth(i).click();
-  await count.getByRole('button', { name: 'Send recount' }).click();
+  // No "count again" for the owner: it goes straight to the report.
   await expect(count.getByRole('status')).toContainText('Count sent to the owner');
   await expect(count.getByRole('button', { name: 'Count again' })).toBeVisible();
 
   // ---- The owner's variance report ----
   const report = page.locator('.report');
   const decoction = report.locator('.variance-list li', { hasText: 'Tea decoction' });
-  await expect(decoction).toContainText('Recounted');
+  await expect(decoction).toContainText('Check');
   await decoction.locator('summary').click();
   await expect(decoction).toContainText('− Sold (by recipe)');
   await expect(decoction).toContainText('− Wasted');
@@ -104,12 +100,32 @@ test('cashier: batches, wastage and a blind count; no rupees, no report', async 
   await expect(page.getByRole('heading', { name: 'Stock tasks' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Made a batch?' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Something wasted?' })).toBeVisible();
-  await expect(page.locator('.count')).toBeVisible();
-  // Blind and rupee-free: no variance report, no stock levels, no owner-only reasons.
+  // Blind: no balances, no variance report, no rupees, no owner-only reasons.
+  const count = page.locator('.count');
+  await expect(count).toBeVisible();
+  await count.getByRole('button', { name: 'Count again' }).click(); // the owner already sent one today
+  await expect(count.getByRole('button', { name: 'It is zero' }).first()).toBeVisible();
+  await expect(count).not.toContainText('Should be');
+  await expect(count.getByRole('button', { name: /matches the balance/ })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Variance' })).toHaveCount(0);
   await expect(page.locator('main')).not.toContainText('₹');
   await page.locator('.wastage').getByLabel('Which drink').selectOption({ label: 'Masala tea' });
   await expect(page.getByRole('radio', { name: 'Free (on the house)' })).toHaveCount(0);
   await expect(page.getByRole('radio', { name: 'Theft / unexplained' })).toHaveCount(0);
   await shot(page, '44-cashier-stock');
+
+  // ---- Cashier's blind count: items that moved come back once, with no numbers ----
+  const zeros = count.getByRole('button', { name: 'It is zero' });
+  const n = await zeros.count();
+  for (let i = 0; i < n; i++) await zeros.nth(i).click();
+  await count.getByRole('button', { name: 'Send count' }).click();
+  await expect(count.getByRole('heading', { name: 'Please count these again' })).toBeVisible();
+  await expect(count.locator('.count-list li', { hasText: 'Tea decoction' })).toBeVisible();
+  await expect(count).not.toContainText('vs balance');
+  await shot(page, '45-cashier-recount');
+  const again = count.getByRole('button', { name: 'It is zero' });
+  const m = await again.count();
+  for (let i = 0; i < m; i++) await again.nth(i).click();
+  await count.getByRole('button', { name: 'Send recount' }).click();
+  await expect(count.getByRole('status')).toContainText('Count sent to the owner');
 });

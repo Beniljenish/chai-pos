@@ -279,7 +279,12 @@ class SubmitResult:
 
 
 def submit_counts(
-    db: Session, bdate: date, counts: list[CountIn], user_id: uuid.UUID
+    db: Session,
+    bdate: date,
+    counts: list[CountIn],
+    user_id: uuid.UUID,
+    *,
+    ask_recount: bool = True,
 ) -> SubmitResult:
     """Blind: the result says only which items to count again, never why."""
     dc = get_or_create_day(db, bdate)
@@ -323,7 +328,8 @@ def submit_counts(
     for ing_id, line in by_ingredient.items():
         m = moves[ing_id]
         if (
-            not line.recount_requested
+            ask_recount
+            and not line.recount_requested
             and not line.recounted
             and _tolerance_breached(m, line.counted_qty - m.expected, tol[ing_id])
         ):

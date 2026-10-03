@@ -389,3 +389,33 @@ def test_an_approved_day_counts_as_the_starting_point(client, shop_a):
     # The closed day's own report still says it had no starting count before it.
     rep = client.get(_url("report"), headers=h).json()
     assert rep["lines"][0]["has_opening"] is False
+
+
+def test_owner_reconciles_against_the_expected_balance(client, shop_a, day):
+    """Owner's sheet shows each item's expected balance (the hand-worked numbers
+    above); the cashier's sheet does not contain the field at all."""
+    owner = client.get(_url("sheet"), headers=shop_a.owner_h).json()
+    expected = {i["name"]: D(i["expected"]) for i in owner["items"]}
+    assert expected == {
+        "Milk": D("13500"),
+        "Oranges": D("5222.220"),
+        "Sugar": D("1700"),
+        "Tea decoction": D("1400"),
+        "Tea powder": D("630"),
+    }
+    cashier = client.get(_url("sheet"), headers=shop_a.cashier_h).json()
+    assert all("expected" not in i for i in cashier["items"])
+
+
+def test_owner_count_is_not_sent_back_for_a_recount(client, shop_a, day):
+    """The owner counted with the balance in view: an outside-tolerance item goes
+    straight to the report (flagged there), not back as 'count again'."""
+    cat = day[0]
+    r = client.post(
+        _url("counts"),
+        json={"lines": [{"ingredient_id": cat.milk["id"], "loose_qty": "13000"}]},
+        headers=shop_a.owner_h,
+    ).json()
+    assert r == {"status": "submitted", "recount": []}
+    rep = client.get(_url("report"), headers=shop_a.owner_h).json()
+    assert rep["lines"][0]["flagged"] is True and rep["lines"][0]["recounted"] is False

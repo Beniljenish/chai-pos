@@ -1162,3 +1162,14 @@ label.check input {
 .breakdown .strong {
   font-weight: 700;
 }
+
+/* Owner reconciliation: the expected balance above each item. */
+.balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s3);
+  padding-bottom: var(--s2);
+  margin-bottom: var(--s2);
+  border-bottom: 1px solid var(--steel);
+}

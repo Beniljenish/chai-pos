@@ -322,7 +322,7 @@ The owner's tab is now **Manage**, with **Stock** and **Recipes** inside it (Sho
 ### Decisions and trade-offs
 
 - **The phase gate is a hand-worked day** (`tests/test_phase3_gate.py`): every number is worked out in the docstring and must match to the paisa. Three deliberate bugs (no late-bill correction, "Less sugar" adding sugar back, rounding down) were each caught by it.
-- **Blind counts.** The count sheet and the submit reply never contain expected quantities. Items outside tolerance get one "count again" with no numbers, so a recount cannot be steered towards the expected figure.
+- **Blind counts for staff; reconciliation for the owner.** A cashier's count sheet and submit reply never contain expected quantities (the field is left out of the response, not just hidden), and items outside tolerance get one "count again" with no numbers. The owner's sheet shows each item's expected balance with "Matches" and the live difference, and an owner count goes straight to the report without a recount prompt: the owner is reconciling, not being checked.
 - **Tolerance is measured against usage, not stock level** (±3% default, ±8% milk and fruit): 500 ml missing out of 4 L used is a problem; out of 40 L in stock it would hide.
 - **Approval makes the count the truth** with a `count_adjustment` row (the ledger is still never edited), and freezes that day's expected, cost and variance so a closed day's report never shifts.
 - **Late bills.** A bill from a closed day that syncs afterwards left the shelf before the count, so a compensating row keeps stock equal to the count, and the report shows how much of the day's "missing" those late bills explain.
