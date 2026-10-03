@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Integer,
     String,
     UniqueConstraint,
 )
@@ -59,6 +60,20 @@ class User(IdMixin, TimestampMixin, TenantScoped, Base):
     role: Mapped[Role] = mapped_column(Enum(Role, name="user_role"))
     password_hash: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Set when the owner sets someone's password (new staff, or a reset): the
+    # owner knows it, so the person must choose their own before doing anything.
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    # Wrong-password lockout (see services/auth.py).
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def locked(self) -> bool:
+        from app.core.time import utcnow  # local: core.time imports settings only
+
+        return self.locked_until is not None and self.locked_until > utcnow()
 
 
 class Device(IdMixin, TimestampMixin, TenantScoped, Base):

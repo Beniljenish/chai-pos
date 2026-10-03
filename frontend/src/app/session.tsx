@@ -12,7 +12,7 @@ import { SyncWorker, type SyncState } from '../lib/sync';
 import type { Catalogue, Device, User } from '../lib/types';
 
 
-type Phase = 'loading' | 'login' | 'device' | 'ready';
+type Phase = 'loading' | 'login' | 'password' | 'device' | 'ready';
 
 interface Session {
   phase: Phase;
@@ -26,6 +26,8 @@ interface Session {
   logout(): Promise<void>;
   chooseDevice(device: Device): Promise<void>;
   reloadCatalogue(): Promise<void>;
+  /** Own password; also how someone with an owner-set password gets past 'password'. */
+  changePassword(current: string, next: string): Promise<void>;
 }
 
 const SessionContext = createContext<Session | null>(null);
@@ -78,6 +80,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const savedDevice = await db.getMeta<Device>('device');
       if (!savedUser || !(await api.hasSession())) return setPhase('login');
       setUser(savedUser);
+      if (savedUser.must_change_password) return setPhase('password');
       if (!savedDevice) return setPhase('device');
       await enterReady(savedDevice);
     })();
@@ -102,11 +105,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const me = await api.get<User>('/auth/me');
       await db.setMeta('user', me);
       setUser(me);
+      // The owner set this password: the server refuses everything else until
+      // the person picks their own, so ask for it before anything else.
+      if (me.must_change_password) return setPhase('password');
       const savedDevice = await db.getMeta<Device>('device');
       if (savedDevice) await enterReady(savedDevice);
       else setPhase('device');
     },
     [enterReady],
+  );
+
+  const changePassword = useCallback(
+    async (current: string, next: string) => {
+      await api.changePassword(current, next);
+      const me = await api.get<User>('/auth/me');
+      await db.setMeta('user', me);
+      setUser(me);
+      if (phase === 'password') {
+        const savedDevice = await db.getMeta<Device>('device');
+        if (savedDevice) await enterReady(savedDevice);
+        else setPhase('device');
+      }
+    },
+    [phase, enterReady],
   );
 
   const logout = useCallback(async () => {
@@ -130,8 +151,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [device, refreshFromServer]);
 
   const value = useMemo<Session>(
-    () => ({ phase, user, device, catalogue, sync, worker, notice, login, logout, chooseDevice, reloadCatalogue }),
-    [phase, user, device, catalogue, sync, worker, notice, login, logout, chooseDevice, reloadCatalogue],
+    () => ({
+      phase,
+      user,
+      device,
+      catalogue,
+      sync,
+      worker,
+      notice,
+      login,
+      logout,
+      chooseDevice,
+      reloadCatalogue,
+      changePassword,
+    }),
+    [phase, user, device, catalogue, sync, worker, notice, login, logout, chooseDevice, reloadCatalogue, changePassword],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

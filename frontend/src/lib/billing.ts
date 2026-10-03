@@ -107,11 +107,13 @@ export interface SaveBillInput {
   catalogue: Catalogue;
   cart: CartLine[];
   paymentMode: PaymentMode;
+  /** The logged-in person: the bill is theirs even if it syncs after they log out. */
+  cashierId?: string;
   now?: Date;
 }
 
 export async function saveBill(input: SaveBillInput): Promise<LocalBill> {
-  const { db, deviceId, deviceCode, catalogue, cart, paymentMode } = input;
+  const { db, deviceId, deviceCode, catalogue, cart, paymentMode, cashierId } = input;
   if (cart.length === 0) throw new Error('The bill is empty');
   const now = input.now ?? new Date();
   const bdate = businessDate(now);
@@ -127,6 +129,7 @@ export async function saveBill(input: SaveBillInput): Promise<LocalBill> {
 
     const payload: SyncBill = {
       id: uuidv7(now.getTime()),
+      ...(cashierId ? { cashier_id: cashierId } : {}),
       local_seq: seq,
       invoice_no: invoiceNumber(deviceCode, fy, seq),
       sold_at: now.toISOString(),

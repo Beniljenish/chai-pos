@@ -1415,3 +1415,42 @@ button.danger {
 .bill-list button > span {
   white-space: nowrap; /* "8:26 pm" wrapped at phone width */
 }
+
+/* ---------- staff and passwords ---------- */
+button.account {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.password-form {
+  display: grid;
+  gap: var(--s3);
+}
+.first-password {
+  background: var(--turmeric-soft);
+  border-radius: var(--radius-control);
+  padding: var(--s3) var(--s4);
+  margin: var(--s3) 0;
+}
+.first-password .big {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: var(--s2) 0;
+  letter-spacing: 0.04em;
+}
+.staff-list.off {
+  opacity: 0.7;
+}
+.staff .sheet > button {
+  width: 100%;
+  margin-top: var(--s3);
+}
+.password-form .hint {
+  margin: calc(-1 * var(--s2)) 0 0;
+}

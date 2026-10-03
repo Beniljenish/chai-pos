@@ -4,15 +4,17 @@ import { DayEndScreen } from './DayEndScreen';
 import { RecipesScreen } from './RecipesScreen';
 import { SalesScreen } from './SalesScreen';
 import { ShopScreen } from './ShopScreen';
+import { StaffScreen } from './StaffScreen';
 import { StockScreen } from './StockScreen';
 
-type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop';
+type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop' | 'staff';
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'sales', label: 'Sales' },
   { id: 'stock', label: 'Stock' },
   { id: 'dayend', label: 'Day end' },
   { id: 'recipes', label: 'Recipes' },
   { id: 'shop', label: 'Shop & GST' },
+  { id: 'staff', label: 'Staff' },
 ];
 
 export function ManageScreen() {
@@ -34,8 +36,10 @@ export function ManageScreen() {
         <DayEndScreen />
       ) : section === 'recipes' ? (
         <RecipesScreen />
-      ) : (
+      ) : section === 'shop' ? (
         <ShopScreen />
+      ) : (
+        <StaffScreen />
       )}
     </main>
   );

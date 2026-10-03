@@ -57,6 +57,15 @@ describe('saveBill', () => {
     expect(a.payload.totals.total).toBe(2000);
   });
 
+  it('records who rang the bill up, so a later login does not take the credit', async () => {
+    const withCashier = await saveBill({
+      db, deviceId: 'dev', deviceCode: 'C1', catalogue: testCatalogue,
+      cart: [{ menuItemId: 'tea', qty: 1, modifierIds: [] }], paymentMode: 'cash', cashierId: 'ravi',
+    });
+    expect(withCashier.payload.cashier_id).toBe('ravi');
+    expect('cashier_id' in (await save()).payload).toBe(false); // no one known: key left out
+  });
+
   it('restarts numbering in a new financial year', async () => {
     await save(new Date('2027-03-31T12:00:00Z'));
     const april = await save(new Date('2027-04-01T00:00:00Z')); // 05:30 IST on 1 April

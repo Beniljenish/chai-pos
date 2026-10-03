@@ -43,6 +43,16 @@ export interface User {
   name: string;
   phone: string;
   role: 'owner' | 'cashier';
+  /** The owner set this password; the person must choose their own first. */
+  must_change_password?: boolean;
+}
+
+/** GET /users (owner): a staff member as the owner manages them. */
+export interface StaffMember extends User {
+  is_active: boolean;
+  must_change_password: boolean;
+  locked: boolean;
+  created_at: string;
 }
 
 export interface Device {
@@ -72,6 +82,8 @@ export interface SyncBillLine {
 
 export interface SyncBill {
   id: string;
+  /** Who rang it up (the bill may sync after someone else logs in). */
+  cashier_id?: string;
   local_seq: number;
   invoice_no: string;
   sold_at: string;
