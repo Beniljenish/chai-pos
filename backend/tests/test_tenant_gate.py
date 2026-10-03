@@ -32,6 +32,7 @@ ID_ROUTES = {
         "cat.decoction",
         {"GET": None, "PUT": {"yield_qty": "1", "lines": [{"ingredient_id": ANY_ID, "qty": "1"}]}},
     ),
+    "/api/v1/ingredients/{ingredient_id}/recipe/versions": ("cat.decoction", {"GET": None}),
     "/api/v1/menu-items/{menu_item_id}": (
         "cat.tea",
         {"GET": None, "PATCH": {"name": "hijacked"}},
@@ -40,6 +41,7 @@ ID_ROUTES = {
         "cat.tea",
         {"GET": None, "PUT": {"lines": [{"ingredient_id": ANY_ID, "qty": "1"}]}},
     ),
+    "/api/v1/menu-items/{menu_item_id}/recipe/versions": ("cat.tea", {"GET": None}),
     "/api/v1/menu-items/{menu_item_id}/modifiers": ("cat.tea", {"PUT": {"modifier_ids": []}}),
     "/api/v1/modifiers/{modifier_id}": (
         "cat.less_sugar",

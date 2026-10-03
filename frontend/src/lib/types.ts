@@ -129,9 +129,13 @@ export interface LedgerRow {
   created_at: string;
 }
 
-export interface PrepRecipe {
+export interface Recipe {
   id: string;
   version: number;
+  effective_from: string;
   yield_qty: string | null;
+  yield_inputs: { ingredient_id: string; ml_per_kg: string; portion_ml: string; grams_per_portion: string } | null;
+  created_by_name?: string | null;
   lines: RecipeLine[];
 }
+

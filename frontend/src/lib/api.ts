@@ -86,6 +86,14 @@ export class Api {
     return (await this.request<T>('POST', path, body)).data;
   }
 
+  async put<T>(path: string, body: unknown): Promise<T> {
+    return (await this.request<T>('PUT', path, body)).data;
+  }
+
+  async patch<T>(path: string, body: unknown): Promise<T> {
+    return (await this.request<T>('PATCH', path, body)).data;
+  }
+
   /** Authenticated request: refreshes the access token once on 401, then retries. */
   async request<T>(
     method: string,
