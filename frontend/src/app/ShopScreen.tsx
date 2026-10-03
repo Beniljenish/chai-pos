@@ -142,7 +142,7 @@ export function ShopScreen() {
           placeholder="33ABCDE1234F1Z7"
           aria-invalid={check !== null && !check.ok}
           aria-describedby="gstin-help"
-          onChange={(e) => setGstin(e.target.value)}
+          onChange={(e) => setGstin(e.target.value.toUpperCase())}
         />
       </label>
       <p id="gstin-help" className={check && !check.ok ? 'error' : 'muted'}>
