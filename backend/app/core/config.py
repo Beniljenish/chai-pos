@@ -15,6 +15,12 @@ class Settings(BaseSettings):
 
     env: str = "dev"
     database_url: str = "postgresql+psycopg://chai:chai@localhost:5432/chai_pos"
+    # Serverless hosts (Vercel) run each request in a short-lived instance, and
+    # connect through Supabase's transaction pooler (port 6543). There, a
+    # connection pool inside the app is useless (the instance may freeze between
+    # requests) and server-side prepared statements break (the next query may
+    # land on a different Postgres connection). DB_SERVERLESS=true handles both.
+    db_serverless: bool = False
     jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 15

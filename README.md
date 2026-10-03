@@ -246,3 +246,24 @@ can, via Web Bluetooth, in a later phase).
 - `e2e/billing.spec.ts` (Playwright, CI): log in, set up the tablet, sell, go
   offline, keep selling, **reload the app with no network**, come back online, all
   bills sent once. Screenshots are uploaded as a CI artifact.
+
+## Staging on Vercel
+
+Two Vercel projects from this one repo:
+
+| Project | Root directory | What it is |
+|---|---|---|
+| `chai-pos-api` | `backend/` | FastAPI as one Python function (entrypoint in `pyproject.toml`, region `icn1` Seoul in `backend/vercel.json`) |
+| `chai-pos-app` | `frontend/` | The PWA as static files (`frontend/vercel.json`: SPA rewrite, security headers, no-cache on the service worker) |
+
+Environment variables (set in Vercel, never in the repo):
+
+- API: `DATABASE_URL` (Supabase **transaction pooler**, port 6543, driver `postgresql+psycopg://`), `DB_SERVERLESS=true`, `JWT_SECRET`, `ENV=staging`, `CORS_ORIGINS=["https://<app domain>"]`
+- App: `VITE_API_URL=https://<api domain>/api/v1` (baked in at build time, also into the CSP)
+
+### Decisions and trade-offs
+
+- **Function region Seoul, next to the database.** Vercel's default is US East; every bill sync makes several queries, and each would cross the Pacific (~180 ms each). Shop to Seoul is one hop; function to DB is then ~1 ms.
+- **`DB_SERVERLESS=true`: no connection pool, no prepared statements.** A serverless instance can be frozen between requests, so pooled connections go stale; Supabase's transaction pooler hands each transaction to any Postgres backend, so a statement prepared on one is missing on the next. `NullPool` plus psycopg `prepare_threshold=None` avoids both. Tested in `tests/test_serverless_db.py`.
+- **Cold starts accepted for staging.** The first request after idle takes a few seconds. The app does not care: bills are saved on the device first and the sync worker retries.
+- **Migrations are not run on deploy.** They are applied to Supabase deliberately after a PR merges (see the Supabase section), so a deploy can never change the schema by surprise.

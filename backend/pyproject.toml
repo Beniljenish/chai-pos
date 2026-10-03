@@ -25,6 +25,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["app*"]  # tests/, scripts/, alembic/ are not part of the installed package
 
+[tool.vercel]
+entrypoint = "app.main:app"  # the FastAPI instance Vercel serves as one function
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
