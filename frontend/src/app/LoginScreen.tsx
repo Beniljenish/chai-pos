@@ -18,6 +18,7 @@ export function LoginScreen() {
     } catch (err) {
       if (err instanceof NetworkError) setError('No internet. Logging in needs a connection; billing does not.');
       else if (err instanceof HttpError && err.status === 401) setError('Phone number or password is wrong.');
+      else if (err instanceof HttpError && err.status === 429 && typeof err.detail === 'string') setError(err.detail);
       else if (err instanceof HttpError && err.status === 422) setError('Enter a 10-digit mobile number.');
       else setError('Could not log in. Try again.');
     } finally {

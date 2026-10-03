@@ -378,3 +378,21 @@ Tap a bill to see it and, as owner, void it. Tablets show voided bills on their 
 - **Voids need internet.** Only the server can tell whether the day is still open. Billing itself stays offline-first.
 - **Reports use printed totals.** The invoice is the legal record and what the customer paid. Bills where the server's arithmetic differed are listed, not silently corrected.
 - The daily email leaves voided bills out of its totals and says how many there were. The weekly `bills.csv` gains `status` and `void_reason` columns.
+
+## Phase 3g: staff accounts
+
+**Manage → Staff** is where the owner adds people, resets passwords and switches people off:
+- Each person logs in with their own mobile number and password.
+- New staff get a first password the owner reads out (for example `ginger4821`), shown once. They must choose their own at first login.
+- Anyone can change their own password by tapping their name in the top bar.
+
+### Decisions and trade-offs
+- **The server enforces "set your own password".** While `must_change_password` is set, every route refuses with `password_change_required`, except `/auth/me` and `/auth/password`. The owner knows that first password, so until it is replaced, anything done with it could have been done by the owner. "Who voided this" and "who sold this" would mean nothing.
+- **A reset or a switch-off takes effect at once.** Both revoke every refresh token. A switched-off person fails the per-request `is_active` check, and a reset person fails the `must_change_password` check. An access token that is still unexpired is therefore useless too.
+- **Changing your own password ends your other sessions** and returns fresh tokens to the device that made the change. A stolen phone loses access as soon as you change it from another device.
+- **Lockout: 5 wrong passwords lock the account for 15 minutes.** The owner's reset clears it. The lock is short on purpose: anyone who knows a cashier's number can trigger it, and a long lock would let them keep that person out of the till. The lock message also reveals that the number has an account. I accepted that, because people's phone numbers are not secret in a shop.
+- **Password rules are minimal on purpose:** at least 8 characters, not the phone number, and not one of the dozen most common passwords. The same rules run in `services/auth.password_problem` and `frontend/src/lib/staff.ts`. A breached-password check would need a list download or an outside service, which can come later.
+- **Bills are credited to whoever rang them up.** The tablet records `cashier_id` at sale time. Before this, a bill was credited to whoever was logged in when it synced, so offline bills made by Ravi and sent after Arun logged in counted as Arun's. The server accepts only an id belonging to someone in this shop, including people since switched off. Anything else is credited to the person syncing. Bills from older app versions omit the key rather than sending null, so their retries still hash the same.
+- **The tablet is still trusted for this.** The server cannot check who held the tablet offline. A cashier on a tampered tablet could credit a sale to a colleague, but not to anyone outside the shop.
+- **Whoever logs in starts on New bill,** not on the screen the previous person left open.
+- **Not done yet:** a quick PIN switch between cashiers on one tablet, and owner-defined roles (for example a manager who can do counts but not change prices).

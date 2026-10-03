@@ -33,6 +33,11 @@ class LoginIn(BaseModel):
     _phone = field_validator("phone")(_normalise_phone)
 
 
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=1, max_length=128)  # rules: auth.password_problem
+
+
 class RefreshIn(BaseModel):
     refresh_token: str = Field(min_length=20, max_length=200)
 
@@ -101,10 +106,14 @@ class UserOut(ORM):
     phone: str
     role: Role
     is_active: bool
+    must_change_password: bool
+    locked: bool = False
     created_at: datetime
 
 
 class UserCreate(BaseModel):
+    """The owner sets a first password; the person must change it at first login."""
+
     name: str = Field(min_length=1, max_length=120)
     phone: str
     role: Role = Role.cashier

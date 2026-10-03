@@ -107,8 +107,18 @@ class SyncContext:
     db: Session
     shop: Shop
     device: Device
-    cashier_id: uuid.UUID
+    cashier_id: uuid.UUID  # who is syncing: the fallback when a bill names no one
     now: datetime = field(default_factory=utcnow)
+    # Everyone in this shop, active or not: a cashier deactivated today still
+    # had their offline bills from this morning credited to them.
+    staff_ids: frozenset[uuid.UUID] = frozenset()
+
+    def cashier_for(self, b: dict) -> uuid.UUID:
+        """Who rang the bill up. The tablet records it at sale time, because
+        another person may be logged in by the time it syncs. An id from another
+        shop (a bug, or a tampered tablet) falls back to the person syncing."""
+        claimed = b.get("cashier_id")
+        return claimed if claimed in self.staff_ids else self.cashier_id
 
 
 def ingest_batch(ctx: SyncContext, bills: list[dict]) -> list[Result]:
@@ -226,7 +236,7 @@ def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
     bill = Bill(
         id=b["id"],
         device_id=ctx.device.id,
-        cashier_id=ctx.cashier_id,
+        cashier_id=ctx.cashier_for(b),
         fy=fy,
         local_seq=b["local_seq"],
         invoice_no=expected_no,
@@ -357,11 +367,11 @@ def _deduct_stock(ctx: SyncContext, bill: Bill, b: dict) -> None:
                     ref_type="bill",
                     ref_id=bill.id,
                     business_date=bill.business_date,
-                    created_by=ctx.cashier_id,
+                    created_by=bill.cashier_id,
                 )
             )
     # A bill from a day the owner already closed: its stock was gone before the
     # count, so keep stock on hand equal to that count (see dayend.py).
     from app.services.dayend import late_bill_correction  # local: dayend imports billing
 
-    late_bill_correction(ctx.db, bill.business_date, total, bill.id, ctx.cashier_id)
+    late_bill_correction(ctx.db, bill.business_date, total, bill.id, bill.cashier_id)

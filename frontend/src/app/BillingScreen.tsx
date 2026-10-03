@@ -18,7 +18,7 @@ const PAYMENT_MODES: { mode: PaymentMode; label: string }[] = [
 ];
 
 export function BillingScreen() {
-  const { catalogue, device, worker } = useSession();
+  const { catalogue, device, worker, user } = useSession();
   const [cart, setCart] = useState<Line[]>([]);
   const [category, setCategory] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentMode>('cash');
@@ -92,6 +92,7 @@ export function BillingScreen() {
         catalogue,
         cart: cart.map(({ menuItemId, qty, modifierIds }) => ({ menuItemId, qty, modifierIds })),
         paymentMode: payment,
+        cashierId: user?.id,
       });
       setSaved(bill);
       setCart([]);

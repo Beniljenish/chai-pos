@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.api.common import get_or_404
 from app.api.deps import Caller, get_caller, require_owner
 from app.core.time import business_date
-from app.models import Bill, BillLine, BillVoid, Device, Role, Shop
+from app.models import Bill, BillLine, BillVoid, Device, Role, Shop, User
 from app.schemas_billing import BillOut, SyncRequest, SyncResponse, SyncResultOut, VoidIn
 from app.services import billing, email, voids
 from app.services.sales import sales_report
@@ -26,8 +26,14 @@ def sync_bills(body: SyncRequest, caller: Caller = Depends(get_caller)):
         # Not a 404: the device is ours, but the owner has switched it off.
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This device has been deactivated")
     shop = caller.db.scalar(select(Shop))
-    ctx = billing.SyncContext(db=caller.db, shop=shop, device=device, cashier_id=caller.user.id)
-    results = billing.ingest_batch(ctx, [b.model_dump() for b in body.bills])
+    ctx = billing.SyncContext(
+        db=caller.db,
+        shop=shop,
+        device=device,
+        cashier_id=caller.user.id,
+        staff_ids=frozenset(caller.db.scalars(select(User.id))),  # tenant-scoped
+    )
+    results = billing.ingest_batch(ctx, [_as_received(b) for b in body.bills])
     email.deliver_pending(caller.db)  # bill emails, if switched on; never raises
     return SyncResponse(
         results=[
@@ -60,6 +66,16 @@ def device_sync_state(device_id: uuid.UUID, caller: Caller = Depends(get_caller)
         "is_active": device.is_active,
         "last_seq_by_fy": {fy: seq for fy, seq in rows},
     }
+
+
+def _as_received(b) -> dict:
+    """The bill as the tablet sent it. An app from before `cashier_id` existed
+    did not send the key: leave it out rather than add null, or a retry of such
+    a bill would hash differently and be refused as altered."""
+    d = b.model_dump()
+    if d.get("cashier_id") is None:
+        d.pop("cashier_id", None)
+    return d
 
 
 def _bill_query():

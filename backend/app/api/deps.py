@@ -37,10 +37,12 @@ class Caller:
     user: User
 
 
-def get_caller(
+def get_caller_even_if_password_pending(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
     db: Session = Depends(get_db),
 ) -> Caller:
+    """Only for /auth/me and /auth/password: what a person with an owner-set
+    password may still do. Every other route uses get_caller."""
     if creds is None:
         raise _UNAUTHORIZED
     try:
@@ -59,6 +61,17 @@ def get_caller(
     if user is None or not user.is_active:
         raise _UNAUTHORIZED
     return Caller(ctx=TenantContext(shop_id, user.id, user.role), db=db, user=user)
+
+
+def get_caller(caller: Caller = Depends(get_caller_even_if_password_pending)) -> Caller:
+    # The owner set this password, so the owner knows it: until the person picks
+    # their own, nothing they do could be told apart from the owner doing it.
+    if caller.user.must_change_password:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            {"code": "password_change_required", "message": "Set your own password first"},
+        )
+    return caller
 
 
 def require_owner(caller: Caller = Depends(get_caller)) -> Caller:

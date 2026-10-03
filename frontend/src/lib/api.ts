@@ -59,6 +59,12 @@ export class Api {
     await this.storeTokens(data as Tokens);
   }
 
+  /** Own password. The server ends every other session and returns new tokens. */
+  async changePassword(current: string, next: string): Promise<void> {
+    const data = await this.post<Tokens>('/auth/password', { current_password: current, new_password: next });
+    await this.storeTokens(data);
+  }
+
   async logout(): Promise<void> {
     const refresh = await this.db.getMeta<string>('refreshToken');
     this.accessToken = null;

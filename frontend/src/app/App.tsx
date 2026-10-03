@@ -3,6 +3,7 @@ import { BillingScreen } from './BillingScreen';
 import { BillsScreen } from './BillsScreen';
 import { DeviceSetupScreen } from './DeviceSetupScreen';
 import { LoginScreen } from './LoginScreen';
+import { AccountButton, SetPasswordScreen } from './PasswordForm';
 import { ManageScreen } from './ManageScreen';
 import { DayEndScreen } from './DayEndScreen';
 import { useSession } from './session';
@@ -44,14 +45,21 @@ function SyncBadge() {
 }
 
 export function App() {
-  const { phase, user, device, catalogue, sync, notice, logout } = useSession();
+  const { phase, user } = useSession();
+  if (phase === 'loading') return <main className="centered" aria-busy="true" />;
+  if (phase === 'login') return <LoginScreen />;
+  if (phase === 'password') return <SetPasswordScreen />;
+  if (phase === 'device') return <DeviceSetupScreen />;
+  // Keyed by person: whoever logs in next starts on New bill, not on the
+  // screen the previous person left open (often the owner's Manage).
+  return <Shell key={user?.id} />;
+}
+
+function Shell() {
+  const { user, device, catalogue, sync, notice, logout } = useSession();
   const [tab, setTab] = useState<'bill' | 'today' | 'stock'>('bill');
 
   const isOwner = user?.role === 'owner';
-
-  if (phase === 'loading') return <main className="centered" aria-busy="true" />;
-  if (phase === 'login') return <LoginScreen />;
-  if (phase === 'device') return <DeviceSetupScreen />;
 
   return (
     <div className="app">
@@ -59,7 +67,7 @@ export function App() {
         <div className="where">
           <strong>{catalogue?.shop.name ?? 'Chai POS'}</strong>
           <span className="muted">
-            {device?.name} ({device?.code}), {user?.name}
+            {device?.name} ({device?.code}), <AccountButton />
           </span>
         </div>
         <nav className="tabs" aria-label="Screens">

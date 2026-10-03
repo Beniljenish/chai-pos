@@ -64,6 +64,8 @@ class SyncBillIn(BaseModel):
     gst_type: GstType
     lines: Annotated[list[BillLineIn], Field(min_length=1, max_length=100)]
     totals: BillTotalsIn
+    # Who rang it up, recorded on the tablet at sale time (optional: older apps).
+    cashier_id: uuid.UUID | None = None
 
 
 class SyncRequest(BaseModel):

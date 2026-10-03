@@ -25,6 +25,7 @@ from app.schemas import (
     UserOut,
     UserUpdate,
 )
+from app.services import auth as auth_service
 from app.services import email, reports
 
 router = APIRouter()
@@ -103,11 +104,15 @@ def list_users(caller: Caller = Depends(require_owner)):
 
 @router.post("/users", response_model=UserOut, status_code=201, tags=["users"])
 def create_user(body: UserCreate, caller: Caller = Depends(require_owner)):
+    problem = auth_service.password_problem(body.password, body.phone)
+    if problem:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, problem)
     user = User(
-        name=body.name,
+        name=body.name.strip(),
         phone=body.phone,
         role=body.role,
         password_hash=hash_password(body.password),
+        must_change_password=True,  # the owner knows it; the person picks their own
     )
     caller.db.add(user)
     try:
@@ -137,7 +142,25 @@ def update_user(user_id: uuid.UUID, body: UserUpdate, caller: Caller = Depends(r
     if user.id == caller.user.id and data.get("is_active") is False:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot deactivate yourself")
     if "password" in data:
-        user.password_hash = hash_password(data.pop("password"))
+        if user.id == caller.user.id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Change your own password with your current one (Change password)",
+            )
+        new = data.pop("password")
+        problem = auth_service.password_problem(new, user.phone)
+        if problem:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, problem)
+        # A reset: the owner now knows it, so the person must change it; the old
+        # sessions end (a reset usually means a lost phone or a leaked password).
+        user.password_hash = hash_password(new)
+        user.must_change_password = True
+        user.failed_logins, user.locked_until = 0, None
+        auth_service.revoke_user_sessions(caller.db, user.id)
+    if data.get("is_active") is False:
+        auth_service.revoke_user_sessions(caller.db, user.id)
+    if "name" in data:
+        data["name"] = data["name"].strip()
     for field, value in data.items():
         setattr(user, field, value)
     caller.db.commit()
