@@ -61,7 +61,25 @@ def test_consumption_scales_then_adds_deltas_and_never_goes_negative():
             ],
         },
     ]
-    assert consumption_for_line(recipe, 2, mods) == {milk: D("320.000"), cups: D("3.000")}
+    # Cups are packaging: two Large teas use 2 cups, not 3 (the bug staging found).
+    assert consumption_for_line(recipe, 2, mods, fixed={cups}) == {
+        milk: D("320.000"),
+        cups: D("2.000"),
+    }
+
+
+def test_fixed_items_still_take_modifier_deltas_so_large_can_swap_cups():
+    milk, cup, large_cup = uuid4(), uuid4(), uuid4()
+    recipe = {milk: D(100), cup: D(1)}
+    large = {
+        "scale_factor": D("1.5"),
+        "lines": [
+            {"ingredient_id": cup, "qty_delta": D(-1)},
+            {"ingredient_id": large_cup, "qty_delta": D(1)},
+        ],
+    }
+    used = consumption_for_line(recipe, 3, [large], fixed={cup, large_cup})
+    assert used == {milk: D("450.000"), large_cup: D("3.000")}  # no regular cups at all
 
 
 # ---------- accept-and-flag ----------
@@ -208,3 +226,55 @@ def test_sync_state_lets_a_wiped_tablet_resume_numbering(client, shop_a, device)
     wiped = FakeDevice(client, shop_a)
     wiped.seq = state["last_seq_by_fy"][fy]
     assert _one(wiped, wiped.bill([("Masala tea", 1, [])]))["invoice_no"].endswith("000004")
+
+
+def test_large_drink_uses_one_cup_end_to_end(client, shop_a, cat, device):
+    h = shop_a.owner_h
+    cup = client.post(
+        "/api/v1/ingredients",
+        json={"name": "Paper cup", "base_unit": "piece", "scales_with_size": False},
+        headers=h,
+    ).json()
+    assert cup["scales_with_size"] is False
+    client.put(
+        f"/api/v1/menu-items/{cat.tea['id']}/recipe",
+        json={
+            "lines": [
+                {"ingredient_id": cat.decoction["id"], "qty": "100"},
+                {"ingredient_id": cup["id"], "qty": "1"},
+            ]
+        },
+        headers=h,
+    ).raise_for_status()
+    large = client.post(
+        "/api/v1/modifiers",
+        json={"name": "Large", "price_delta_paise": 1000, "scale_factor": "1.5"},
+        headers=h,
+    ).json()
+    client.put(
+        f"/api/v1/menu-items/{cat.tea['id']}/modifiers",
+        json={"modifier_ids": [cat.less_sugar["id"], large["id"]]},
+        headers=h,
+    ).raise_for_status()
+    device.refresh_catalogue()
+
+    _one(device, device.bill([("Masala tea", 2, ["Large"])]))
+
+    def sold(ingredient_id):
+        rows = client.get(f"/api/v1/stock/{ingredient_id}/ledger", headers=h).json()
+        return [r["qty_delta"] for r in rows if r["reason"] == "sale"]
+
+    assert sold(cup["id"]) == ["-2.000"]  # not -3.000
+    assert sold(cat.decoction["id"]) == ["-300.000"]  # liquid still scales
+
+
+def test_owner_can_mark_an_existing_ingredient_as_packaging(client, shop_a, cat):
+    res = client.patch(
+        f"/api/v1/ingredients/{cat.sugar['id']}",
+        json={"scales_with_size": False},
+        headers=shop_a.owner_h,
+    )
+    assert res.status_code == 200 and res.json()["scales_with_size"] is False
+    assert client.get(f"/api/v1/ingredients/{cat.milk['id']}", headers=shop_a.owner_h).json()[
+        "scales_with_size"
+    ]

@@ -77,8 +77,16 @@ def seed_catalogue(shop: Shop, owner: User) -> None:
     # exercises the same rules the API does.
     db = bind_tenant(SessionLocal(), shop.id)
 
-    def ingredient(name, unit, kind=IngredientKind.raw, packs=(), tolerance_bp=300):
-        i = Ingredient(name=name, base_unit=unit, kind=kind, tolerance_bp=tolerance_bp)
+    def ingredient(
+        name, unit, kind=IngredientKind.raw, packs=(), tolerance_bp=300, scales_with_size=True
+    ):
+        i = Ingredient(
+            name=name,
+            base_unit=unit,
+            kind=kind,
+            tolerance_bp=tolerance_bp,
+            scales_with_size=scales_with_size,
+        )
         i.pack_units = [PackUnit(name=n, qty_in_base=D(q)) for n, q in packs]
         db.add(i)
         db.flush()
@@ -90,7 +98,7 @@ def seed_catalogue(shop: Shop, owner: User) -> None:
     tea_powder = ingredient("Tea powder", BaseUnit.g, packs=[("pouch", 250), ("kg bag", 1000)])
     sugar = ingredient("Sugar", BaseUnit.g, packs=[("bag", 1000)])
     oranges = ingredient("Oranges", BaseUnit.g, tolerance_bp=800)
-    cups = ingredient("Paper cup", BaseUnit.piece, packs=[("sleeve", 50)])
+    cups = ingredient("Paper cup", BaseUnit.piece, packs=[("sleeve", 50)], scales_with_size=False)
     decoction = ingredient("Tea decoction", BaseUnit.ml, kind=IngredientKind.prep)
 
     L = recipes.LineIn

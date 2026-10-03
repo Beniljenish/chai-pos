@@ -144,6 +144,10 @@ transaction pooler (6543) breaks psycopg's prepared statements unless
 `prepare_threshold=None` is set. The password goes only into the host's env
 settings, never into the repo.
 
+### Fix found in staging: packaging does not scale with size
+
+Staging data showed 17.5 paper cups used: the "Large" modifier multiplied the whole recipe by 1.5, cups included. Ingredients now have `scales_with_size` (default true; false for cups, lids, straws). Scale factors skip those; modifier deltas still apply to them, so if a shop uses a bigger cup for Large, the Large modifier can swap `Paper cup -1` for `Large cup +1` with no new code. The flag sits on the ingredient rather than each recipe line: a cup is one per serving in every recipe, the owner sets it once, and recipe versions (the history of what was used) stay untouched.
+
 ## Phase 2a: GST and bill sync
 
 ```
