@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HttpError, type Api } from './api';
-import { checkoutUrl, explainOnline, orderFor } from './payments';
+import { checkoutUrl, explainOnline, healthWords, orderFor } from './payments';
 
 const order = { razorpay_order_id: 'order_1', amount_paise: 4000, method: 'upi', status: 'created' };
 
@@ -43,5 +43,19 @@ describe('checkout page and messages', () => {
   it('explains refusals in shop words', () => {
     expect(explainOnline(new HttpError(409, 'already_paid'))).toBe('This bill is already paid.');
     expect(explainOnline(new Error('offline'))).toMatch(/needs internet/);
+  });
+});
+
+describe('the owner\'s Razorpay check', () => {
+  const base = { configured: true, mode: 'test' as const, webhook_secret: true, reachable: true, problem: null };
+  it('says test or live, and what is wrong in plain words', () => {
+    expect(healthWords(base)).toEqual({ ok: true, text: 'Connected to Razorpay in test mode: no real money moves.' });
+    expect(healthWords({ ...base, mode: 'live' }).text).toMatch(/LIVE mode: real money/);
+    expect(healthWords({ ...base, webhook_secret: false }).text).toMatch(/webhook secret is not set/);
+    expect(healthWords({ ...base, reachable: false, problem: 'razorpay_keys_refused' })).toEqual({
+      ok: false,
+      text: 'Razorpay refused the keys. Copy them again from Razorpay (Settings → API keys).',
+    });
+    expect(healthWords({ ...base, problem: 'key_id_should_start_with_rzp_' }).text).toMatch(/swapped/);
   });
 });

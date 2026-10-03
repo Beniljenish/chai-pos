@@ -64,6 +64,10 @@ export function explainOnline(e: unknown): string {
       return 'This bill was voided.';
     case 'razorpay_refused':
       return 'Razorpay did not accept the payment request. Try again, or take the payment another way.';
+    case 'razorpay_unreachable':
+      return 'Razorpay could not be reached. Try again in a moment, or take the payment another way.';
+    case 'razorpay_keys_refused':
+      return 'Razorpay refused the shop’s keys. The owner can check them under Manage → Shop & GST.';
     default:
       return 'Online payment needs internet. Try again, or take the payment another way.';
   }
@@ -74,3 +78,26 @@ export const PROBLEM_LABELS: Record<string, string> = {
   amount_mismatch: 'Paid a different amount',
   refund_due: 'Paid, then voided: refund due',
 };
+
+export interface RazorpayHealth {
+  configured: boolean;
+  mode: 'test' | 'live' | null;
+  webhook_secret: boolean;
+  reachable: boolean;
+  problem: string | null;
+}
+
+/** The owner's view of the Razorpay set-up, in words (Shop & GST). */
+export function healthWords(h: RazorpayHealth): { ok: boolean; text: string } {
+  const problems: Record<string, string> = {
+    keys_missing: 'Not set up: add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the API project in Vercel.',
+    key_id_should_start_with_rzp_: 'The key id should start with rzp_test_ or rzp_live_. Check that the id and the secret are not swapped.',
+    razorpay_keys_refused: 'Razorpay refused the keys. Copy them again from Razorpay (Settings → API keys).',
+    razorpay_unreachable: 'Razorpay could not be reached from the server just now. Try again.',
+    razorpay_refused: 'Razorpay answered with an error. Try again; if it repeats, check the Razorpay dashboard.',
+  };
+  if (h.problem) return { ok: false, text: problems[h.problem] ?? h.problem };
+  const mode = h.mode === 'live' ? 'LIVE mode: real money' : 'test mode: no real money moves';
+  const hook = h.webhook_secret ? '' : ' The webhook secret is not set, so a customer who closes the page early is only confirmed when the till checks.';
+  return { ok: true, text: `Connected to Razorpay in ${mode}.${hook}` };
+}

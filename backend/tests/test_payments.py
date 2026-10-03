@@ -1,5 +1,5 @@
 """Online payments through Razorpay (test mode). Razorpay's HTTP is never called:
-a fake client records what would have been sent."""
+a fake Razorpay keeps orders and payments in memory and records every call."""
 
 import hashlib
 import hmac
@@ -17,12 +17,48 @@ HOOK_SECRET = "test-webhook-secret-not-real"
 
 
 class FakeRazorpay:
+    """Razorpay's orders and payments, as its API answers them."""
+
     def __init__(self):
         self.orders: list[dict] = []
+        self.payments: dict[str, dict] = {}
+        self.captured: list[tuple[str, int]] = []
+        self.down = False  # Razorpay unreachable
 
-    def __call__(self, body: dict) -> dict:
+    def _check(self):
+        if self.down:
+            raise payments.PaymentError("razorpay_unreachable", 502)
+
+    def create_order(self, body: dict) -> dict:
+        self._check()
         self.orders.append(body)
         return {"id": f"order_TEST{len(self.orders):04d}", "amount": body["amount"]}
+
+    def pay(self, order_id: str, payment_id: str, amount: int, status="captured", method="upi"):
+        """The customer paid in Checkout (Razorpay's side of it)."""
+        self.payments[payment_id] = {
+            "id": payment_id,
+            "order_id": order_id,
+            "amount": amount,
+            "currency": "INR",
+            "status": status,
+            "method": method,
+        }
+
+    def fetch_payment(self, payment_id: str) -> dict:
+        self._check()
+        if payment_id not in self.payments:
+            raise payments.PaymentError("razorpay_refused", 502)
+        return self.payments[payment_id]
+
+    def capture(self, payment_id: str, amount: int) -> dict:
+        self._check()
+        self.captured.append((payment_id, amount))
+        self.payments[payment_id]["status"] = "captured"
+        return self.payments[payment_id]
+
+    def ping(self) -> None:
+        self._check()
 
 
 @pytest.fixture
@@ -151,6 +187,7 @@ def test_paid_only_with_a_valid_signature(client, shop_a, device, rzp):
     assert client.post(verify, json=forged).status_code == 400
     assert _status(client, h, oid).json()["status"] == "created"
 
+    rzp.pay(oid, "pay_GOOD1", 4000)
     good = {
         "razorpay_order_id": oid,
         "razorpay_payment_id": "pay_GOOD1",
@@ -211,6 +248,7 @@ def test_owner_report_flags_unpaid_and_void_after_payment(client, shop_a, device
     _order(client, h, unpaid)
     paid = _synced_bill(device, mode="card")
     oid = _order(client, h, paid, method="card").json()["razorpay_order_id"]
+    rzp.pay(oid, "pay_V1", paid["totals"]["total"], method="card")
     client.post(
         f"{API}/payments/razorpay/verify",
         json={
@@ -236,3 +274,129 @@ def test_other_shops_cannot_see_or_pay_my_orders(client, shop_a, shop_b, device,
     assert r.status_code == 409 and r.json()["detail"] == "bill_not_on_server"
     rep = client.get(f"{API}/reports/sales", headers=shop_b.owner_h).json()
     assert rep["online_payments"] == []
+
+
+# ---------------------------------------------------------------- confirmed with Razorpay
+def _verify(client, oid, pid):
+    return client.post(
+        f"{API}/payments/razorpay/verify",
+        json={
+            "razorpay_order_id": oid,
+            "razorpay_payment_id": pid,
+            "razorpay_signature": _sign(oid, pid),
+        },
+    )
+
+
+def test_an_authorized_payment_is_captured_for_the_amount_razorpay_reports(
+    client, shop_a, device, rzp
+):
+    """An account set to capture manually leaves a payment 'authorized', and
+    Razorpay refunds it after a few days. The server captures it itself."""
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill).json()["razorpay_order_id"]
+    rzp.pay(oid, "pay_AUTH", 4000, status="authorized")
+    assert _verify(client, oid, "pay_AUTH").json()["status"] == "paid"
+    assert rzp.captured == [("pay_AUTH", 4000)]
+    st = _status(client, shop_a.cashier_h, oid).json()
+    assert st == {"status": "paid", "paid_paise": 4000, "error": ""}
+    # Verified again (a retry): nothing is captured twice.
+    _verify(client, oid, "pay_AUTH")
+    assert rzp.captured == [("pay_AUTH", 4000)]
+
+
+def test_a_signed_payment_of_another_order_is_refused(client, shop_a, device, rzp):
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill).json()["razorpay_order_id"]
+    rzp.pay("order_SOMEONE_ELSE", "pay_X", 100)
+    r = _verify(client, oid, "pay_X")  # signed for this order, but Razorpay says otherwise
+    assert r.status_code == 400 and r.json()["detail"] == "payment_not_for_this_order"
+    assert _status(client, shop_a.cashier_h, oid).json()["status"] == "created"
+
+
+def test_a_failed_payment_is_recorded_as_failed(client, shop_a, device, rzp):
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill).json()["razorpay_order_id"]
+    rzp.pay(oid, "pay_F", 4000, status="failed")
+    assert _verify(client, oid, "pay_F").json()["status"] == "failed"
+
+
+def test_razorpay_unreachable_after_payment_still_records_the_signed_payment(
+    client, shop_a, device, rzp
+):
+    """The signature proves Razorpay accepted the payment; if Razorpay cannot be
+    asked right then, the bill is still shown paid and the webhook confirms later."""
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill).json()["razorpay_order_id"]
+    rzp.pay(oid, "pay_D", 4000)
+    rzp.down = True
+    assert _verify(client, oid, "pay_D").json()["status"] == "paid"
+    st = _status(client, shop_a.cashier_h, oid).json()
+    assert st["status"] == "paid" and st["paid_paise"] == 4000
+    # Razorpay down when asked for an order: the cashier is told, nothing half-made.
+    other = _synced_bill(device, qty=1)
+    r = _order(client, shop_a.cashier_h, other)
+    assert r.status_code == 502 and r.json()["detail"] == "razorpay_unreachable"
+
+
+def test_webhook_authorized_payment_is_captured(client, shop_a, device, rzp):
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill).json()["razorpay_order_id"]
+    rzp.pay(oid, "pay_W", 4000, status="authorized")
+    entity = {"id": "pay_W", "order_id": oid, "amount": 4000, "status": "authorized"}
+    assert _hook(client, "payment.authorized", entity).status_code == 200
+    assert rzp.captured == [("pay_W", 4000)]
+    assert _status(client, shop_a.cashier_h, oid).json()["status"] == "paid"
+
+
+@pytest.mark.parametrize("method", ["upi", "card"])
+def test_checkout_shows_only_the_chosen_method(client, shop_a, device, rzp, method):
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill, method=method).json()["razorpay_order_id"]
+    page = client.get(f"{API}/payments/razorpay/checkout?order_id={oid}").text
+    start = page.index("const o = ") + len("const o = ")
+    options = json.loads(page[start : page.index(";\n", start)])
+    display = options["config"]["display"]
+    assert display["preferences"] == {"show_default_blocks": False}
+    (block,) = display["blocks"].values()
+    assert [i["method"] for i in block["instruments"]] == [method]
+    assert display["sequence"] == [f"block.{method}"]
+    if method == "upi":  # QR on the counter tablet, collect, or the phone's UPI app
+        assert block["instruments"][0]["flows"] == ["qr", "collect", "intent"]
+
+
+def test_owner_can_check_the_razorpay_connection(client, shop_a, rzp, monkeypatch):
+    h = shop_a.owner_h
+    assert (
+        client.get(f"{API}/payments/razorpay/health", headers=shop_a.cashier_h).status_code == 403
+    )
+    assert client.get(f"{API}/payments/razorpay/health", headers=h).json() == {
+        "configured": True,
+        "mode": "test",
+        "webhook_secret": True,
+        "reachable": True,
+        "problem": None,
+    }
+    rzp.down = True
+    r = client.get(f"{API}/payments/razorpay/health", headers=h).json()
+    assert r["reachable"] is False and r["problem"] == "razorpay_unreachable"
+    rzp.down = False
+    # A key pasted with a space or a newline still works (stripped)...
+    monkeypatch.setattr(get_settings(), "razorpay_key_id", "  rzp_test_PUBLICKEY\n")
+    assert client.get(f"{API}/payments/razorpay/health", headers=h).json()["problem"] is None
+    # ...but the key secret in the key id's place is named, not just "failed".
+    monkeypatch.setattr(get_settings(), "razorpay_key_id", "abcdef123456")
+    assert client.get(f"{API}/payments/razorpay/health", headers=h).json()["problem"] == (
+        "key_id_should_start_with_rzp_"
+    )
+
+
+def test_keys_are_used_without_stray_whitespace(client, shop_a, device, rzp, monkeypatch):
+    monkeypatch.setattr(get_settings(), "razorpay_key_id", " rzp_test_PUBLICKEY \n")
+    monkeypatch.setattr(get_settings(), "razorpay_key_secret", KEY_SECRET + "\n")
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill).json()["razorpay_order_id"]
+    page = client.get(f"{API}/payments/razorpay/checkout?order_id={oid}").text
+    assert '"key": "rzp_test_PUBLICKEY"' in page
+    rzp.pay(oid, "pay_S", 4000)
+    assert _verify(client, oid, "pay_S").json()["status"] == "paid"  # secret stripped too

@@ -25,7 +25,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.api.deps import Caller, get_caller
+from app.api.deps import Caller, get_caller, require_owner
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.db.tenancy import mark_system
@@ -73,6 +73,12 @@ def create_order(body: OrderIn, caller: Caller = Depends(get_caller)) -> dict:
     return _out(p)
 
 
+@router.get("/health")
+def health(caller: Caller = Depends(require_owner)) -> dict:
+    """Owner: are the Razorpay keys set and accepted? (Shop & GST shows it.)"""
+    return payments.health()
+
+
 @router.get("/status")
 def status(order_id: str = Query(max_length=40), caller: Caller = Depends(get_caller)) -> dict:
     p = caller.db.scalar(select(Payment).where(Payment.provider_order_id == order_id))
@@ -98,8 +104,13 @@ def verify(body: VerifyIn) -> dict:
         p = _by_order(mark_system(db), body.razorpay_order_id)
         if p is None:
             raise HTTPException(404, "Not found")
-        # The signature covers this order, whose amount we set: that is what was paid.
-        payments.mark_paid(p, body.razorpay_payment_id, p.amount_paise)
+        # Then ask Razorpay itself: captures an authorized payment, records the
+        # amount Razorpay actually took (see services/payments.confirm).
+        try:
+            payments.confirm(p, body.razorpay_payment_id)
+        except payments.PaymentError as e:
+            db.rollback()
+            raise HTTPException(e.status, e.code) from None
         db.commit()
         return {"status": p.status}
 
@@ -121,7 +132,7 @@ def failed(body: FailedIn) -> dict:
 async def webhook(request: Request) -> dict:
     """Razorpay's server-to-server report. Covers the customer who paid and then
     closed the tab before Checkout could tell us."""
-    if not get_settings().razorpay_webhook_secret:
+    if not get_settings().razorpay_webhook_secret.strip():
         raise HTTPException(503, "webhook_not_configured")
     body = await request.body()
     if not payments.webhook_ok(body, request.headers.get("X-Razorpay-Signature")):
@@ -129,7 +140,8 @@ async def webhook(request: Request) -> dict:
     event = json.loads(body)
     kind = event.get("event")
     entity = (((event.get("payload") or {}).get("payment") or {}).get("entity")) or {}
-    if kind not in ("payment.captured", "payment.failed") or not entity.get("order_id"):
+    handled = ("payment.authorized", "payment.captured", "payment.failed", "order.paid")
+    if kind not in handled or not entity.get("order_id"):
         return {"ok": True, "ignored": True}
     with SessionLocal() as db:
         p = _by_order(mark_system(db), str(entity["order_id"]))
@@ -137,10 +149,13 @@ async def webhook(request: Request) -> dict:
             # Not ours (another app on the same Razorpay account): acknowledge, so
             # Razorpay does not keep retrying it.
             return {"ok": True, "ignored": True}
-        if kind == "payment.captured":
-            payments.mark_paid(p, str(entity.get("id", "")), int(entity.get("amount", 0)))
-        else:
-            payments.mark_failed(p, str(entity.get("error_description") or "Payment failed"))
+        try:
+            # authorized -> captured here; captured -> paid; failed -> failed.
+            payments.settle_from_razorpay(p, entity)
+        except payments.PaymentError:
+            # Capture failed (Razorpay busy): a non-2xx makes Razorpay send it again.
+            db.rollback()
+            raise HTTPException(503, "capture_failed_retry") from None
         db.commit()
     return {"ok": True}
 
@@ -202,6 +217,25 @@ def _js(value: dict) -> str:
     return json.dumps(value).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
+def _only(method: str) -> dict:
+    """Checkout's display config that shows one payment method and nothing else."""
+    if method == "upi":
+        # QR for a customer at the counter, collect (type the UPI id), or intent
+        # (this phone's UPI app).
+        instrument = {"method": "upi", "flows": ["qr", "collect", "intent"]}
+        name = "Pay by UPI"
+    else:
+        instrument = {"method": "card"}
+        name = "Pay by card"
+    return {
+        "display": {
+            "blocks": {method: {"name": name, "instruments": [instrument]}},
+            "sequence": [f"block.{method}"],
+            "preferences": {"show_default_blocks": False},
+        }
+    }
+
+
 @router.get("/checkout", response_class=HTMLResponse)
 def checkout(order_id: str = Query(max_length=40)) -> HTMLResponse:
     """The page that runs Razorpay Checkout for one order. Public: it is opened
@@ -221,14 +255,16 @@ def checkout(order_id: str = Query(max_length=40)) -> HTMLResponse:
             )
         nonce = secrets.token_urlsafe(16)
         options = {
-            "key": get_settings().razorpay_key_id,
+            "key": payments.keys()[0],
             "amount": p.amount_paise,
             "currency": "INR",
             "order_id": p.provider_order_id,
             "name": shop.name,
             "description": f"Bill {bill.invoice_no}",
-            "prefill": {"method": p.method},
             "theme": {"color": "#1f6b4f"},
+            # Only the method the cashier chose. (prefill.method is only a hint,
+            # ignored unless the customer's phone and email are prefilled.)
+            "config": _only(p.method),
         }
         page = _PAGE.format(
             nonce=nonce,

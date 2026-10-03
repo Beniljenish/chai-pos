@@ -11,6 +11,8 @@ import { formatRupees } from '../lib/gst';
 import {
   checkoutUrl,
   explainOnline,
+  healthWords,
+  type RazorpayHealth,
   onlineStatus,
   orderFor,
   type OnlineMethod,
@@ -118,5 +120,45 @@ export function OnlinePayment({ bill, method, onDone }: { bill: LocalBill; metho
       </div>
       {busy && <p className="muted">Sending the bill and asking Razorpay…</p>}
     </Sheet>
+  );
+}
+
+/** Owner, Shop & GST: is Razorpay set up, test or live, and do the keys work? */
+export function RazorpaySettings() {
+  const [h, setH] = useState<RazorpayHealth | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const check = useCallback(async () => {
+    setBusy(true);
+    try {
+      setH(await api.get<RazorpayHealth>('/payments/razorpay/health'));
+      setError(null);
+    } catch (e) {
+      setError(explainOnline(e));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+  useEffect(() => {
+    void check();
+  }, [check]);
+  const words = h ? healthWords(h) : null;
+  return (
+    <section aria-labelledby="rzp-title">
+      <h2 id="rzp-title">Online payments (Razorpay)</h2>
+      {words && (
+        <p className={words.ok ? 'ok' : 'warn'} role="status">
+          {words.text}
+        </p>
+      )}
+      {error && <p className="error">{error}</p>}
+      <p className="muted">
+        At the till, pick UPI or Card and tick &quot;Collect through Razorpay&quot;. The payment page shows only the method
+        chosen; the till marks the bill paid once Razorpay confirms it.
+      </p>
+      <button disabled={busy} onClick={() => void check()}>
+        {busy ? 'Checking…' : 'Check connection'}
+      </button>
+    </section>
   );
 }
