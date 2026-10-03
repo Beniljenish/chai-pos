@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Api } from './api';
 import { saveBill } from './billing';
 import { PosDB } from './db';
-import { HealthReporter, buildReport } from './health';
+import { HealthReporter, buildReport, dayTime } from './health';
 import { testCatalogue } from './test-fixtures';
 
 let db: PosDB;
@@ -80,4 +80,12 @@ it('says how long ago in plain words', async () => {
   expect(ago('2026-10-04T09:00:00Z', now)).toBe('3 h ago');
   expect(ago('2026-10-03T12:00:00Z', now)).toBe('1 day ago');
   expect(ago('2026-10-01T12:00:00Z', now)).toBe('3 days ago');
+});
+
+describe('dayTime', () => {
+  it('formats a day and time in IST (the Tablets screen crashed on this)', () => {
+    // Intl refuses timeStyle together with day/month: a RangeError at render,
+    // exactly when a tablet had bills waiting, the case the screen is for.
+    expect(dayTime('2026-10-04T06:30:00Z')).toMatch(/^4 Oct,? 12:00\s?pm$/i);
+  });
 });
