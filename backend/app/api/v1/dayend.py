@@ -19,6 +19,7 @@ from app.models import (
     Ingredient,
     MenuItem,
     Role,
+    Shop,
     User,
     WastageEntry,
 )
@@ -32,7 +33,7 @@ from app.schemas_dayend import (
     WastageIn,
     WastageOut,
 )
-from app.services import dayend
+from app.services import dayend, email, reports
 from app.services.stock import PackQty
 
 router = APIRouter(tags=["day-end"])
@@ -246,7 +247,9 @@ def report(business_date: date, caller: Caller = Depends(require_owner)):
 def approve(business_date: date, caller: Caller = Depends(require_owner)):
     day = _day(business_date)
     try:
-        dayend.approve(caller.db, day, caller.user.id)
+        dc = dayend.approve(caller.db, day, caller.user.id)
+        caller.db.flush()
+        reports.enqueue_day_end(caller.db, caller.db.scalar(select(Shop)), dc)
     except dayend.DayLocked as e:
         caller.db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
@@ -254,4 +257,5 @@ def approve(business_date: date, caller: Caller = Depends(require_owner)):
         caller.db.rollback()
         raise unprocessable(str(e)) from None
     caller.db.commit()
+    email.deliver_pending(caller.db)  # never raises
     return report(business_date, caller)

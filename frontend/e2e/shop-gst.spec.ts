@@ -50,6 +50,18 @@ test('owner GST: mistyped GSTIN refused, regular GST prints a tax invoice', asyn
   await save.click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
 
+  // ---- Reports by email: save the address, then the test button ----
+  const mail = page.locator('.email-settings');
+  await mail.getByLabel('Send reports to').fill('owner@example.com');
+  await expect(mail.getByRole('checkbox', { name: /Daily sales summary/ })).toBeChecked();
+  await expect(mail.getByRole('checkbox', { name: /Every bill/ })).not.toBeChecked();
+  await mail.getByRole('button', { name: 'Save email settings' }).click();
+  await expect(mail.getByRole('status')).toContainText('Saved.');
+  await mail.getByRole('button', { name: 'Send test email' }).click();
+  // CI has no Resend key: the email waits in the outbox, and the app says so.
+  await expect(mail.getByRole('alert')).toContainText('not set up on the server yet');
+  await shot(page, '33-email-settings');
+
   // ---- Menu prices: an 18% item is shown as such ----
   await expect(page.locator('#menu-title')).toBeVisible();
   await shot(page, '31-menu-prices');

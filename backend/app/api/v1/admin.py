@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.common import unprocessable
 from app.api.deps import Caller, get_caller, require_owner
 from app.core.security import hash_password
-from app.models import Device, GstType, Shop, User
+from app.models import Device, EmailKind, EmailOutbox, GstType, Shop, User
 from app.schemas import (
     DeviceCreate,
     DeviceOut,
@@ -25,6 +25,7 @@ from app.schemas import (
     UserOut,
     UserUpdate,
 )
+from app.services import email, reports
 
 router = APIRouter()
 
@@ -69,6 +70,29 @@ def update_shop(body: ShopUpdate, caller: Caller = Depends(require_owner)):
         shop.state_code = shop.gstin[:2]
     caller.db.commit()
     return shop
+
+
+@router.post("/shop/test-email", tags=["shop"])
+def send_test_email(caller: Caller = Depends(require_owner)) -> dict:
+    """Queue and send one email now, so the owner can check the address (and the
+    server's email setup) without waiting for tonight's report."""
+    shop = _current_shop(caller)
+    if not shop.report_email:
+        raise unprocessable("Add the email address for reports first")
+    reports.enqueue_test(caller.db, shop)
+    caller.db.commit()
+    stats = email.deliver_pending(caller.db)
+    if stats["sent"]:
+        return {"status": "sent", "to": shop.report_email}
+    if stats["waiting"]:
+        return {"status": "waiting", "detail": "Email sending is not set up on the server yet"}
+    last = caller.db.scalar(
+        select(EmailOutbox.last_error)
+        .where(EmailOutbox.kind == EmailKind.test)
+        .order_by(EmailOutbox.created_at.desc())
+        .limit(1)
+    )
+    return {"status": "failed", "detail": last or "The email could not be sent"}
 
 
 # ---------------- users ----------------

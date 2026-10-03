@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     # The shop's "business day" (for stock and day-end) is in this timezone.
     shop_timezone: str = "Asia/Kolkata"
+    # Email (Resend). Without a key, emails queue in the outbox and wait.
+    resend_api_key: str = ""
+    email_from: str = "Chai POS <reports@beniljenish.dev>"
+    # Vercel Cron sends "Authorization: Bearer $CRON_SECRET". Empty = cron disabled.
+    cron_secret: str = ""
 
     @field_validator("jwt_secret")
     @classmethod

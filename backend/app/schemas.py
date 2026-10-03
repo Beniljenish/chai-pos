@@ -8,6 +8,8 @@ from app.core.gstin import GstinError, normalise_gstin
 from app.models import GstType, Role
 
 _PHONE = re.compile(r"^[6-9]\d{9}$")  # Indian mobile, 10 digits
+# Deliberately simple: the test-email button is the real check.
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[a-z]{2,}$")
 
 
 def _normalise_phone(v: str) -> str:
@@ -51,6 +53,11 @@ class ShopOut(ORM):
     state_code: str
     address: str
     invoice_prefix: str
+    report_email: str | None
+    email_each_bill: bool
+    email_day_end: bool
+    email_daily: bool
+    email_weekly: bool
 
 
 class ShopUpdate(BaseModel):
@@ -58,6 +65,23 @@ class ShopUpdate(BaseModel):
     gst_type: GstType | None = None
     gstin: str | None = None
     address: str | None = Field(default=None, max_length=500)
+    report_email: str | None = Field(default=None, max_length=254)
+    email_each_bill: bool | None = None
+    email_day_end: bool | None = None
+    email_daily: bool | None = None
+    email_weekly: bool | None = None
+
+    @field_validator("report_email")
+    @classmethod
+    def valid_email(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if not v:
+            return None  # cleared: no emails
+        if not _EMAIL.match(v):
+            raise ValueError("That does not look like an email address")
+        return v
 
     @field_validator("gstin")
     @classmethod

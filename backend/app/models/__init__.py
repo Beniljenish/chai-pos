@@ -40,6 +40,13 @@ class Shop(IdMixin, TimestampMixin, Base):
     state_code: Mapped[str] = mapped_column(String(2))  # e.g. "33" = Tamil Nadu
     address: Mapped[str] = mapped_column(String(500), default="")
     invoice_prefix: Mapped[str] = mapped_column(String(4), default="")
+    # Reports by email. No address = no emails. Every bill is off by default:
+    # a busy shop sends hundreds a day (provider limits, and it buries the rest).
+    report_email: Mapped[str | None] = mapped_column(String(254))
+    email_each_bill: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    email_day_end: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    email_daily: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    email_weekly: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
 class User(IdMixin, TimestampMixin, TenantScoped, Base):
@@ -115,6 +122,7 @@ from app.models.dayend import (  # noqa: E402
     WastageEntry,
     WastageReason,
 )
+from app.models.email import EmailKind, EmailOutbox, EmailStatus  # noqa: E402
 
 __all__ = [
     "Bill",
@@ -127,6 +135,9 @@ __all__ = [
     "DayCountLine",
     "DayCountStatus",
     "Device",
+    "EmailKind",
+    "EmailOutbox",
+    "EmailStatus",
     "GstType",
     "Ingredient",
     "IngredientKind",
