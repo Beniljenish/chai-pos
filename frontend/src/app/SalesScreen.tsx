@@ -18,6 +18,7 @@ import {
 } from '../lib/sales';
 import type { SalesReport, ServerBill } from '../lib/types';
 import { api } from './apiClient';
+import { CashDrawer } from './CashDrawer';
 import { explainError } from './errors';
 import { useSession } from './session';
 
@@ -122,6 +123,9 @@ export function SalesScreen() {
               <p className="muted">They count at the printed amount (that is what the customer paid).</p>
             </div>
           )}
+
+          {/* Reloads when a void changes the day's cash. */}
+          <CashDrawer day={day} refreshKey={report.voids.length} />
 
           {report.items.length > 0 && (
             <>

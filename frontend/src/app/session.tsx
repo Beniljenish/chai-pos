@@ -8,6 +8,14 @@ import { api } from './apiClient';
 import { resumeCounters } from '../lib/billing';
 import { loadCachedCatalogue, refreshCatalogue } from '../lib/catalogue';
 import { db, requestPersistentStorage } from '../lib/db';
+import {
+  adoptServerState,
+  currentShift,
+  lastCount,
+  type LastCount,
+  type LocalShift,
+  type ServerShiftState,
+} from '../lib/shift';
 import { SyncWorker, type SyncState } from '../lib/sync';
 import type { Catalogue, Device, User } from '../lib/types';
 
@@ -28,6 +36,10 @@ interface Session {
   reloadCatalogue(): Promise<void>;
   /** Own password; also how someone with an owner-set password gets past 'password'. */
   changePassword(current: string, next: string): Promise<void>;
+  /** The drawer shift open on this tablet (null: none), and the last count. */
+  shift: LocalShift | null;
+  lastCounted: LastCount | null;
+  reloadShift(): Promise<void>;
 }
 
 const SessionContext = createContext<Session | null>(null);
@@ -46,31 +58,43 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [worker, setWorker] = useState<SyncWorker | null>(null);
   const [sync, setSync] = useState<SyncState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shift, setShift] = useState<LocalShift | null>(null);
+  const [lastCounted, setLastCounted] = useState<LastCount | null>(null);
+
+  const reloadShift = useCallback(async () => {
+    setShift((await currentShift(db)) ?? null);
+    setLastCounted((await lastCount(db)) ?? null);
+  }, []);
 
   /** Online extras: fresh menu, counter resume. Silently skipped when offline. */
   const refreshFromServer = useCallback(async (dev: Device) => {
     try {
       const fresh = await refreshCatalogue(api, db);
       if (fresh) setCatalogue(fresh);
-      const state = await api.get<{ last_seq_by_fy: Record<string, number>; is_active: boolean }>(
-        `/devices/${dev.id}/sync-state`,
-      );
+      const state = await api.get<
+        { last_seq_by_fy: Record<string, number>; is_active: boolean } & Partial<ServerShiftState>
+      >(`/devices/${dev.id}/sync-state`);
       await resumeCounters(db, dev.id, state.last_seq_by_fy);
+      if (state.open_shift !== undefined) {
+        await adoptServerState(db, { open_shift: state.open_shift, last_counted: state.last_counted ?? null });
+        await reloadShift();
+      }
       setNotice(state.is_active ? null : 'The owner has switched this tablet off. Bills cannot be sent.');
     } catch (e) {
       if (!(e instanceof NetworkError)) throw e;
     }
-  }, []);
+  }, [reloadShift]);
 
   const enterReady = useCallback(
     async (dev: Device) => {
       setDevice(dev);
       setCatalogue(await loadCachedCatalogue(db));
+      await reloadShift();
       setPhase('ready');
       void requestPersistentStorage();
       await refreshFromServer(dev).catch(() => {});
     },
-    [refreshFromServer],
+    [refreshFromServer, reloadShift],
   );
 
   // Boot: works from local data alone, so the app opens offline.
@@ -164,8 +188,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       chooseDevice,
       reloadCatalogue,
       changePassword,
+      shift,
+      lastCounted,
+      reloadShift,
     }),
-    [phase, user, device, catalogue, sync, worker, notice, login, logout, chooseDevice, reloadCatalogue, changePassword],
+    [
+      phase,
+      user,
+      device,
+      catalogue,
+      sync,
+      worker,
+      notice,
+      login,
+      logout,
+      chooseDevice,
+      reloadCatalogue,
+      changePassword,
+      shift,
+      lastCounted,
+      reloadShift,
+    ],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

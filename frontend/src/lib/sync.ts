@@ -12,6 +12,7 @@
  */
 import { AuthRequiredError, HttpError, NetworkError, type Api } from './api';
 import type { PosDB } from './db';
+import { syncShiftOps } from './shift';
 import type { SyncResult } from './types';
 
 export const BATCH_SIZE = 50;
@@ -164,6 +165,8 @@ export class SyncWorker {
   private async runOnce() {
     this.set({ syncing: true });
     try {
+      // Drawer operations first: a bill names its shift, which must already be there.
+      await syncShiftOps(this.api, this.db, this.deviceId);
       await syncOnce(this.api, this.db, this.deviceId);
       this.failures = 0;
       this.set({ lastError: null, needsLogin: false, lastSyncedAt: new Date().toISOString() });
@@ -193,8 +196,11 @@ export class SyncWorker {
 
   async refreshCounts() {
     const [pending, rejected] = await Promise.all([
-      this.db.bills.where('status').equals('pending').count(),
-      this.db.bills.where('status').equals('rejected').count(),
+      this.db.pendingCount(),
+      Promise.all([
+        this.db.bills.where('status').equals('rejected').count(),
+        this.db.shiftOps.where('status').equals('rejected').count(),
+      ]).then(([a, b]) => a + b),
     ]);
     this.set({ pending, rejected });
   }

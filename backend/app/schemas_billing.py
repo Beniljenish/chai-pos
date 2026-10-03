@@ -66,6 +66,8 @@ class SyncBillIn(BaseModel):
     totals: BillTotalsIn
     # Who rang it up, recorded on the tablet at sale time (optional: older apps).
     cashier_id: uuid.UUID | None = None
+    # The drawer shift it was rung up in (optional: older apps, shifts switched off).
+    shift_id: uuid.UUID | None = None
 
 
 class SyncRequest(BaseModel):
@@ -133,6 +135,7 @@ class BillOut(ORM):
     business_date: date
     payment_mode: PaymentMode
     status: str
+    shift_id: uuid.UUID | None = None
     taxable_paise: int
     cgst_paise: int
     sgst_paise: int

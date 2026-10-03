@@ -63,6 +63,7 @@ class ShopOut(ORM):
     email_day_end: bool
     email_daily: bool
     email_weekly: bool
+    cash_shifts: bool
 
 
 class ShopUpdate(BaseModel):
@@ -75,6 +76,7 @@ class ShopUpdate(BaseModel):
     email_day_end: bool | None = None
     email_daily: bool | None = None
     email_weekly: bool | None = None
+    cash_shifts: bool | None = None
 
     @field_validator("report_email")
     @classmethod

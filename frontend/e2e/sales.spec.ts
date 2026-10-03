@@ -5,6 +5,7 @@
  * Other specs sell on the same day, so totals are checked as differences.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -19,7 +20,7 @@ async function sellTeas(page: Page, n: number): Promise<string> {
   const tile = page.locator('.tile', { hasText: 'Masala tea' });
   for (let i = 0; i < n; i++) await tile.click();
   await page.locator('.till-handle').click();
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page);
   const label = await sheet(page).getAttribute('aria-label'); // "Bill C3/26-27/000002"
   await sheet(page).getByRole('button', { name: 'New bill', exact: true }).click();
   return (label ?? '').replace('Bill ', '');

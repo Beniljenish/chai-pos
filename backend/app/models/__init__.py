@@ -48,6 +48,8 @@ class Shop(IdMixin, TimestampMixin, Base):
     email_day_end: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     email_daily: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     email_weekly: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Cash drawer shifts: on unless the shop has no cash drawer to check.
+    cash_shifts: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
 class User(IdMixin, TimestampMixin, TenantScoped, Base):
@@ -180,3 +182,6 @@ __all__ = [
     "WastageEntry",
     "WastageReason",
 ]
+from app.models.shifts import CashMovement, CashMovementKind, Shift  # noqa: E402
+
+__all__ += ["CashMovement", "CashMovementKind", "Shift"]

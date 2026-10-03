@@ -4,6 +4,7 @@
  * wrong passwords lock them out until the owner resets it.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -66,7 +67,7 @@ test('owner adds a cashier who sets their own password; lockout and reset', asyn
   await expect(page.locator('.topbar')).toContainText('Ravi');
   await page.locator('.tile', { hasText: 'Masala tea' }).click();
   await page.locator('.till-handle').click();
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page);
   await sheet(page).getByRole('button', { name: 'New bill', exact: true }).click();
   await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
   // Phone top bar regression guard: the name link must not push the tabs onto two rows.

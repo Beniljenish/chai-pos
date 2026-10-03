@@ -7,6 +7,7 @@ import { computeBill, formatRate, formatRupees, type GstType } from '../lib/gst'
 import { checkGstin, STATES } from '../lib/gstin';
 import { api } from './apiClient';
 import { explainError } from './errors';
+import { CashSettings } from './CashDrawer';
 import { EmailSettings } from './EmailSettings';
 import { MenuPrices } from './MenuPrices';
 import { useSession } from './session';
@@ -200,6 +201,7 @@ export function ShopScreen() {
         </p>
       )}
 
+      <CashSettings />
       <EmailSettings />
       <MenuPrices />
     </section>

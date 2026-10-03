@@ -11,6 +11,7 @@ from app.core.time import business_date
 from app.models import Bill, BillLine, BillVoid, Device, Role, Shop, User
 from app.schemas_billing import BillOut, SyncRequest, SyncResponse, SyncResultOut, VoidIn
 from app.services import billing, email, voids
+from app.services import shifts as shift_service
 from app.services.sales import sales_report
 
 router = APIRouter(tags=["bills"])
@@ -65,16 +66,20 @@ def device_sync_state(device_id: uuid.UUID, caller: Caller = Depends(get_caller)
         "code": device.code,
         "is_active": device.is_active,
         "last_seq_by_fy": {fy: seq for fy, seq in rows},
+        # The drawer: its open shift (a wiped tablet must not start a second
+        # one) and the last count (the next opening float).
+        **shift_service.device_state(caller.db, device.id),
     }
 
 
 def _as_received(b) -> dict:
-    """The bill as the tablet sent it. An app from before `cashier_id` existed
-    did not send the key: leave it out rather than add null, or a retry of such
-    a bill would hash differently and be refused as altered."""
+    """The bill as the tablet sent it. An app from before these optional keys
+    existed did not send them: leave them out rather than add null, or a retry of
+    such a bill would hash differently and be refused as altered."""
     d = b.model_dump()
-    if d.get("cashier_id") is None:
-        d.pop("cashier_id", None)
+    for key in ("cashier_id", "shift_id"):
+        if d.get(key) is None:
+            d.pop(key, None)
     return d
 
 

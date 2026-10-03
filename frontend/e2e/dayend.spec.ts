@@ -5,6 +5,7 @@
  * approval is exercised on yesterday (a quiet day: everything exact).
  */
 import { expect, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const CASHIER = process.env.E2E_CASHIER ?? '9000000002';
@@ -32,7 +33,7 @@ test('owner: wastage, reconcile against the balance, variance, approval', async 
   await page.locator('.tile', { hasText: 'Masala tea' }).click();
   await page.locator('.tile', { hasText: 'Masala tea' }).click();
   await page.locator('.till-handle').click();
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page);
   await page.getByRole('dialog').getByRole('button', { name: 'New bill', exact: true }).click();
   await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
 

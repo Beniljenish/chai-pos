@@ -5,6 +5,8 @@
  * - catalogue: the last menu downloaded from the server, with its ETag
  * - counters:  the invoice sequence per device per financial year
  * - bills:     every bill made on this tablet. status "pending" = the outbox.
+ * - shiftOps:  drawer shift starts, paid in/out and shift ends (outbox, like bills).
+ *              The open shift itself is in meta 'shift'; the last count in 'lastCounted'.
  */
 import Dexie, { type EntityTable } from 'dexie';
 import type { Catalogue, SyncBill } from './types';
@@ -23,6 +25,14 @@ export interface LocalBill {
   reason?: string; // when rejected
   totalsMismatch?: boolean;
   payload: SyncBill; // exactly what is sent to /sync/bills
+}
+
+export interface ShiftOpRow {
+  id: string;
+  seq: number; // order made on this tablet: an open must reach the server before its close
+  status: BillStatus;
+  reason?: string;
+  payload: Record<string, unknown>; // exactly what is sent to /sync/shifts
 }
 
 export interface MetaRow {
@@ -47,6 +57,7 @@ export class PosDB extends Dexie {
   catalogue!: EntityTable<CatalogueRow, 'key'>;
   counters!: EntityTable<CounterRow, 'key'>;
   bills!: EntityTable<LocalBill, 'id'>;
+  shiftOps!: EntityTable<ShiftOpRow, 'id'>;
 
   constructor(name = 'chai-pos') {
     super(name);
@@ -57,6 +68,8 @@ export class PosDB extends Dexie {
       // [status+seq]: the outbox in invoice order; businessDate: today's bills
       bills: 'id, [status+seq], businessDate, status',
     });
+    // v2: drawer shifts. Adding a table keeps every existing bill as it was.
+    this.version(2).stores({ shiftOps: 'id, seq, [status+seq], status' });
   }
 
   async getMeta<T>(key: string): Promise<T | undefined> {
@@ -68,8 +81,12 @@ export class PosDB extends Dexie {
     else await this.meta.put({ key, value });
   }
 
-  pendingCount(): Promise<number> {
-    return this.bills.where('status').equals('pending').count();
+  async pendingCount(): Promise<number> {
+    const [bills, ops] = await Promise.all([
+      this.bills.where('status').equals('pending').count(),
+      this.shiftOps.where('status').equals('pending').count(),
+    ]);
+    return bills + ops;
   }
 }
 

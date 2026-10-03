@@ -408,6 +408,7 @@ def catalogue(
                 "gstin": shop.gstin,
                 "state_code": shop.state_code,
                 "address": shop.address,
+                "cash_shifts": shop.cash_shifts,
             },
             "menu_items": [
                 {
