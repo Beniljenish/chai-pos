@@ -36,10 +36,10 @@ test('owner GST: mistyped GSTIN refused, regular GST prints a tax invoice', asyn
 
   await page.getByRole('textbox', { name: /^GSTIN/ }).fill(GSTIN.toLowerCase());
   await expect(page.locator('#gstin-help')).toContainText('Valid · registered in Tamil Nadu');
-  // Rs 20 tea, 5% included. Each tax is rounded on its own (2000 x 2.5/105 =
-  // 47.6 -> 48 paise) and the taxable value takes the remainder: 19.04 + 0.48
-  // + 0.48 = 20.00. (Rounding taxable first gives 19.05 + 0.48 + 0.47, also
-  // Rs 20, but it is not the rule shared with the server: see services/gst.py.)
+  // Rs 20 tea, 5% included (rule shared with backend/app/services/gst.py):
+  // taxable backed out = 19.05; CGST = SGST = 2.5% of 19.05 = 0.476 -> 0.48;
+  // that totals 20.01, so the taxable value absorbs the paisa: 19.04 + 0.48
+  // + 0.48 = 20.00 exactly, the menu price.
   const preview = page.locator('.preview');
   await expect(preview).toContainText('Tax invoice');
   await expect(preview).toContainText('CGST @2.5%₹0.48');
