@@ -7,7 +7,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { LocalBill } from '../lib/db';
 import { formatRate, formatRupees, taxByRate } from '../lib/gst';
 import { db } from '../lib/db';
-import { receiptRows } from '../lib/escpos';
+import { PAYMENT, paymentRows, receiptRows } from '../lib/escpos';
 import { browserEnv, loadPrinter, printRows } from '../lib/printer';
 import { PrinterSheet } from './PrinterSettings';
 import { useSession } from './session';
@@ -18,7 +18,6 @@ const TITLES = {
   unregistered: 'Bill',
 } as const;
 
-const PAYMENT_LABELS = { cash: 'Cash', upi: 'UPI', card: 'Card' } as const;
 
 function istDateTime(iso: string) {
   return new Intl.DateTimeFormat('en-IN', {
@@ -101,12 +100,18 @@ export function Receipt({
                       {l.qty} × {formatRupees(l.unit_price_paise + l.modifiers.reduce((a, m) => a + m.price_delta_paise, 0))}
                     </small>
                   </td>
-                  <td className="num right">{formatRupees(l.totals.total)}</td>
+                  <td className="num right">{formatRupees(p.totals.discount ? l.totals.gross : l.totals.total)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <dl className="sums num">
+            {Boolean(p.totals.discount) && (
+              <>
+                <dt>Discount{p.discount_reason ? ` (${p.discount_reason})` : ''}</dt>
+                <dd>-{formatRupees(p.totals.discount ?? 0)}</dd>
+              </>
+            )}
             {gstType === 'regular' && p.totals.cgst > 0 && (
               <>
                 <dt>Taxable value</dt>
@@ -130,8 +135,25 @@ export function Receipt({
             )}
             <dt className="grand">Total</dt>
             <dd className="grand">{formatRupees(p.totals.total)}</dd>
-            <dt>Paid by</dt>
-            <dd>{PAYMENT_LABELS[p.payment_mode]}</dd>
+            {p.payment_parts?.length ? (
+              paymentRows(p).map(([label, paise]) => (
+                <Fragment key={label}>
+                  <dt>{label}</dt>
+                  <dd>{formatRupees(paise)}</dd>
+                </Fragment>
+              ))
+            ) : (
+              <>
+                <dt>Paid by</dt>
+                <dd>{p.payment_mode === 'credit' ? 'Credit (khata)' : PAYMENT[p.payment_mode]}</dd>
+              </>
+            )}
+            {p.customer?.name && (
+              <>
+                <dt>Customer</dt>
+                <dd>{p.customer.name}</dd>
+              </>
+            )}
           </dl>
           <footer>Thank you</footer>
         </article>

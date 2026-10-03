@@ -18,6 +18,13 @@ import {
 } from '../lib/sales';
 import type { SalesReport, ServerBill } from '../lib/types';
 import { api } from './apiClient';
+
+const FLAG_LABELS: Record<string, string> = {
+  discount_over_limit: 'discount over the cashier limit',
+  discount_without_reason: 'discount with no reason',
+  payment_parts_mismatch: 'payment parts do not add up to the bill',
+  credit_without_customer: 'on credit with no customer',
+};
 import { Loading, LoadError } from './Status';
 import { Sheet } from './Sheet';
 import { ServiceReport } from './ServiceReport';
@@ -120,6 +127,47 @@ export function SalesScreen() {
                 ))}
               </ul>
               <p className="muted">They count at the printed amount (that is what the customer paid).</p>
+            </div>
+          )}
+
+          {((report.discounts ?? []).length > 0 || Boolean(report.credit_given_paise) || Boolean(report.repaid_paise)) && (
+            <section aria-label="Discounts and credit">
+              <h2>Discounts and credit</h2>
+              {(report.discounts ?? []).length > 0 && (
+                <>
+                  <p>
+                    Discounts: <strong className="num">{formatRupees(report.discount_paise ?? 0)}</strong> on{' '}
+                    {(report.discounts ?? []).length} bill{(report.discounts ?? []).length === 1 ? '' : 's'}
+                  </p>
+                  <ul className="void-list neutral-list">
+                    {(report.discounts ?? []).map((d) => (
+                      <li key={d.bill_id} className={d.over_limit ? 'after-bill' : ''}>
+                        <span className="num">{d.invoice_no}</span> · −{formatRupees(d.discount_paise)} ·{' '}
+                        {d.reason || 'no reason'} · {d.by_name}
+                        {d.over_limit && <strong className="error"> · over the cashier limit</strong>}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {(Boolean(report.credit_given_paise) || Boolean(report.repaid_paise)) && (
+                <p>
+                  Khata: <strong className="num">{formatRupees(report.credit_given_paise ?? 0)}</strong> given on credit,{' '}
+                  <strong className="num">{formatRupees(report.repaid_paise ?? 0)}</strong> repaid.
+                </p>
+              )}
+            </section>
+          )}
+          {(report.flagged ?? []).some((f) => f.flags.some((x) => x !== 'discount_over_limit')) && (
+            <div className="panel-inline warn-box" role="note">
+              <strong>Bills to look at</strong>
+              <ul>
+                {(report.flagged ?? []).map((f) => (
+                  <li key={f.bill_id} className="num">
+                    {f.invoice_no}: {f.flags.map((x) => FLAG_LABELS[x] ?? x).join(', ')}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

@@ -14,7 +14,7 @@
  */
 import { formatRate, taxByRate } from './gst';
 import type { LocalBill } from './db';
-import type { Catalogue, SyncBillLine } from './types';
+import type { Catalogue, SyncBill, SyncBillLine } from './types';
 
 export type PaperWidth = 32 | 48;
 
@@ -26,7 +26,16 @@ export interface Row {
 }
 
 const TITLES = { regular: 'TAX INVOICE', composition: 'BILL OF SUPPLY', unregistered: 'BILL' } as const;
-const PAYMENT = { cash: 'Cash', upi: 'UPI', card: 'Card' } as const;
+export const PAYMENT: Record<string, string> = { cash: 'Cash', upi: 'UPI', card: 'Card', split: 'Split', credit: 'Credit' };
+
+/**
+ * How the bill was paid, as receipt rows: one row for a single mode, one per part
+ * for a split payment. Credit is labelled as owed by the customer (Phase 6).
+ */
+export function paymentRows(p: SyncBill): [string, number][] {
+  const parts = p.payment_parts?.length ? p.payment_parts : [{ mode: p.payment_mode, paise: p.totals.total }];
+  return parts.map((x) => [x.mode === 'credit' ? 'On credit (khata)' : `Paid by ${PAYMENT[x.mode] ?? x.mode}`, x.paise]);
+}
 
 /** Paise as "Rs.19.04" / "Rs.20" (whole rupees drop the paise, as on screen). */
 export function rs(paise: number): string {
@@ -118,9 +127,16 @@ export function receiptRows(
     const mods = l.modifiers.length ? ` (${l.modifiers.map((m) => m.name).join(', ')})` : '';
     for (const t of wrap(l.name + mods, width)) line(t);
     const each = l.unit_price_paise + l.modifiers.reduce((a, m) => a + m.price_delta_paise, 0);
-    line(leftRight(`  ${l.qty} x ${rs(each)}`, rs(l.totals.total), width));
+    // With a discount, lines show their full price and the discount gets its own row.
+    line(leftRight(`  ${l.qty} x ${rs(each)}`, rs(p.totals.discount ? l.totals.gross : l.totals.total), width));
   }
   rule();
+  if (p.totals.discount) {
+    const why = p.discount_reason ? ` (${p.discount_reason})` : '';
+    for (const t of wrap(`Discount${why}`, width - 10).slice(0, -1)) line(t);
+    const last = wrap(`Discount${why}`, width - 10).slice(-1)[0];
+    line(leftRight(last, `-${rs(p.totals.discount)}`, width));
+  }
 
   if (p.gst_type === 'regular' && p.totals.cgst > 0) {
     line(leftRight('Taxable value', rs(p.totals.taxable), width));
@@ -131,7 +147,9 @@ export function receiptRows(
   }
   if (p.totals.round_off !== 0) line(leftRight('Round off', rs(p.totals.round_off), width));
   line(leftRight('TOTAL', rs(p.totals.total), half), { big: true, bold: true });
-  line(leftRight('Paid by', PAYMENT[p.payment_mode], width));
+  if (p.payment_parts?.length) for (const [label, paise] of paymentRows(p)) line(leftRight(label, rs(paise), width));
+  else line(leftRight('Paid by', p.payment_mode === 'credit' ? 'Credit (khata)' : PAYMENT[p.payment_mode], width));
+  if (p.customer?.name) line(leftRight('Customer', p.customer.name, width));
   rule();
   line('Thank you', { align: 'center' });
   return rows.map((r) => ({ ...r, text: ascii(r.text) }));

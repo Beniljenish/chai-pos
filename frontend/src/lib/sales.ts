@@ -12,7 +12,7 @@ export const VOID_REASONS: { id: VoidReason; label: string }[] = [
 
 export const voidReasonLabel = (id: string) => VOID_REASONS.find((r) => r.id === id)?.label ?? id;
 
-export const PAYMENT_LABELS: Record<string, string> = { cash: 'Cash', upi: 'UPI', card: 'Card' };
+export const PAYMENT_LABELS: Record<string, string> = { cash: 'Cash', upi: 'UPI', card: 'Card', split: 'Split', credit: 'Credit' };
 
 /** "2026-10-03" plus n days, in plain calendar arithmetic (no time zones involved). */
 export function shiftDay(iso: string, n: number): string {

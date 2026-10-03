@@ -41,6 +41,8 @@ export interface Catalogue {
     address: string;
     /** Missing in a catalogue cached before shifts existed: treat as on. */
     cash_shifts?: boolean;
+    /** The most a cashier may take off a bill, basis points (1000 = 10%). */
+    max_discount_bp?: number;
   };
   menu_items: MenuItem[];
   modifiers: Modifier[];
@@ -95,7 +97,20 @@ export interface SyncBillLine {
     scale_factor: string;
     lines: { ingredient_id: string; qty_delta: string }[];
   }[];
-  totals: { gross: number; taxable: number; cgst: number; sgst: number; total: number };
+  /** Phase 6: the cashier's discount on this line (sent only when used). */
+  discount_paise?: number;
+  totals: { gross: number; discount?: number; taxable: number; cgst: number; sgst: number; total: number };
+}
+
+export type PayMode = 'cash' | 'upi' | 'card' | 'split' | 'credit';
+export interface PaymentPart {
+  mode: 'cash' | 'upi' | 'card' | 'credit';
+  paise: number;
+}
+export interface BillCustomer {
+  id: string;
+  phone: string;
+  name: string;
 }
 
 export interface SyncBill {
@@ -107,10 +122,17 @@ export interface SyncBill {
   local_seq: number;
   invoice_no: string;
   sold_at: string;
-  payment_mode: 'cash' | 'upi' | 'card';
+  payment_mode: PayMode;
   gst_type: GstType;
   lines: SyncBillLine[];
+  /** Phase 6, each sent only when used. */
+  bill_discount_paise?: number;
+  discount_reason?: string;
+  payment_parts?: PaymentPart[];
+  customer?: BillCustomer;
+  order_part?: number;
   totals: {
+    discount?: number;
     taxable: number;
     cgst: number;
     sgst: number;
@@ -308,6 +330,20 @@ export interface SalesReport {
     voided_at: string;
   }[];
   mismatches: { bill_id: string; invoice_no: string; total_paise: number; server_total_paise: number }[];
+  // Phase 6 (absent from an older server)
+  discount_paise?: number;
+  discounts?: {
+    bill_id: string;
+    invoice_no: string;
+    discount_paise: number;
+    total_paise: number;
+    reason: string;
+    by_name: string;
+    over_limit: boolean;
+  }[];
+  credit_given_paise?: number;
+  repaid_paise?: number;
+  flagged?: { bill_id: string; invoice_no: string; flags: string[] }[];
 }
 
 export interface ShiftReport {
