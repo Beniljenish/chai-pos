@@ -8,16 +8,21 @@ import { useSession } from './session';
 function SyncBadge() {
   const { sync, worker } = useSession();
   if (!sync) return null;
+  // Long text for tablets, short for phones (CSS picks one).
   let text: string;
+  let short: string;
   let tone: 'ok' | 'wait' | 'bad';
   if (sync.rejected > 0) {
     text = `${sync.rejected} bill${sync.rejected > 1 ? 's' : ''} need the owner`;
+    short = `${sync.rejected} problem${sync.rejected > 1 ? 's' : ''}`;
     tone = 'bad';
   } else if (sync.pending > 0) {
     text = sync.syncing ? `Sending ${sync.pending}…` : `${sync.pending} waiting to send`;
+    short = `${sync.pending} waiting`;
     tone = 'wait';
   } else {
     text = 'All bills sent';
+    short = 'All sent';
     tone = 'ok';
   }
   return (
@@ -28,7 +33,8 @@ function SyncBadge() {
       aria-live="polite"
     >
       <span className="dot" aria-hidden="true" />
-      {text}
+      <span className="long">{text}</span>
+      <span className="short" aria-hidden="true">{short}</span>
     </button>
   );
 }

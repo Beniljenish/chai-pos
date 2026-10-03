@@ -229,6 +229,35 @@ input {
   font-weight: 700;
 }
 
+.sync-badge .short {
+  display: none;
+}
+
+/* Phones: one compact row under the shop name. */
+@media (max-width: 600px) {
+  .topbar {
+    gap: var(--s2);
+    padding: var(--s2) var(--s3);
+  }
+  .where {
+    flex-basis: 100%;
+  }
+  .topbar button {
+    padding: 0 var(--s3);
+    min-height: 44px;
+  }
+  .sync-badge .long {
+    display: none;
+  }
+  .sync-badge .short {
+    display: inline;
+  }
+  .topbar .quiet {
+    margin-left: auto;
+    padding: 0 var(--s2);
+  }
+}
+
 /* ---------- billing: menu grid + till ---------- */
 .billing {
   flex: 1;
@@ -266,6 +295,7 @@ input {
   border: 1.5px solid var(--steel-deep);
 }
 .tile-name {
+  padding-right: 32px; /* room for the count badge */
   font-weight: 700;
   font-size: 1.05rem;
   line-height: 1.25;
