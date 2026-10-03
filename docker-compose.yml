@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: chai
+      POSTGRES_PASSWORD: chai
+      POSTGRES_DB: chai_pos
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chai -d chai_pos"]
+      interval: 2s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://chai:chai@db:5432/chai_pos
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-0123456789}
+    ports: ["8000:8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
