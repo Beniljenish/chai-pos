@@ -1,0 +1,114 @@
+{
+  "about": "How an order's state follows from its events. backend/app/services/orders.py and frontend/src/lib/orders.ts must both give exactly `expect` (only the keys listed are compared). Events are applied in order of `at`, then `id`, whatever order they arrive in.",
+  "cases": [
+    {
+      "name": "dine-in: open, two KOTs, bill, settle",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t4", "covers": 2}},
+        {"id": "e2", "kind": "kot", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 2, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": [], "note": "less sugar"}]}},
+        {"id": "e3", "kind": "kot", "at": "2026-10-04T06:20:00Z", "by": "ravi", "data": {"kot_no": "C1-2", "lines": [
+          {"line_id": "l2", "menu_item_id": "samosa", "name": "Samosa", "qty": 3, "unit_price_paise": 1500, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e4", "kind": "bill_printed", "at": "2026-10-04T06:40:00Z", "by": "arun", "data": {}},
+        {"id": "e5", "kind": "settle", "at": "2026-10-04T06:45:00Z", "by": "arun", "data": {"bill_id": "b1"}}
+      ],
+      "expect": {
+        "status": "settled", "order_type": "dine_in", "table_id": "t4", "covers": 2,
+        "opened_by": "ravi", "opened_at": "2026-10-04T06:00:00Z",
+        "bill_prints": 1, "changed_after_bill": false, "bill_id": "b1", "settled_at": "2026-10-04T06:45:00Z",
+        "kots": [{"kot_no": "C1-1", "at": "2026-10-04T06:01:00Z", "by": "ravi", "line_ids": ["l1"]}, {"kot_no": "C1-2", "at": "2026-10-04T06:20:00Z", "by": "ravi", "line_ids": ["l2"]}],
+        "lines": [
+          {"line_id": "l1", "kot_no": "C1-1", "menu_item_id": "tea", "name": "Masala tea", "qty": 2, "cancelled_qty": 0, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": [], "note": "less sugar", "ready": false, "added_after_bill": false},
+          {"line_id": "l2", "kot_no": "C1-2", "menu_item_id": "samosa", "name": "Samosa", "qty": 3, "cancelled_qty": 0, "unit_price_paise": 1500, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": [], "note": "", "ready": false, "added_after_bill": false}
+        ]
+      }
+    },
+    {
+      "name": "events arriving out of order are applied by time",
+      "events": [
+        {"id": "e2", "kind": "move", "at": "2026-10-04T06:05:00Z", "by": "ravi", "data": {"table_id": "t7"}},
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t4", "covers": 2}},
+        {"id": "e3", "kind": "move", "at": "2026-10-04T06:03:00Z", "by": "ravi", "data": {"table_id": "t5"}}
+      ],
+      "expect": {"status": "open", "table_id": "t7", "last_at": "2026-10-04T06:05:00Z"}
+    },
+    {
+      "name": "same time: the id breaks the tie",
+      "events": [
+        {"id": "b", "kind": "move", "at": "2026-10-04T06:05:00Z", "by": "x", "data": {"table_id": "tb"}},
+        {"id": "a", "kind": "move", "at": "2026-10-04T06:05:00Z", "by": "x", "data": {"table_id": "ta"}},
+        {"id": "0", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "x", "data": {"order_type": "dine_in", "table_id": "t1", "covers": 1}}
+      ],
+      "expect": {"table_id": "tb"}
+    },
+    {
+      "name": "cancelling after the bill was printed is flagged and reopens the order",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t4", "covers": 2}},
+        {"id": "e2", "kind": "kot", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 3, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e3", "kind": "cancel", "at": "2026-10-04T06:02:00Z", "by": "ravi", "data": {"line_id": "l1", "qty": 1, "reason": "ordered by mistake"}},
+        {"id": "e4", "kind": "bill_printed", "at": "2026-10-04T06:30:00Z", "by": "arun", "data": {}},
+        {"id": "e5", "kind": "cancel", "at": "2026-10-04T06:31:00Z", "by": "arun", "data": {"line_id": "l1", "qty": 5, "reason": "customer complained"}}
+      ],
+      "expect": {
+        "status": "open", "bill_prints": 1, "changed_after_bill": true,
+        "cancellations": [
+          {"line_id": "l1", "name": "Masala tea", "qty": 1, "reason": "ordered by mistake", "at": "2026-10-04T06:02:00Z", "by": "ravi", "after_bill": false},
+          {"line_id": "l1", "name": "Masala tea", "qty": 2, "reason": "customer complained", "at": "2026-10-04T06:31:00Z", "by": "arun", "after_bill": true}
+        ]
+      }
+    },
+    {
+      "name": "items added after the bill was printed are flagged",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "takeaway", "table_id": null, "covers": 0, "customer_name": "Priya", "customer_phone": "9876543210"}},
+        {"id": "e2", "kind": "kot", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 1, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e3", "kind": "bill_printed", "at": "2026-10-04T06:10:00Z", "by": "ravi", "data": {}},
+        {"id": "e4", "kind": "kot", "at": "2026-10-04T06:11:00Z", "by": "ravi", "data": {"kot_no": "C1-2", "lines": [
+          {"line_id": "l2", "menu_item_id": "tea", "name": "Masala tea", "qty": 1, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e5", "kind": "details", "at": "2026-10-04T06:12:00Z", "by": "ravi", "data": {"customer_name": "Priya S", "note": "pack separately"}}
+      ],
+      "expect": {"status": "open", "changed_after_bill": true, "customer_name": "Priya S", "customer_phone": "9876543210", "note": "pack separately", "table_id": null}
+    },
+    {
+      "name": "nothing changes a settled order; a repeated KOT line is kept once",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t1", "covers": 1}},
+        {"id": "e2", "kind": "kot", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 1, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e3", "kind": "kot", "at": "2026-10-04T06:02:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 9, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e4", "kind": "settle", "at": "2026-10-04T06:10:00Z", "by": "ravi", "data": {"bill_id": "b1"}},
+        {"id": "e5", "kind": "cancel", "at": "2026-10-04T06:11:00Z", "by": "ravi", "data": {"line_id": "l1", "qty": 1, "reason": "late"}},
+        {"id": "e6", "kind": "move", "at": "2026-10-04T06:12:00Z", "by": "ravi", "data": {"table_id": "t9"}}
+      ],
+      "expect": {"status": "settled", "table_id": "t1", "cancellations": [], "last_at": "2026-10-04T06:10:00Z"}
+    },
+    {
+      "name": "the kitchen marks lines ready; an order is cancelled with a reason",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t2", "covers": 3}},
+        {"id": "e2", "kind": "kot", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 1, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []},
+          {"line_id": "l2", "menu_item_id": "samosa", "name": "Samosa", "qty": 1, "unit_price_paise": 1500, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e3", "kind": "ready", "at": "2026-10-04T06:06:00Z", "by": "cook", "data": {"line_ids": ["l2", "nope"]}},
+        {"id": "e4", "kind": "cancel_order", "at": "2026-10-04T06:08:00Z", "by": "ravi", "data": {"reason": "customer left"}}
+      ],
+      "expect": {"status": "cancelled", "cancel_reason": "customer left", "lines": [
+        {"line_id": "l1", "kot_no": "C1-1", "menu_item_id": "tea", "name": "Masala tea", "qty": 1, "cancelled_qty": 0, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": [], "note": "", "ready": false, "added_after_bill": false},
+        {"line_id": "l2", "kot_no": "C1-1", "menu_item_id": "samosa", "name": "Samosa", "qty": 1, "cancelled_qty": 0, "unit_price_paise": 1500, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": [], "note": "", "ready": true, "added_after_bill": false}
+      ]}
+    },
+    {
+      "name": "times with an offset are compared as instants",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T11:30:00+05:30", "by": "x", "data": {"order_type": "dine_in", "table_id": "t1", "covers": 1}},
+        {"id": "e2", "kind": "move", "at": "2026-10-04T06:01:00Z", "by": "x", "data": {"table_id": "t2"}},
+        {"id": "e3", "kind": "move", "at": "2026-10-04T11:30:30+05:30", "by": "x", "data": {"table_id": "t3"}}
+      ],
+      "expect": {"table_id": "t2", "opened_at": "2026-10-04T06:00:00Z", "last_at": "2026-10-04T06:01:00Z"}
+    }
+  ]
+}

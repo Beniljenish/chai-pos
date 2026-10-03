@@ -111,17 +111,20 @@ export interface SaveBillInput {
   cashierId?: string;
   /** The drawer shift open on this tablet, so the cash is checked against it. */
   shiftId?: string;
+  /** Settling a table order: its lines (priced when they were ordered) and its id. */
+  lines?: SyncBillLine[];
+  orderId?: string;
   now?: Date;
 }
 
 export async function saveBill(input: SaveBillInput): Promise<LocalBill> {
-  const { db, deviceId, deviceCode, catalogue, cart, paymentMode, cashierId, shiftId } = input;
-  if (cart.length === 0) throw new Error('The bill is empty');
+  const { db, deviceId, deviceCode, catalogue, cart, paymentMode, cashierId, shiftId, orderId } = input;
+  if (cart.length === 0 && !input.lines?.length) throw new Error('The bill is empty');
   const now = input.now ?? new Date();
   const bdate = businessDate(now);
   const fy = financialYear(bdate);
   const gstType = catalogue.shop.gst_type;
-  const lines = buildLines(cart, catalogue);
+  const lines = input.lines ? input.lines.map((l) => ({ ...l, totals: { ...l.totals } })) : buildLines(cart, catalogue);
   const totals = priceLines(lines, gstType);
 
   return db.transaction('rw', db.counters, db.bills, async () => {
@@ -133,6 +136,7 @@ export async function saveBill(input: SaveBillInput): Promise<LocalBill> {
       id: uuidv7(now.getTime()),
       ...(cashierId ? { cashier_id: cashierId } : {}),
       ...(shiftId ? { shift_id: shiftId } : {}),
+      ...(orderId ? { order_id: orderId } : {}),
       local_seq: seq,
       invoice_no: invoiceNumber(deviceCode, fy, seq),
       sold_at: now.toISOString(),

@@ -39,8 +39,14 @@ export async function buildReport(
   const pending = held.filter((b) => b.status === 'pending');
   const oldest = pending.map((b) => b.soldAt).sort()[0] ?? null;
   const [pending_ops, rejected_ops] = await Promise.all([
-    db.shiftOps.where('status').equals('pending').count(),
-    db.shiftOps.where('status').equals('rejected').count(),
+    Promise.all([
+      db.shiftOps.where('status').equals('pending').count(),
+      db.orderEvents.where('status').equals('pending').count(),
+    ]).then(([a, b]) => a + b),
+    Promise.all([
+      db.shiftOps.where('status').equals('rejected').count(),
+      db.orderEvents.where('status').equals('rejected').count(),
+    ]).then(([a, b]) => a + b),
   ]);
   return {
     seq_by_fy,

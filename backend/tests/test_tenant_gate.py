@@ -7,6 +7,7 @@ protecting every future phase automatically.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -53,6 +54,9 @@ ID_ROUTES = {
     ),
     "/api/v1/stock/{ingredient_id}/ledger": ("cat.milk", {"GET": None}),
     "/api/v1/bills/{bill_id}": ("bill", {"GET": None}),
+    "/api/v1/areas/{area_id}": ("area", {"PATCH": {"name": "hijacked"}}),
+    "/api/v1/tables/{table_id}": ("table", {"PATCH": {"name": "hijacked"}}),
+    "/api/v1/orders/{order_id}": ("order", {"GET": None}),
     "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
     "/api/v1/devices/{device_id}/report": (
@@ -74,8 +78,8 @@ DATE_ROUTES = {
 
 
 def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
-    if key == "bill":
-        return cat.bill_id
+    if key in ("bill", "area", "table", "order"):
+        return getattr(cat, f"{key}_id")
     if key.startswith("cat."):
         return getattr(cat, key[4:])["id"]
     return str(getattr(shop, key).id)
@@ -92,6 +96,30 @@ def _with_bill(client, shop) -> Catalogue:
     bill = device.bill([("Masala tea", 1, [])])
     assert device.sync([bill]).json()["results"][0]["status"] == "accepted"
     cat.bill_id = bill["id"]
+    # Restaurant service: an area, a table, and an open order on it.
+    h = shop.owner_h
+    cat.area_id = client.post("/api/v1/areas", json={"name": "Hall"}, headers=h).json()["id"]
+    cat.table_id = client.post(
+        "/api/v1/tables", json={"area_id": cat.area_id, "name": "T1"}, headers=h
+    ).json()["id"]
+    cat.order_id = str(uuid.uuid4())
+    r = client.post(
+        "/api/v1/sync/orders",
+        json={
+            "device_id": device.device_id,
+            "events": [
+                {
+                    "id": str(uuid.uuid4()),
+                    "order_id": cat.order_id,
+                    "kind": "open",
+                    "at": datetime.now(UTC).isoformat(),
+                    "data": {"order_type": "dine_in", "table_id": cat.table_id, "covers": 2},
+                }
+            ],
+        },
+        headers=h,
+    )
+    assert r.json()["results"][0]["status"] == "accepted", r.text
     return cat
 
 

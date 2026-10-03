@@ -44,6 +44,16 @@ export interface Catalogue {
   };
   menu_items: MenuItem[];
   modifiers: Modifier[];
+  /** Dining areas and tables (missing in a catalogue cached before table service). */
+  areas?: DiningArea[];
+}
+
+export interface DiningArea {
+  id: string;
+  name: string;
+  sort: number;
+  is_active: boolean;
+  tables: { id: string; name: string; seats: number; sort: number; is_active: boolean }[];
 }
 
 export interface User {
@@ -93,6 +103,7 @@ export interface SyncBill {
   /** Who rang it up (the bill may sync after someone else logs in). */
   cashier_id?: string;
   shift_id?: string;
+  order_id?: string;
   local_seq: number;
   invoice_no: string;
   sold_at: string;

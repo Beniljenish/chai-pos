@@ -195,3 +195,22 @@ __all__ = [
 from app.models.shifts import CashMovement, CashMovementKind, Shift  # noqa: E402
 
 __all__ += ["CashMovement", "CashMovementKind", "Shift"]
+from app.models.orders import (  # noqa: E402
+    DiningArea,
+    DiningTable,
+    Order,
+    OrderEvent,
+    OrderEventKind,
+    OrderStatus,
+    OrderType,
+)
+
+__all__ += [
+    "DiningArea",
+    "DiningTable",
+    "Order",
+    "OrderEvent",
+    "OrderEventKind",
+    "OrderStatus",
+    "OrderType",
+]

@@ -12,6 +12,7 @@
  */
 import { AuthRequiredError, HttpError, NetworkError, type Api } from './api';
 import type { PosDB } from './db';
+import { pullLive, syncOrderEvents } from './orders';
 import { syncShiftOps } from './shift';
 import { HealthReporter } from './health';
 import type { SyncResult } from './types';
@@ -170,7 +171,10 @@ export class SyncWorker {
     try {
       // Drawer operations first: a bill names its shift, which must already be there.
       await syncShiftOps(this.api, this.db, this.deviceId);
+      // Then orders: a settled bill names its order, which must already be there.
+      await syncOrderEvents(this.api, this.db, this.deviceId);
       await syncOnce(this.api, this.db, this.deviceId);
+      await pullLive(this.api, this.db); // what the other devices did
       this.failures = 0;
       this.set({ lastError: null, needsLogin: false, lastSyncedAt: new Date().toISOString() });
     } catch (e) {
@@ -207,7 +211,8 @@ export class SyncWorker {
       Promise.all([
         this.db.bills.where('status').equals('rejected').count(),
         this.db.shiftOps.where('status').equals('rejected').count(),
-      ]).then(([a, b]) => a + b),
+        this.db.orderEvents.where('status').equals('rejected').count(),
+      ]).then(([a, b, c]) => a + b + c),
     ]);
     this.set({ pending, rejected });
   }

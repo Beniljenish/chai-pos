@@ -68,6 +68,8 @@ class SyncBillIn(BaseModel):
     cashier_id: uuid.UUID | None = None
     # The drawer shift it was rung up in (optional: older apps, shifts switched off).
     shift_id: uuid.UUID | None = None
+    # The running order this bill settles (table service), if any.
+    order_id: uuid.UUID | None = None
 
 
 class SyncRequest(BaseModel):
@@ -136,6 +138,7 @@ class BillOut(ORM):
     payment_mode: PaymentMode
     status: str
     shift_id: uuid.UUID | None = None
+    order_id: uuid.UUID | None = None
     taxable_paise: int
     cgst_paise: int
     sgst_paise: int
