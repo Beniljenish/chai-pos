@@ -3,9 +3,9 @@
  * tax invoice (regular), bill of supply (composition), or plain bill.
  * Printed through the browser's print dialog at 58 mm width (see styles.css).
  */
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import type { LocalBill } from '../lib/db';
-import { formatRupees } from '../lib/gst';
+import { formatRate, formatRupees, taxByRate } from '../lib/gst';
 import { useSession } from './session';
 
 const TITLES = {
@@ -41,9 +41,12 @@ export function Receipt({ bill, onClose, autoPrint = false }: { bill: LocalBill;
           <header>
             <strong className="shop-name">{shop?.name}</strong>
             {shop?.address && <span>{shop.address}</span>}
-            {gstType === 'regular' && shop?.gstin && <span>GSTIN {shop.gstin}</span>}
+            {/* Both a tax invoice and a bill of supply must carry the supplier's GSTIN. */}
+            {gstType !== 'unregistered' && shop?.gstin && <span>GSTIN {shop.gstin}</span>}
             <span className="doc-title">{TITLES[gstType]}</span>
-            {gstType === 'composition' && <span>Composition taxable person, not eligible to collect tax</span>}
+            {gstType === 'composition' && (
+              <span>Composition taxable person, not eligible to collect tax on supplies</span>
+            )}
           </header>
           <dl className="meta">
             <dt>No.</dt>
@@ -73,10 +76,15 @@ export function Receipt({ bill, onClose, autoPrint = false }: { bill: LocalBill;
               <>
                 <dt>Taxable value</dt>
                 <dd>{formatRupees(p.totals.taxable)}</dd>
-                <dt>CGST</dt>
-                <dd>{formatRupees(p.totals.cgst)}</dd>
-                <dt>SGST</dt>
-                <dd>{formatRupees(p.totals.sgst)}</dd>
+                {/* The rate must be printed, one row per rate when items differ. */}
+                {taxByRate(p.lines).map((g) => (
+                  <Fragment key={g.rateBp}>
+                    <dt>CGST @{formatRate(g.rateBp / 2)}</dt>
+                    <dd>{formatRupees(g.cgst)}</dd>
+                    <dt>SGST @{formatRate(g.rateBp / 2)}</dt>
+                    <dd>{formatRupees(g.sgst)}</dd>
+                  </Fragment>
+                ))}
               </>
             )}
             {p.totals.round_off !== 0 && (

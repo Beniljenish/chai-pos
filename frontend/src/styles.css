@@ -949,3 +949,67 @@ label.check input {
 .ing-list ~ .panel-inline {
   margin-top: var(--s3);
 }
+
+/* ---------- owner: shop & GST ---------- */
+.gst-types {
+  border: 0;
+  padding: 0;
+  margin: var(--s4) 0;
+  display: grid;
+  gap: var(--s2);
+}
+.gst-types legend {
+  font-weight: 700;
+  margin-bottom: var(--s2);
+}
+.gst-type {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s3);
+  align-items: start;
+  background: var(--paper);
+  border: 1.5px solid var(--steel-deep);
+  border-radius: var(--radius-control);
+  padding: var(--s3);
+  margin: 0;
+  font-weight: 400;
+  cursor: pointer;
+}
+.gst-type.chosen {
+  border-color: var(--leaf);
+  box-shadow: inset 0 0 0 1px var(--leaf);
+}
+.gst-type input {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin-top: 2px;
+}
+.gst-detail {
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.preview {
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  padding: var(--s4);
+  margin: var(--s4) 0;
+}
+.preview h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+.preview .sums {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s1) var(--s3);
+  margin: 0;
+}
+.preview dd {
+  margin: 0;
+  text-align: right;
+}
+.preview .grand {
+  font-weight: 700;
+  font-size: 1.1rem;
+}

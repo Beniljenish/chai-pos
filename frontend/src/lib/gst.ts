@@ -122,3 +122,28 @@ export function formatRupees(paise: number): string {
   const p = abs % 100;
   return `${sign}₹${rupees.toLocaleString('en-IN')}${p ? '.' + String(p).padStart(2, '0') : ''}`;
 }
+
+export interface RateGroup {
+  rateBp: number;
+  taxable: number;
+  cgst: number;
+  sgst: number;
+}
+
+/** Tax invoices must state the rate, not just the amount; a bill can mix 5% and 18% items. */
+export function taxByRate(lines: { gst_rate_bp: number; totals: { taxable: number; cgst: number; sgst: number } }[]): RateGroup[] {
+  const groups = new Map<number, RateGroup>();
+  for (const l of lines) {
+    const g = groups.get(l.gst_rate_bp) ?? { rateBp: l.gst_rate_bp, taxable: 0, cgst: 0, sgst: 0 };
+    g.taxable += l.totals.taxable;
+    g.cgst += l.totals.cgst;
+    g.sgst += l.totals.sgst;
+    groups.set(l.gst_rate_bp, g);
+  }
+  return [...groups.values()].filter((g) => g.cgst + g.sgst > 0).sort((a, b) => a.rateBp - b.rateBp);
+}
+
+/** 250 bp (half of 5%) -> "2.5%". */
+export function formatRate(bp: number): string {
+  return `${Number((bp / 100).toFixed(2))}%`;
+}
