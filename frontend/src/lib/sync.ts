@@ -209,7 +209,12 @@ export class SyncWorker {
     this.timer = setTimeout(() => void this.kick(), delay);
   }
 
+  private countSeq = 0;
+
   async refreshCounts() {
+    // Reads can answer out of order (a sync ending while a sale is saved): only
+    // the most recently started read may set the badge.
+    const seq = ++this.countSeq;
     const [pending, rejected] = await Promise.all([
       this.db.pendingCount(),
       Promise.all([
@@ -218,7 +223,7 @@ export class SyncWorker {
         this.db.orderEvents.where('status').equals('rejected').count(),
       ]).then(([a, b, c]) => a + b + c),
     ]);
-    this.set({ pending, rejected });
+    if (seq === this.countSeq) this.set({ pending, rejected });
   }
 
   private set(patch: Partial<SyncState>) {

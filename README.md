@@ -486,3 +486,17 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **Kitchen tickets are on by default, per tablet.** Printer settings have "Print a kitchen ticket (KOT)"; switch it off where the kitchen has its own screen (5.3). The ticket on screen is built from the same rows as the paper, so staff see exactly what the kitchen gets. No prices on it.
 - **Five-second polling while the floor is on screen.** That is a sync run every 5 s per open phone (well within the free tier for a pilot). A busy restaurant with many phones would justify a push channel later; not before.
 - **Not in this step:** merging two tables into one bill and splitting a bill (Phase 6, with split payments and discounts), a kitchen display (5.3), table reservations.
+
+## Phase 5.3: kitchen screen and the owner's table-service report
+
+**Tables → Kitchen** shows every kitchen ticket (KOT) still to be made, oldest first: table or takeaway name, minutes waiting (red after 15), each item with its options and kitchen note. Tap an item when it is ready, or **All ready** for the whole ticket. Waiters see "Ready" next to the item on the order. A tablet left on the kitchen view stays there after a reload.
+
+**Manage → Sales → Table service** (owner only) shows, for the day: orders by type, items cancelled after they were sent to the kitchen (value, reason, who, when, and whether it was after the bill), bills changed after printing, whole orders cancelled, and orders never settled. The same lines go into the daily email under "Table service".
+
+### Decisions and trade-offs
+- **"Ready" is just another order event.** The kitchen sends `ready` with the line ids through the same outbox as everything else, so it works offline and reaches the waiters' phones on their next poll (5 s). No new table, no new endpoint for the kitchen.
+- **The kitchen view is computed, not stored** (`lib/table.kitchenTickets`): a ticket is a KOT with lines that are neither cancelled nor ready. A cancelled item drops off the screen as well as printing a cancel ticket.
+- **The report reads the order state the engine already keeps** (`cancellations`, `changed_after_bill`, `bill_prints`), so the owner sees exactly what the waiters' screens computed. Cancelled lines are valued at the price they were ordered at, options included. A whole cancelled order is valued at what was still on it, so nothing is counted twice.
+- **Owner only, enforced on the server** (`/reports/service` is behind `require_owner`). The route is keyed by date, so its tenant test is an explicit cross-shop check in `test_orders.py`.
+- **Known limit: pay-first takeaway.** An order leaves the kitchen view when it is settled, because settled orders leave the live list every device polls. A takeaway paid before it is cooked therefore relies on the paper KOT. Keeping settled orders on the kitchen screen means letting `ready` apply after `settle` in the shared order rules (both languages and `shared/order_cases.json`) and sending recently settled orders to devices; that is a follow-up, not part of this step.
+- **Flaky sales spec, fixed in the app, not the test.** The sync badge could say "All bills sent" while a bill saved during a running sync was still waiting: the in-flight sync's last count of the outbox could be read just before the new bill was saved and answer just after it. Now a kick during a sync recounts at once, and only the most recently started count may update the badge. Two unit tests in `sync.test.ts` pin both halves; each fails without its fix.

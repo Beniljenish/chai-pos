@@ -9,8 +9,8 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 | `main` | `a9b0dee` (PR #23 merged). Deployed: app on chai-pos-app.vercel.app. |
 | Supabase `alembic_version` | `3e72290e9f62` (tables and orders). Every migration after this one is **not** on Supabase yet. |
 | Phases done | 0–3, 4 (lost-bill detection, printing), 5.1 (order engine, floor setup), 5.2 (Tables screen: KOT, bill at the table, settle, takeaway/delivery). |
-| Branch `kitchen-and-service-report-wip` | **Unreviewed** Phase 5.3 work found uncommitted in the workspace (kitchen view `KitchenView.tsx`, owner `ServiceReport.tsx`, changes to `services/orders.py`, `reports.py`, `sync.ts`, `TablesScreen.tsx`, tests). Frontend typecheck passes; nothing else was run. Review it like someone else's PR: run every test, read the diff, fix or drop what is wrong. |
-| Known flaky test | `e2e/sales.spec.ts` "owner voids a bill billed twice" once failed to find the second bill in Today (`C8/26-27/000002`), then passed on re-run. Probably a timing or business-date issue. Fix it (test first) before relying on CI. |
+| Phase 5.3 | Reviewed, tested and finished on `kitchen-and-service-report-wip` (kitchen view, owner table-service report, daily email lines). No migration. |
+| Flaky `e2e/sales.spec.ts` | Fixed in the app: the sync badge could say "All bills sent" with a bill saved mid-sync still waiting (README, Phase 5.3). Unit tests pin it. |
 
 ## Order of work
 
@@ -20,6 +20,7 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 4. **Phase 8b: customer messages by iMessage through Inkbox.** See below.
 5. **Phase 6:** discounts (item and bill, owner-set limits, reason), split payment (cash + UPI on one bill), split bill (one order into several invoices), customers (phone, name, visit history), credit/khata (bill on credit, record repayment, outstanding per customer).
 6. **Phase 7:** reports and inventory: item-wise and hour-wise sales, GST summary (GSTR-1 style export), stock valuation, reorder levels, suppliers and purchase orders (receive a PO into stock-in).
+- Follow-up from 5.3: keep pay-first takeaway orders on the kitchen screen after settling (README, Phase 5.3, "Known limit").
 7. **Phase 8c later, needs accounts the owner does not have yet:** Swiggy/Zomato, multiple outlets. Write a short design note in the README; do not build.
 
 ## Razorpay (test mode)

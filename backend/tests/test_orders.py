@@ -235,7 +235,7 @@ def test_order_history_is_for_the_owner_and_cannot_be_rewritten(client, shop_a, 
         s.commit()
 
 
-def test_owner_sees_cancellations_and_bills_changed_after_printing(client, shop_a, setup):
+def test_owner_sees_cancellations_and_bills_changed_after_printing(client, shop_a, shop_b, setup):
     cat, device, t1, t2 = setup
     h = shop_a.cashier_h
     oid, gone = str(uuid.uuid4()), str(uuid.uuid4())
@@ -279,6 +279,10 @@ def test_owner_sees_cancellations_and_bills_changed_after_printing(client, shop_
     }
     # T1 was never settled: it is still open at the end of the day.
     assert [(o["label"], o["status"]) for o in r["still_open"]] == [("T1", "open")]
+    # Another shop's owner sees none of it (the route is keyed by date, not id).
+    other = client.get(f"{API}/reports/service", headers=shop_b.owner_h).json()
+    assert other["orders"] == {"dine_in": 0, "takeaway": 0, "delivery": 0}
+    assert other["cancellations"] == other["still_open"] == []
 
     # The same signals reach the owner's daily email.
     from app.core.time import business_date, utcnow
