@@ -309,3 +309,26 @@ The owner's tab is now **Manage**, with **Stock** and **Recipes** inside it (Sho
 - **GST rate per item is limited to the current slabs** (0, 5, 18, 40% since GST 2.0 on 22 Sept 2025). Cafe and restaurant service is 5% without input tax credit. A free number field invites 50 instead of 500.
 - **Receipt fixes:** a bill of supply (composition) now prints the GSTIN and the full required line ("…not eligible to collect tax on supplies"); a tax invoice prints CGST and SGST **with their rates**, one row per rate when a bill mixes 5% and 18% items.
 - **Known gap:** a reprinted bill uses the shop's *current* GSTIN, not the one at the time of sale. GST type is already stored per bill; storing the GSTIN too changes the sync payload, so it is a separate change.
+
+## Phase 3d: wastage, the blind day-end count, and variance
+
+**Cashier → Stock** (batches, wastage, count; never stock levels or rupees). **Owner → Manage → Day end** (the same, plus the variance report and approval).
+
+    expected closing = opening + stock-in + batches made − batches used
+                       − sales (by recipe version, with modifiers) − wastage
+    variance         = counted − expected        (negative = missing)
+    adherence %      = expected usage ÷ actual usage × 100
+
+### Decisions and trade-offs
+
+- **The phase gate is a hand-worked day** (`tests/test_phase3_gate.py`): every number is worked out in the docstring and must match to the paisa. Three deliberate bugs (no late-bill correction, "Less sugar" adding sugar back, rounding down) were each caught by it.
+- **Blind counts.** The count sheet and the submit reply never contain expected quantities. Items outside tolerance get one "count again" with no numbers, so a recount cannot be steered towards the expected figure.
+- **Tolerance is measured against usage, not stock level** (±3% default, ±8% milk and fruit): 500 ml missing out of 4 L used is a problem; out of 40 L in stock it would hide.
+- **Approval makes the count the truth** with a `count_adjustment` row (the ledger is still never edited), and freezes that day's expected, cost and variance so a closed day's report never shifts.
+- **Late bills.** A bill from a closed day that syncs afterwards left the shelf before the count, so a compensating row keeps stock equal to the count, and the report shows how much of the day's "missing" those late bills explain.
+- **Wastage of a drink deducts its whole recipe;** "free" and "theft" are owner-only reasons. Values are at cost when recorded.
+- **Cost of a batch item** (decoction) is worked out from its batch recipe and the raw ingredients' latest prices. Items with no purchase price yet show "no price yet" instead of a misleading ₹0.
+- **Close after midnight:** the screen offers today or yesterday; the count belongs to the business day being closed.
+- **Found by the browser test, not the unit tests:** the screen loads the sheet and the report at the same moment, and both tried to create the day's record, so one crashed. Reads no longer write, and creation survives two tablets submitting at once (a regression test runs six simultaneous requests).
+
+**Not in this PR (next):** shifts and cash, voiding bills, sales reports, the 30-day adherence trend, approval for large wastage.

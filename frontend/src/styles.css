@@ -246,8 +246,13 @@ input {
     padding: 0 10px;
     min-height: 44px;
   }
-  .tabs {
+  .tabs,
+  .subnav {
     gap: 6px;
+  }
+  .subnav button {
+    padding: 0 10px;
+    min-height: 44px;
   }
   .sync-badge .long {
     display: none;
@@ -1012,4 +1017,148 @@ label.check input {
 .preview .grand {
   font-weight: 700;
   font-size: 1.1rem;
+}
+
+/* ---------- day end ---------- */
+.subnav {
+  overflow-x: auto;
+}
+.subnav button {
+  flex: none;
+}
+.segmented {
+  display: flex;
+  gap: var(--s2);
+  margin: var(--s3) 0;
+  flex-wrap: wrap;
+}
+.segmented button[aria-checked='true'],
+.reasons button[aria-checked='true'] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s3) 0;
+}
+.wastage,
+.count,
+.report {
+  margin-top: var(--s5);
+}
+.wastage > .primary,
+.count > .primary {
+  margin-top: var(--s2);
+}
+.count-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--s3) 0;
+  display: grid;
+  gap: var(--s2);
+}
+.count-list li {
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  padding: var(--s3) var(--s4);
+  border: 1.5px solid transparent;
+}
+.count-list li.done {
+  border-color: var(--leaf);
+}
+.count-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.count-list .pack-entry {
+  margin: var(--s2) 0 0;
+}
+.count-list .pack-total {
+  display: none; /* the tick line shows the total */
+}
+.count-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.report-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+.report-totals div {
+  background: var(--paper);
+  border-radius: var(--radius-control);
+  padding: var(--s3);
+  display: grid;
+  gap: var(--s1);
+}
+.report-totals strong {
+  font-size: 1.25rem;
+}
+.variance-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.variance-list li {
+  background: var(--paper);
+  border-radius: var(--radius-control);
+  border-left: 4px solid var(--steel-deep);
+}
+.variance-list li.flagged {
+  border-left-color: var(--chilli);
+}
+.variance-list summary {
+  cursor: pointer;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas: 'name qty rs' 'words words words';
+  gap: var(--s1) var(--s3);
+  padding: var(--s3);
+  align-items: center;
+}
+.variance-list summary::-webkit-details-marker {
+  display: none;
+}
+.v-name {
+  grid-area: name;
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.v-qty {
+  grid-area: qty;
+  font-weight: 700;
+}
+.v-rs {
+  grid-area: rs;
+  min-width: 4.5rem;
+  text-align: right;
+}
+.v-words {
+  grid-area: words;
+  font-size: 0.9rem;
+}
+.breakdown {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s1) var(--s3);
+  margin: 0;
+  padding: 0 var(--s3) var(--s3);
+}
+.breakdown dd {
+  margin: 0;
+  text-align: right;
+}
+.breakdown .strong {
+  font-weight: 700;
 }

@@ -4,7 +4,7 @@ import { BillsScreen } from './BillsScreen';
 import { DeviceSetupScreen } from './DeviceSetupScreen';
 import { LoginScreen } from './LoginScreen';
 import { ManageScreen } from './ManageScreen';
-import { PrepPanel } from './PrepPanel';
+import { DayEndScreen } from './DayEndScreen';
 import { useSession } from './session';
 
 
@@ -69,9 +69,9 @@ export function App() {
           <button aria-pressed={tab === 'today'} onClick={() => setTab('today')}>
             Today
           </button>
-          {/* Owners manage stock and recipes; cashiers only log batches (counts stay blind). */}
+          {/* Cashiers: batches, wastage and the blind count. They never see stock levels. */}
           <button aria-pressed={tab === 'stock'} onClick={() => setTab('stock')}>
-            {isOwner ? 'Manage' : 'Prep'}
+            {isOwner ? 'Manage' : 'Stock'}
           </button>
         </nav>
         <SyncBadge />
@@ -92,7 +92,7 @@ export function App() {
         <ManageScreen />
       ) : (
         <main className="manage">
-          <PrepPanel />
+          <DayEndScreen />
         </main>
       )}
     </div>

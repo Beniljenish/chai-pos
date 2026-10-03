@@ -6,3 +6,8 @@ __pycache__/
 .env
 node_modules/
 dist/
+
+# Local-only Playwright runs and their output
+frontend/playwright.local.config.ts
+frontend/e2e-screenshots/
+frontend/test-results/

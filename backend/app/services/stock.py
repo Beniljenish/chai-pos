@@ -155,9 +155,11 @@ def set_opening(
 ) -> StockOpening:
     """Record the first physical count. The caller commits; a concurrent second
     opening for the same ingredient fails on the unique constraint."""
-    if db.scalar(select(StockOpening.id).where(StockOpening.ingredient_id == ingredient.id)):
+    if ingredient.id in physically_counted(db):
+        # Once by opening count, or once any day-end count was approved: after
+        # that, "set stock to X" would be a back door around variance.
         raise OpeningAlreadySet(
-            f"Opening stock for {ingredient.name} was already entered. "
+            f"{ingredient.name} already has a counted starting point. "
             "Corrections are made with the day-end count."
         )
     entered, counted = _convert_packs(db, ingredient, packs, loose_qty)
@@ -188,6 +190,23 @@ def set_opening(
             bdate=opening.business_date,
         )
     return opening
+
+
+def physically_counted(db: Session, before: date | None = None) -> set[uuid.UUID]:
+    """Ingredients whose stock was once set by a physical count: an opening count,
+    or an approved day-end count (before `before`, when given). Until then, the
+    stock number is only the sum of entries and may not match the shelf."""
+    from app.models import DayCount, DayCountLine, DayCountStatus  # dayend models
+
+    ids = set(db.scalars(select(StockOpening.ingredient_id)))
+    q = (
+        select(DayCountLine.ingredient_id)
+        .join(DayCount, DayCount.id == DayCountLine.day_count_id)
+        .where(DayCount.status == DayCountStatus.approved)
+    )
+    if before is not None:
+        q = q.where(DayCount.business_date < before)
+    return ids | set(db.scalars(q))
 
 
 def _on_hand_one(db: Session, ingredient_id: uuid.UUID) -> Decimal:
@@ -269,6 +288,6 @@ def stock_on_hand(db: Session) -> list[OnHand]:
             )
         ).all()
     )
-    opened = set(db.scalars(select(StockOpening.ingredient_id)))
+    opened = physically_counted(db)
     items = db.scalars(select(Ingredient).order_by(Ingredient.kind, Ingredient.name)).all()
     return [OnHand(i, Decimal(totals.get(i.id) or 0), i.id in opened) for i in items]
