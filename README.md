@@ -190,3 +190,59 @@ One ledger row per ingredient per bill, so Phase 3 voids can reverse a bill exac
 - Verified by sabotage: banker's rounding, skipped inclusive adjustment, reused id
   treated as duplicate, double stock deduction, ignored modifier scale, negative
   consumption, missing rollback after a DB conflict. All caught.
+
+## Phase 2b: the billing app (`frontend/`)
+
+React + Vite + TypeScript, installable as a PWA, works with no internet.
+
+```
+src/lib/gst.ts        GST in TypeScript (BigInt, integer-only); passes shared/gst_cases.json
+                      AND reproduces 2,000 Python answers exactly (shared/gst_crosscheck.json)
+src/lib/db.ts         IndexedDB (Dexie): settings, cached menu, invoice counters, bills/outbox
+src/lib/billing.ts    saveBill: next invoice number + bill in ONE transaction
+src/lib/sync.ts       syncOnce + SyncWorker (after each sale, on reconnect, on focus, every 30 s)
+src/lib/api.ts        API client: access token in memory, refresh token in IndexedDB
+src/app/              screens: login, tablet setup, billing + till, receipt, today's bills
+```
+
+Run it: `cd frontend && npm install && npm run dev` (backend on :8000).
+Tests: `npm test`; gate against a live backend:
+`GATE_API_URL=http://localhost:8000/api/v1 GATE_PASSWORD=... npm run test:gate`.
+
+### Decisions and trade-offs
+
+**Saving a bill never touches the network.** It is a local IndexedDB transaction
+that takes the next invoice number and writes the bill together; a crash can't
+leave a gap or a duplicate.
+
+**Refresh token in IndexedDB** so the tablet stays logged in across restarts while
+offline; the access token lives only in memory. Mitigation: a strict Content
+Security Policy (scripts only from the app itself, connections only to the app and
+the API), no third-party scripts, no inline scripts. Billing never needs a valid
+login; only sending does, so an expired login never stops a sale.
+
+**Wiped tablet protection.** If browser storage is cleared, the invoice counter
+would restart at 1. On every online start the app reads
+`GET /devices/{id}/sync-state` and never lets its counter fall below the server's.
+It also requests persistent storage so the browser doesn't evict the outbox.
+
+**Tablet setup is owner-only, once per tablet.** Each tablet has its own invoice
+series; two tablets sharing one would print duplicate numbers. After setup, any
+owner or cashier logs in on it whenever they need.
+
+**Integer-only GST in TypeScript (BigInt).** Testing showed float `Math.round`
+also gives the right answers at shop-sized amounts; BigInt is kept as a safety
+margin because it is exact at any size.
+
+**iOS:** data is only reliably kept once the app is added to the home screen.
+Bluetooth thermal printing isn't possible from a web app on iOS (Android Chrome
+can, via Web Bluetooth, in a later phase).
+
+### Gate tests
+- `src/lib/sync.gate.test.ts` (runs in CI against the real backend + Postgres):
+  20 bills made with no network, then synced over a broken connection where 30% of
+  requests never arrive and 25% arrive but **the reply is lost**. Result: outbox
+  empty, server holds each bill exactly once, no totals mismatches.
+- `e2e/billing.spec.ts` (Playwright, CI): log in, set up the tablet, sell, go
+  offline, keep selling, **reload the app with no network**, come back online, all
+  bills sent once. Screenshots are uploaded as a CI artifact.

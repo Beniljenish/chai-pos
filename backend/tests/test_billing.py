@@ -193,3 +193,18 @@ def test_cross_shop_attempts(client, shop_a, shop_b, cat, device):
     assert _one(device, clash)["reason"] == "id_conflict"
     assert client.get(f"/api/v1/bills/{b_bill['id']}", headers=shop_a.owner_h).status_code == 404
     assert client.get(f"/api/v1/bills/{b_bill['id']}", headers=shop_b.owner_h).status_code == 200
+
+
+def test_sync_state_lets_a_wiped_tablet_resume_numbering(client, shop_a, device):
+    for _ in range(3):
+        _one(device, device.bill([("Masala tea", 1, [])]))
+    state = client.get(
+        f"/api/v1/devices/{shop_a.device.id}/sync-state", headers=shop_a.cashier_h
+    ).json()
+    fy = device.bill([("Masala tea", 1, [])], seq=1)["invoice_no"].split("/")[1]
+    assert state["code"] == "C1" and state["last_seq_by_fy"] == {fy: 3}
+
+    # tablet wiped: counter would restart at 1. Resuming from server state avoids the clash.
+    wiped = FakeDevice(client, shop_a)
+    wiped.seq = state["last_seq_by_fy"][fy]
+    assert _one(wiped, wiped.bill([("Masala tea", 1, [])]))["invoice_no"].endswith("000004")

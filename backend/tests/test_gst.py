@@ -89,3 +89,12 @@ def test_properties_hold_for_5000_random_bills():
         assert -49 <= bill.round_off <= 50
         assert bill.total == bill.subtotal + bill.round_off
         assert bill.taxable + bill.cgst + bill.sgst == bill.subtotal
+
+
+def test_crosscheck_file_matches_current_python():
+    """shared/gst_crosscheck.json holds Python's answers for the TypeScript tests.
+    If gst.py changes, regenerate it: python -m scripts.gen_gst_crosscheck"""
+    from scripts.gen_gst_crosscheck import OUT, build
+
+    stored = json.loads(OUT.read_text())
+    assert stored["cases"] == build(stored["seed"]), "regenerate shared/gst_crosscheck.json"
