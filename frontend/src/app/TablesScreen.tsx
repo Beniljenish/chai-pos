@@ -15,21 +15,12 @@ import { db, type LocalBill } from '../lib/db';
 import { billSummaryRows, kotRows, type Row } from '../lib/escpos';
 import { formatRupees, GstError } from '../lib/gst';
 import { formatPriceDelta } from '../lib/options';
-import {
-  act,
-  liveOrders,
-  minutesOpen,
-  nextKotNo,
-  openOrder,
-  sendKot,
-  type LiveOrder,
-  type OpenInput,
-  type OrderLine,
-} from '../lib/orders';
+import { act, liveOrders, minutesOpen, nextKotNo, openOrder, sendKot, type LiveOrder, type OpenInput, type OrderLine } from '../lib/orders';
 import { loadPrinter } from '../lib/printer';
 import { shiftsOn } from '../lib/shift';
-import { CANCEL_REASONS, floorModel, kotLinesFromCart, orderLabel, priceOrder, type FloorTable } from '../lib/table';
+import { CANCEL_REASONS, floorModel, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder, type FloorTable } from '../lib/table';
 import type { Catalogue } from '../lib/types';
+import { KitchenView } from './KitchenView';
 import { Receipt } from './Receipt';
 import { StartShiftSheet } from './ShiftUI';
 import { Sheet } from './Sheet';
@@ -78,6 +69,15 @@ export function TablesScreen() {
   const [newKind, setNewKind] = useState<'takeaway' | 'delivery' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const now = useNow();
+  // A tablet in the kitchen stays on the kitchen view, also after a reload.
+  const [view, setViewState] = useState<'floor' | 'kitchen'>('floor');
+  useEffect(() => {
+    void db.getMeta<'floor' | 'kitchen'>('tablesView').then((v) => v && setViewState(v));
+  }, []);
+  const setView = (v: 'floor' | 'kitchen') => {
+    setViewState(v);
+    void db.setMeta('tablesView', v);
+  };
 
   useEffect(() => {
     if (!notice) return;
@@ -113,86 +113,111 @@ export function TablesScreen() {
     );
   }
 
+  const toMake = kitchenTickets(catalogue, orders ?? [], now).length;
+
   return (
     <main className="floor" aria-busy={orders === null}>
       <header className="floor-head">
         <h1>Tables</h1>
-        <div className="floor-actions">
-          <button onClick={() => setNewKind('takeaway')}>+ Takeaway</button>
-          <button onClick={() => setNewKind('delivery')}>+ Delivery</button>
-        </div>
+        {view === 'floor' && (
+          <div className="floor-actions">
+            <button onClick={() => setNewKind('takeaway')}>+ Takeaway</button>
+            <button onClick={() => setNewKind('delivery')}>+ Delivery</button>
+          </div>
+        )}
       </header>
+      <div className="view-switch" role="group" aria-label="View">
+        <button aria-pressed={view === 'floor'} onClick={() => setView('floor')}>
+          Floor
+        </button>
+        <button aria-pressed={view === 'kitchen'} onClick={() => setView('kitchen')}>
+          Kitchen{toMake ? ` (${toMake})` : ''}
+        </button>
+      </div>
       {notice && (
         <p className="floor-notice" role="status">
           {notice}
         </p>
       )}
-      <p className="floor-legend" aria-hidden="true">
-        <span className="dot free" /> Free <span className="dot running" /> Eating <span className="dot billed" /> Bill printed
-      </p>
+      {view === 'kitchen' ? (
+        <KitchenView catalogue={catalogue} orders={orders ?? []} now={now} reload={reload} />
+      ) : (
+        <>
+          <p className="floor-legend" aria-hidden="true">
+            <span className="dot free" /> Free <span className="dot running" /> Eating <span className="dot billed" /> Bill printed
+          </p>
 
-      {floor.areas.map((a) => (
-        <section key={a.id} className="floor-area" aria-label={a.name}>
-          {floor.areas.length > 1 && <h2>{a.name}</h2>}
-          <ul className="floor-grid">
-            {a.tables.map((t) => (
-              <li key={t.id}>
-                <button
-                  className={`table-tile ${t.status}`}
-                  onClick={() => openTable(t)}
-                  aria-label={
-                    t.status === 'free'
-                      ? `Table ${t.name}, free`
-                      : `Table ${t.name}, ${t.status === 'billed' ? 'bill printed' : 'eating'}, ${formatRupees(t.totalPaise)}, ${t.minutes} minutes`
+          {floor.areas.map((a) => (
+            <section key={a.id} className="floor-area" aria-label={a.name}>
+              {floor.areas.length > 1 && <h2>{a.name}</h2>}
+              <ul className="floor-grid">
+                {a.tables.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      className={`table-tile ${t.status}`}
+                      onClick={() => openTable(t)}
+                      aria-label={
+                        t.status === 'free'
+                          ? `Table ${t.name}, free`
+                          : `Table ${t.name}, ${t.status === 'billed' ? 'bill printed' : 'eating'}, ${formatRupees(t.totalPaise)}, ${t.minutes} minutes`
+                      }
+                    >
+                      <strong className="table-name">{t.name}</strong>
+                      {t.status === 'free' ? (
+                        <span className="table-sub">{t.seats} seats</span>
+                      ) : (
+                        <>
+                          <span className="table-amount num">{formatRupees(t.totalPaise)}</span>
+                          <span className="table-sub">
+                            {t.minutes} min{t.covers ? ` · ${t.covers} guests` : ''}
+                          </span>
+                        </>
+                      )}
+                      {t.orders.length > 1 && (
+                        <span className="tile-count" title="Two orders on this table">
+                          {t.orders.length}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+
+          <section className="floor-area" aria-label="Takeaway and delivery">
+            <h2>Takeaway and delivery</h2>
+            {floor.other.length === 0 ? (
+              <p className="muted">None running.</p>
+            ) : (
+              <ul className="order-list">
+                {floor.other.map((o) => {
+                  let total = 0;
+                  try {
+                    total = priceOrder(o.state, catalogue).totals?.total ?? 0;
+                  } catch {
+                    /* shown on the order screen */
                   }
-                >
-                  <strong className="table-name">{t.name}</strong>
-                  {t.status === 'free' ? (
-                    <span className="table-sub">{t.seats} seats</span>
-                  ) : (
-                    <>
-                      <span className="table-amount num">{formatRupees(t.totalPaise)}</span>
-                      <span className="table-sub">
-                        {t.minutes} min{t.covers ? ` · ${t.covers} guests` : ''}
-                      </span>
-                    </>
-                  )}
-                  {t.orders.length > 1 && <span className="tile-count" title="Two orders on this table">{t.orders.length}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-
-      <section className="floor-area" aria-label="Takeaway and delivery">
-        <h2>Takeaway and delivery</h2>
-        {floor.other.length === 0 ? (
-          <p className="muted">None running.</p>
-        ) : (
-          <ul className="order-list">
-            {floor.other.map((o) => {
-              let total = 0;
-              try {
-                total = priceOrder(o.state, catalogue).totals?.total ?? 0;
-              } catch {
-                /* shown on the order screen */
-              }
-              return (
-                <li key={o.id}>
-                  <button className={o.state.status} onClick={() => setTarget({ orderId: o.id, start: { orderType: o.state.order_type } })}>
-                    <strong>{orderLabel(catalogue, o.state)}</strong>
-                    <span className="muted">
-                      {minutesOpen(o.state, now)} min{o.state.status === 'billed' ? ' · bill printed' : ''}
-                    </span>
-                    <span className="num">{formatRupees(total)}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                  return (
+                    <li key={o.id}>
+                      <button
+                        className={o.state.status}
+                        onClick={() => setTarget({ orderId: o.id, start: { orderType: o.state.order_type } })}
+                      >
+                        <strong>{orderLabel(catalogue, o.state)}</strong>
+                        <span className="muted">
+                          {minutesOpen(o.state, now)} min{o.state.status === 'billed' ? ' · bill printed' : ''}
+                        </span>
+                        <span className="num">{formatRupees(total)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
 
       {newKind && (
         <NewOrderSheet
@@ -315,10 +340,10 @@ function OrderScreen({
   );
   const draftTotal = useMemo(() => {
     try {
-      return draft.length ? priceOrder(
-        { ...(state ?? emptyFor(start)), lines: kotLinesFromCart(draft, catalogue).map(asLine) },
-        catalogue,
-      ).totals?.total ?? 0 : 0;
+      return draft.length
+        ? (priceOrder({ ...(state ?? emptyFor(start)), lines: kotLinesFromCart(draft, catalogue).map(asLine) }, catalogue).totals?.total ??
+            0)
+        : 0;
     } catch {
       return 0;
     }
@@ -360,7 +385,9 @@ function OrderScreen({
   const toggleModifier = (key: string, id: string) =>
     setDraft((d) =>
       d.map((l) =>
-        l.key !== key ? l : { ...l, modifierIds: l.modifierIds.includes(id) ? l.modifierIds.filter((m) => m !== id) : [...l.modifierIds, id] },
+        l.key !== key
+          ? l
+          : { ...l, modifierIds: l.modifierIds.includes(id) ? l.modifierIds.filter((m) => m !== id) : [...l.modifierIds, id] },
       ),
     );
   const setNote = (key: string, note: string) => setDraft((d) => d.map((l) => (l.key === key ? { ...l, note } : l)));
@@ -415,7 +442,15 @@ function OrderScreen({
         autoPrint: printer.autoPrint,
         then: `Bill printed for ${label}`,
         rows: billSummaryRows(
-          { label, covers, at: new Date().toISOString(), copy: state.bill_prints + 1, gstType: catalogue.shop.gst_type, lines: priced.lines, totals: priced.totals },
+          {
+            label,
+            covers,
+            at: new Date().toISOString(),
+            copy: state.bill_prints + 1,
+            gstType: catalogue.shop.gst_type,
+            lines: priced.lines,
+            totals: priced.totals,
+          },
           catalogue.shop,
           printer.width,
         ),
@@ -495,7 +530,11 @@ function OrderScreen({
       <aside className={`till ${tillOpen ? 'open' : ''}`} aria-label="Order">
         <button className="till-handle" onClick={() => setTillOpen((o) => !o)} aria-expanded={tillOpen}>
           <span>
-            {draftCount ? `${draftCount} new, not sent` : sentCount ? `${label}: ${sentCount} item${sentCount > 1 ? 's' : ''}` : 'Nothing ordered'}
+            {draftCount
+              ? `${draftCount} new, not sent`
+              : sentCount
+                ? `${label}: ${sentCount} item${sentCount > 1 ? 's' : ''}`
+                : 'Nothing ordered'}
           </span>
           <strong className="num">{formatRupees(total + draftTotal)}</strong>
         </button>
@@ -531,13 +570,22 @@ function OrderScreen({
                             const m = modifiers.get(mid);
                             if (!m || !m.is_active) return null;
                             return (
-                              <button key={mid} className="chip" aria-pressed={l.modifierIds.includes(mid)} onClick={() => toggleModifier(l.key, mid)}>
+                              <button
+                                key={mid}
+                                className="chip"
+                                aria-pressed={l.modifierIds.includes(mid)}
+                                onClick={() => toggleModifier(l.key, mid)}
+                              >
                                 {m.name}
                                 {m.price_delta_paise ? ` ${formatPriceDelta(m.price_delta_paise)}` : ''}
                               </button>
                             );
                           })}
-                          <button className="chip" aria-pressed={Boolean(l.note) || noteFor === l.key} onClick={() => setNoteFor(noteFor === l.key ? null : l.key)}>
+                          <button
+                            className="chip"
+                            aria-pressed={Boolean(l.note) || noteFor === l.key}
+                            onClick={() => setNoteFor(noteFor === l.key ? null : l.key)}
+                          >
                             Note
                           </button>
                         </div>
@@ -581,10 +629,15 @@ function OrderScreen({
                           <span>
                             KOT {l.kot_no}
                             {l.cancelled_qty ? ` · ${l.cancelled_qty} cancelled` : ''}
+                            {l.ready && l.qty > 0 ? ' · Ready' : ''}
                             {l.note ? ` · ${l.note}` : ''}
                           </span>
                           {l.qty > 0 && (
-                            <button className="quiet" onClick={() => setOverlay({ kind: 'cancel-line', line: l })} aria-label={`Cancel ${l.name}`}>
+                            <button
+                              className="quiet"
+                              onClick={() => setOverlay({ kind: 'cancel-line', line: l })}
+                              aria-label={`Cancel ${l.name}`}
+                            >
                               Cancel
                             </button>
                           )}
@@ -679,7 +732,15 @@ function OrderScreen({
                 title: `Cancel ${overlay.line.kot_no}`,
                 autoPrint: true,
                 rows: kotRows(
-                  { kind: 'CANCEL', kotNo: overlay.line.kot_no, label, at: new Date().toISOString(), byName, lines: [{ name: overlay.line.name, qty, modifiers: overlay.line.modifiers }], reason },
+                  {
+                    kind: 'CANCEL',
+                    kotNo: overlay.line.kot_no,
+                    label,
+                    at: new Date().toISOString(),
+                    byName,
+                    lines: [{ name: overlay.line.name, qty, modifiers: overlay.line.modifiers }],
+                    reason,
+                  },
                   printer.width,
                 ),
               });
@@ -704,7 +765,15 @@ function OrderScreen({
                 autoPrint: true,
                 then: `${label}: order cancelled`,
                 rows: kotRows(
-                  { kind: 'CANCEL', kotNo: 'ALL', label, at: new Date().toISOString(), byName, lines: left.map((l) => ({ name: l.name, qty: l.qty, modifiers: l.modifiers })), reason },
+                  {
+                    kind: 'CANCEL',
+                    kotNo: 'ALL',
+                    label,
+                    at: new Date().toISOString(),
+                    byName,
+                    lines: left.map((l) => ({ name: l.name, qty: l.qty, modifiers: l.modifiers })),
+                    reason,
+                  },
                   printer.width,
                 ),
               });
@@ -973,7 +1042,17 @@ interface Details {
   note: string;
 }
 
-function DetailsSheet({ dineIn, initial, onClose, onSave }: { dineIn: boolean; initial: Details; onClose(): void; onSave(d: Details): void }) {
+function DetailsSheet({
+  dineIn,
+  initial,
+  onClose,
+  onSave,
+}: {
+  dineIn: boolean;
+  initial: Details;
+  onClose(): void;
+  onSave(d: Details): void;
+}) {
   const [d, setD] = useState(initial);
   const phoneOk = d.customerPhone === '' || /^\d{10}$/.test(d.customerPhone);
   return (
@@ -1009,7 +1088,11 @@ function DetailsSheet({ dineIn, initial, onClose, onSave }: { dineIn: boolean; i
         <input value={d.note} maxLength={200} onChange={(e) => setD({ ...d, note: e.target.value })} />
       </label>
       <div className="sheet-actions">
-        <button className="primary" disabled={!phoneOk} onClick={() => onSave({ ...d, customerName: d.customerName.trim(), note: d.note.trim() })}>
+        <button
+          className="primary"
+          disabled={!phoneOk}
+          onClick={() => onSave({ ...d, customerName: d.customerName.trim(), note: d.note.trim() })}
+        >
           Save
         </button>
         <button onClick={onClose}>Cancel</button>

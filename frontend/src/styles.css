@@ -884,6 +884,103 @@ button.kot {
   line-height: 1.2;
 }
 
+/* ---------- kitchen screen ---------- */
+.view-switch {
+  display: inline-flex;
+  gap: var(--s2);
+  margin-top: var(--s3);
+}
+.kitchen-grid {
+  list-style: none;
+  margin: var(--s4) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--s3);
+  align-items: start;
+}
+.kitchen-ticket {
+  background: var(--paper);
+  border: 1.5px solid var(--steel-deep);
+  border-top: 6px solid var(--leaf);
+  border-radius: var(--radius-panel);
+  padding: var(--s3) var(--s4) var(--s4);
+  display: grid;
+  gap: var(--s2);
+}
+.kitchen-ticket.late {
+  border-top-color: var(--chilli);
+}
+.kitchen-ticket.late header .num {
+  color: var(--chilli);
+  font-weight: 700;
+}
+.kitchen-ticket header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s2);
+}
+.kitchen-label {
+  font-size: 1.4rem;
+}
+.kitchen-kot {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.kitchen-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s1);
+}
+.kitchen-lines button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: var(--s2);
+  align-items: start;
+  text-align: left;
+  font-size: 1.1rem;
+}
+.kitchen-qty {
+  font-weight: 700;
+  font-size: 1.3rem;
+}
+.kitchen-mods,
+.kitchen-note {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.kitchen-note {
+  color: var(--chilli);
+  font-weight: 700;
+}
+.kitchen-empty {
+  margin-top: var(--s4);
+}
+
+/* ---------- owner: table service report ---------- */
+.service-report h3 {
+  font-size: 1rem;
+  margin: var(--s4) 0 var(--s2);
+}
+.service-report .alert-head {
+  color: var(--chilli);
+}
+.service-report li.after-bill {
+  border-left: 4px solid var(--chilli);
+  padding-left: var(--s2);
+}
+.warn-line {
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius-control);
+  background: var(--turmeric-soft);
+  font-weight: 700;
+}
+
 @media print {
   @page {
     size: 58mm auto;

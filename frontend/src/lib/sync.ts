@@ -142,6 +142,9 @@ export class SyncWorker {
   async kick(): Promise<void> {
     if (this.running) {
       this.again = true;
+      // A bill saved mid-sync: show it as waiting now, not when this run ends
+      // (until then the badge would still say "All bills sent").
+      await this.refreshCounts();
       return;
     }
     this.running = true;
@@ -167,6 +170,7 @@ export class SyncWorker {
   }
 
   private async runOnce() {
+    await this.refreshCounts(); // what is waiting right now, shown while it is sent
     this.set({ syncing: true });
     try {
       // Drawer operations first: a bill names its shift, which must already be there.

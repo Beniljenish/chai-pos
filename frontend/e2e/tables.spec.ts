@@ -110,6 +110,19 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
   await sheet(page).getByRole('button', { name: 'Done' }).click();
   await expect(f1).toContainText('₹100');
 
+  // ---- The kitchen screen: two tickets for F1; the juice is made first ----
+  const view = page.getByRole('group', { name: 'View' });
+  await view.getByRole('button', { name: /^Kitchen/ }).click();
+  await expect(view.getByRole('button', { name: /^Kitchen/ })).toHaveText('Kitchen (2)');
+  const tickets = page.locator('.kitchen-ticket');
+  await expect(tickets).toHaveCount(2);
+  await expect(tickets.first()).toContainText('F1');
+  await expect(tickets.first()).toContainText('less sugar');
+  await shot(page, '96-kitchen');
+  await tickets.nth(1).getByRole('button', { name: 'All ready' }).click();
+  await expect(tickets).toHaveCount(1);
+  await view.getByRole('button', { name: 'Floor' }).click();
+
   // ---- One tea is cancelled: a reason is required; the kitchen gets a cancel ticket ----
   await f1.click();
   await page.locator('.till-handle').click();
@@ -124,6 +137,7 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
   await sheet(page).getByRole('button', { name: 'Done' }).click();
   // The cancel ticket keeps the order open on screen.
   await expect(page.locator('.till')).toContainText('1 cancelled');
+  await expect(page.locator('.till li', { hasText: 'Orange juice' })).toContainText('Ready'); // marked in the kitchen
   await expect(page.locator('.till .total')).toContainText('₹80');
 
   // ---- The bill at the table: total, no invoice number ----
@@ -186,5 +200,16 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
   await expect(sheet(page)).toContainText('CANCEL ALL');
   await sheet(page).getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('.floor-notice')).toContainText('Takeaway: Priya: order cancelled');
+  await expect(page.locator('.sync-badge')).toHaveAccessibleName(/All bills sent/, { timeout: 20_000 });
+
+  // ---- The owner's report under Sales: the cancelled tea and the cancelled takeaway ----
+  await tab(page, 'Manage').click();
+  await sub(page, 'Sales').click();
+  const service = page.getByRole('region', { name: 'Table service' });
+  await expect(service).toContainText('1 table order');
+  await expect(service).toContainText('1 × Masala tea');
+  await expect(service).toContainText('Customer changed mind');
+  await expect(service.locator('li', { hasText: 'Takeaway: Priya' })).toContainText('Taking too long');
+  await shot(page, '97-service-report');
   await expect(page.locator('.order-list li', { hasText: 'Priya' })).toHaveCount(0);
 });

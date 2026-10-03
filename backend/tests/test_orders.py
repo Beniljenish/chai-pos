@@ -233,3 +233,65 @@ def test_order_history_is_for_the_owner_and_cannot_be_rewritten(client, shop_a, 
     with mark_system(SessionLocal()) as s, pytest.raises(Exception, match="append-only"):
         s.execute(text("UPDATE order_events SET data = '{}'::jsonb"))
         s.commit()
+
+
+def test_owner_sees_cancellations_and_bills_changed_after_printing(client, shop_a, setup):
+    cat, device, t1, t2 = setup
+    h = shop_a.cashier_h
+    oid, gone = str(uuid.uuid4()), str(uuid.uuid4())
+    l1 = _line(cat, 3)
+    _sync(
+        client,
+        h,
+        device.device_id,
+        [
+            _ev(oid, "open", {"order_type": "dine_in", "table_id": t1["id"]}, -30),
+            _ev(oid, "kot", {"kot_no": "C1-1", "lines": [l1]}, -29),
+            _ev(oid, "cancel", {"line_id": l1["line_id"], "qty": 1, "reason": "wrong item"}, -28),
+            _ev(oid, "bill_printed", {}, -20),
+            # The leak pattern: the bill is shown, then an item disappears.
+            _ev(oid, "cancel", {"line_id": l1["line_id"], "qty": 1, "reason": "not served"}, -19),
+            _ev(gone, "open", {"order_type": "takeaway", "customer_name": "Priya"}, -15),
+            _ev(gone, "kot", {"kot_no": "C1-2", "lines": [_line(cat, 2)]}, -14),
+            _ev(gone, "cancel_order", {"reason": "left without paying"}, -10),
+        ],
+    )
+    assert client.get(f"{API}/reports/service", headers=h).status_code == 403
+    r = client.get(f"{API}/reports/service", headers=shop_a.owner_h).json()
+
+    assert r["orders"] == {"dine_in": 1, "takeaway": 1, "delivery": 0}
+    assert [(c["label"], c["qty"], c["reason"], c["after_bill"]) for c in r["cancellations"]] == [
+        ("T1", 1, "wrong item", False),
+        ("T1", 1, "not served", True),
+    ]
+    assert r["cancellations"][0]["by_name"] == "Shop A cashier"
+    assert r["cancelled_value_paise"] == 4000
+    (changed,) = r["changed_after_bill"]
+    assert changed["label"] == "T1" and changed["bill_prints"] == 1
+    assert changed["removed"] == [{"name": "Masala tea", "qty": 1, "reason": "not served"}]
+    (cancelled,) = r["cancelled_orders"]
+    assert cancelled == {
+        "order_id": gone,
+        "label": "Takeaway: Priya",
+        "reason": "left without paying",
+        "value_paise": 4000,
+        "by_name": "Shop A cashier",
+    }
+    # T1 was never settled: it is still open at the end of the day.
+    assert [(o["label"], o["status"]) for o in r["still_open"]] == [("T1", "open")]
+
+    # The same signals reach the owner's daily email.
+    from app.core.time import business_date, utcnow
+    from app.db.session import SessionLocal
+    from app.db.tenancy import bind_tenant
+    from app.services.reports import daily_figures
+
+    with SessionLocal() as s:
+        bind_tenant(s, shop_a.shop.id)
+        lines = daily_figures(s, business_date(utcnow()))["service"]
+    assert lines == [
+        "1 bill(s) changed after printing: T1",
+        "2 item(s) cancelled after sending to the kitchen, worth ₹40",
+        "1 order(s) cancelled",
+        "1 order(s) not settled: T1",
+    ]

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { billSummaryRows, kotRows } from './escpos';
 import { reduce, type LiveOrder, type OrderEvent } from './orders';
-import { floorModel, hasTables, kotLinesFromCart, orderLabel, priceOrder } from './table';
+import { floorModel, hasTables, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder } from './table';
 import { testCatalogue } from './test-fixtures';
 import type { Catalogue } from './types';
 
@@ -191,5 +191,34 @@ describe('printing for table service', () => {
     expect(text).toContain('CGST @2.5%               Rs.0.95');
     expect(rows.find((r) => r.big && r.text.startsWith('TOTAL'))?.text).toBe('TOTAL      Rs.40');
     expect(text.some((t) => /^No\./.test(t))).toBe(false);
+  });
+});
+
+describe('the kitchen screen', () => {
+  const now = Date.parse('2026-10-04T07:00:00Z');
+  const two = (a: string, b: string) => [
+    ...kotLinesFromCart([{ menuItemId: 'tea', qty: 2, modifierIds: ['large'], note: 'hot' }], catalogue, () => a),
+    ...kotLinesFromCart([{ menuItemId: 'tea', qty: 1, modifierIds: [] }], catalogue, () => b),
+  ];
+
+  it('lists what is left to make, oldest KOT first; ready and cancelled lines drop off', () => {
+    const t1 = order('k1', [
+      ev('open', { order_type: 'dine_in', table_id: 't1' }, '2026-10-04T06:30:00Z'),
+      ev('kot', { kot_no: 'C1-1', lines: two('a', 'b') }, '2026-10-04T06:31:00Z'),
+      ev('ready', { line_ids: ['a'] }, '2026-10-04T06:40:00Z'),
+      ev('kot', { kot_no: 'C1-3', lines: two('c', 'd') }, '2026-10-04T06:55:00Z'),
+      ev('cancel', { line_id: 'd', qty: 1, reason: 'no' }, '2026-10-04T06:56:00Z'),
+    ]);
+    const take = order('k2', [
+      ev('open', { order_type: 'takeaway', customer_name: 'Priya' }, '2026-10-04T06:40:00Z'),
+      ev('kot', { kot_no: 'C2-1', lines: two('e', 'f') }, '2026-10-04T06:41:00Z'),
+      ev('ready', { line_ids: ['e', 'f'] }, '2026-10-04T06:50:00Z'),
+    ]);
+    const tickets = kitchenTickets(catalogue, [take, t1], now);
+    expect(tickets.map((t) => [t.label, t.kotNo, t.minutes, t.lines.map((l) => l.line_id)])).toEqual([
+      ['T1', 'C1-1', 29, ['b']],
+      ['T1', 'C1-3', 5, ['c']],
+    ]);
+    expect(tickets[1].lines[0]).toMatchObject({ qty: 2, modifiers: ['Large'], note: 'hot' });
   });
 });

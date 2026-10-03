@@ -15,7 +15,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.core.time import business_date, utcnow
 from app.models import (
+    Bill,
     Device,
     DiningTable,
     Order,
@@ -30,6 +31,7 @@ from app.models import (
     OrderEventKind,
     OrderStatus,
     OrderType,
+    User,
 )
 
 MAX_CLOCK_AHEAD = timedelta(minutes=10)  # same rule as bills
@@ -285,3 +287,111 @@ def live(db: Session, since: datetime | None) -> list[Order]:
             o for o in db.scalars(select(Order).where(Order.updated_at > since)) if o.id not in seen
         ]
     return rows
+
+
+# ---------------------------------------------------------------- owner report
+def _line_value(line: dict, qty: int) -> int:
+    """What `qty` of a line is worth at the price it was ordered."""
+    each = int(line.get("unit_price_paise", 0)) + sum(
+        int(m.get("price_delta_paise", 0)) for m in line.get("modifiers") or []
+    )
+    return each * qty
+
+
+def service_report(db: Session, d: date) -> dict:
+    """Owner: what happened at the tables on one business day. The leak signals are
+    items cancelled after they were sent, bills changed after they were printed, and
+    whole orders cancelled; each with who and why."""
+    rows = db.scalars(select(Order).where(Order.business_date == d).order_by(Order.opened_at)).all()
+    names = {str(k): v for k, v in db.execute(select(User.id, User.name)).all()}
+    tables = {str(k): v for k, v in db.execute(select(DiningTable.id, DiningTable.name)).all()}
+    bill_ids = [uuid.UUID(o.state["bill_id"]) for o in rows if o.state.get("bill_id")]
+    invoices = (
+        {
+            str(k): v
+            for k, v in db.execute(
+                select(Bill.id, Bill.invoice_no).where(Bill.id.in_(bill_ids))
+            ).all()
+        }
+        if bill_ids
+        else {}
+    )
+
+    cancelled_by = {
+        e.order_id: str(e.by)
+        for e in db.scalars(
+            select(OrderEvent).where(
+                OrderEvent.kind == OrderEventKind.cancel_order,
+                OrderEvent.order_id.in_([o.id for o in rows if o.status == OrderStatus.cancelled]),
+            )
+        )
+    }
+
+    def label(o: Order) -> str:
+        s = o.state
+        if o.order_type == OrderType.dine_in:
+            return tables.get(str(s.get("table_id")), "No table")
+        kind = "Takeaway" if o.order_type == OrderType.takeaway else "Delivery"
+        return f"{kind}: {s['customer_name']}" if s.get("customer_name") else kind
+
+    cancellations, changed, cancelled_orders, still_open = [], [], [], []
+    counts = {"dine_in": 0, "takeaway": 0, "delivery": 0}
+    for o in rows:
+        s = o.state
+        counts[o.order_type.value] += 1
+        lines = {ln["line_id"]: ln for ln in s.get("lines", [])}
+        for c in s.get("cancellations", []):
+            ln = lines.get(c["line_id"], {})
+            cancellations.append(
+                {
+                    "order_id": o.id,
+                    "label": label(o),
+                    "name": c["name"],
+                    "qty": c["qty"],
+                    "value_paise": _line_value(ln, c["qty"]),
+                    "reason": c["reason"],
+                    "by_name": names.get(c["by"], ""),
+                    "at": c["at"],
+                    "after_bill": c["after_bill"],
+                }
+            )
+        if s.get("changed_after_bill"):
+            changed.append(
+                {
+                    "order_id": o.id,
+                    "label": label(o),
+                    "bill_prints": s.get("bill_prints", 0),
+                    "invoice_no": invoices.get(str(s.get("bill_id"))),
+                    "removed": [
+                        {"name": c["name"], "qty": c["qty"], "reason": c["reason"]}
+                        for c in s.get("cancellations", [])
+                        if c["after_bill"]
+                    ],
+                    "added": sum(
+                        ln["qty"] for ln in s.get("lines", []) if ln.get("added_after_bill")
+                    ),
+                }
+            )
+        if o.status == OrderStatus.cancelled:
+            # What was on the order when it was cancelled (lines not cancelled one by one).
+            value = sum(_line_value(ln, ln["qty"]) for ln in s.get("lines", []))
+            cancelled_orders.append(
+                {
+                    "order_id": o.id,
+                    "label": label(o),
+                    "reason": s.get("cancel_reason") or "",
+                    "value_paise": value,
+                    "by_name": names.get(cancelled_by.get(o.id, ""), ""),
+                }
+            )
+        elif o.status in (OrderStatus.open, OrderStatus.billed):
+            still_open.append({"order_id": o.id, "label": label(o), "status": o.status.value})
+    return {
+        "business_date": d,
+        "orders": counts,
+        "cancellations": cancellations,
+        "cancelled_value_paise": sum(c["value_paise"] for c in cancellations),
+        "changed_after_bill": changed,
+        "cancelled_orders": cancelled_orders,
+        "still_open": still_open,
+    }

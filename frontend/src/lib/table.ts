@@ -133,3 +133,44 @@ export const hasTables = (catalogue: Catalogue | null) =>
 
 /** Reasons offered as one tap when a sent item is cancelled (the person can type their own). */
 export const CANCEL_REASONS = ['Customer changed mind', 'Wrong item entered', 'Item not available', 'Taking too long'];
+
+// ---------------------------------------------------------------- the kitchen
+export interface KitchenTicket {
+  orderId: string;
+  kotNo: string;
+  label: string;
+  at: string;
+  minutes: number;
+  orderType: OrderState['order_type'];
+  lines: { line_id: string; name: string; qty: number; modifiers: string[]; note: string }[];
+}
+
+/** Minutes after which a ticket is shown as late. */
+export const KITCHEN_LATE_MIN = 15;
+
+/**
+ * What the kitchen still has to make: each KOT with its lines that are neither
+ * cancelled nor marked ready, oldest first. A KOT with nothing left drops off.
+ */
+export function kitchenTickets(catalogue: Catalogue, orders: LiveOrder[], now = Date.now()): KitchenTicket[] {
+  const out: KitchenTicket[] = [];
+  for (const o of orders) {
+    const lines = new Map(o.state.lines.map((l) => [l.line_id, l]));
+    for (const k of o.state.kots) {
+      const left = k.line_ids
+        .map((id) => lines.get(id))
+        .filter((l): l is NonNullable<typeof l> => Boolean(l && l.qty > 0 && !l.ready));
+      if (!left.length) continue;
+      out.push({
+        orderId: o.id,
+        kotNo: k.kot_no,
+        label: orderLabel(catalogue, o.state),
+        at: k.at,
+        minutes: Math.max(0, Math.floor((now - Date.parse(k.at)) / 60000)),
+        orderType: o.state.order_type,
+        lines: left.map((l) => ({ line_id: l.line_id, name: l.name, qty: l.qty, modifiers: l.modifiers.map((m) => m.name), note: l.note })),
+      });
+    }
+  }
+  return out.sort((a, b) => a.at.localeCompare(b.at));
+}

@@ -85,4 +85,23 @@ describe('SyncWorker.kick', () => {
     expect(await db.pendingCount()).toBe(0);
     worker.stop();
   });
+
+  it('the badge counts a new sale at once, not when the sync running now ends', async () => {
+    const db = new PosDB(`s-${Math.random()}`);
+    await sale(db);
+    const { api } = fakeApi({ delayMs: 50 });
+    const worker = new SyncWorker(api, db, 'dev');
+    const seen: number[] = [];
+    worker.subscribe((s) => seen.push(s.pending));
+
+    const running = worker.kick();
+    await new Promise((r) => setTimeout(r, 10));
+    await sale(db); // saved while the first bill is still being sent
+    await worker.kick();
+    // Before the in-flight run finishes, the badge must not say "All bills sent".
+    expect(seen.at(-1)).toBeGreaterThan(0);
+    await running;
+    expect(seen.at(-1)).toBe(0);
+    worker.stop();
+  });
 });

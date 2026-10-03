@@ -1,14 +1,14 @@
 """Restaurant service: dining areas and tables (owner), running orders (everyone)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 
 from app.api.common import commit_or_409, get_or_404
 from app.api.deps import Caller, get_caller, require_owner
-from app.core.time import utcnow
+from app.core.time import business_date, utcnow
 from app.models import Device, DiningArea, DiningTable, Order, OrderEvent, User
 from app.schemas_orders import (
     AreaIn,
@@ -174,6 +174,15 @@ def live_orders(
         "server_time": now,
         "orders": [{**_order_out(o), "events": events.get(o.id)} for o in rows],
     }
+
+
+@router.get("/reports/service", tags=["reports"])
+def service(
+    day: date | None = Query(default=None, alias="business_date"),
+    caller: Caller = Depends(require_owner),
+) -> dict:
+    """Owner: cancelled items, bills changed after printing, cancelled and unfinished orders."""
+    return orders.service_report(caller.db, day or business_date())
 
 
 @router.get("/orders/{order_id}")
