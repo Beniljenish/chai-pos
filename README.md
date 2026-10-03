@@ -19,7 +19,7 @@ cd backend
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env               # then edit JWT_SECRET
-alembic upgrade head
+alembic upgrade heads
 uvicorn app.main:app --reload
 pytest                             # uses the chai_pos_test database
 ```
@@ -134,9 +134,20 @@ roles' grants. The backend connects as the table owner, so it is unaffected.
 Supabase's linter will list "RLS enabled, no policy" as INFO: that is intended.
 
 **Applying migrations to Supabase.** From any machine that can reach the DB:
-`DATABASE_URL=<supabase session pooler URL> alembic upgrade head`.
-Without direct access: `alembic upgrade <current>:head --sql`, unescape `%%` -> `%`,
+`DATABASE_URL=<supabase session pooler URL> alembic upgrade heads`.
+Without direct access: `alembic upgrade <current>:heads --sql`, unescape `%%` -> `%`,
 review, and apply the SQL (it updates `alembic_version` too).
+
+**Parallel migrations (`heads`, not `head`).** Several feature PRs can each add a
+migration while waiting for their SQL to be applied (Razorpay and messages did). Each
+starts from the newest revision on `main`, so the history can have more than one
+head, and everything runs `alembic upgrade heads`. `alembic_version` then holds one
+row per head. Render from what the database actually has: the first branch applied
+updates the row (`UPDATE ... WHERE version_num = '<parent>'`), and a second branch
+from the same parent inserts its own (`INSERT INTO alembic_version ...`). Rendering
+`<current>:heads` picks the right one. Two branches must not change the same table;
+when they would, chain the later one instead. `alembic merge heads` can tie them
+together later; it is not needed to run.
 
 **Connection string (Phase 4).** Use the **session pooler** (port 5432) from the
 Supabase dashboard's Connect button, with the `postgresql+psycopg://` prefix. The
