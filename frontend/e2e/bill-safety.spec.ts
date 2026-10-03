@@ -5,6 +5,7 @@
  * the owner's Tablets screen must name the missing invoice.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -24,7 +25,7 @@ async function sellTea(page: Page): Promise<string> {
   await tab(page, 'New bill').click();
   await page.locator('.tile', { hasText: 'Masala tea' }).click();
   await page.locator('.till-handle').click();
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page); // the first bill also starts the drawer shift
   const receipt = page.getByRole('dialog');
   await expect(receipt).toBeVisible();
   const label = (await receipt.getAttribute('aria-label')) ?? '';

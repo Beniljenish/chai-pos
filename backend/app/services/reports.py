@@ -231,6 +231,8 @@ def _shift_lines(db: Session, d: date) -> list[str]:
                 f"{who}: {rupees(abs(diff))} {word} (counted {rupees(s['counted_cash_paise'])})"
             )
     return out
+
+
 def _tablet_warnings(db: Session) -> list[str]:
     from app.services.health import warnings  # local: health imports billing
 

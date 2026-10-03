@@ -12,7 +12,7 @@ Hand-worked drawer (one shift on one tablet):
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -23,6 +23,18 @@ API = "/api/v1"
 
 def _now(minutes=0):
     return (datetime.now(UTC) + timedelta(minutes=minutes)).isoformat()
+
+
+def _day():
+    """The business day (IST) the test shifts open on: they open an hour ago, so
+    between 00:00 and 01:00 IST that is yesterday, not today."""
+    from app.core.time import business_date
+
+    return business_date(datetime.now(UTC) - timedelta(minutes=60)).isoformat()
+
+
+def _report(client, h):
+    return client.get(f"{API}/shifts?business_date={_day()}", headers=h).json()
 
 
 def _sync(client, h, device_id, ops):
@@ -106,7 +118,7 @@ def test_hand_worked_drawer(client, shop_a, device):
         == [("accepted", None)] * 3
     )
 
-    rep = client.get(f"{API}/shifts", headers=shop_a.owner_h).json()
+    rep = _report(client, shop_a.owner_h)
     (s,) = rep["shifts"]
     assert s["opening_float_paise"] == 50000
     assert (s["cash_paise"], s["upi_paise"], s["voided_cash_paise"]) == (2000, 6000, 4000)
@@ -138,7 +150,7 @@ def test_retries_are_harmless_and_changed_content_is_refused(client, shop_a, dev
     assert _sync(client, h, device.device_id, [_close(sid, 99999)]) == [
         ("rejected", "already_closed")
     ]
-    rep = client.get(f"{API}/shifts", headers=shop_a.owner_h).json()
+    rep = _report(client, shop_a.owner_h)
     assert rep["shifts"][0]["counted_cash_paise"] == 50000
 
 
@@ -172,14 +184,14 @@ def test_a_shift_belongs_to_its_tablet(client, shop_a, device):
     b = _bill(second, [("Masala tea", 1, [])], sid)
     second.sync([b]).raise_for_status()
     assert client.get(f"{API}/bills/{b['id']}", headers=shop_a.owner_h).json()["shift_id"] is None
-    rep = client.get(f"{API}/shifts", headers=shop_a.owner_h).json()
+    rep = client.get(f"{API}/shifts", headers=shop_a.owner_h).json()  # bills sold now: today
     assert rep["cash_outside_shifts"] == {"bills": 1, "total_paise": 2000}
 
 
 def test_a_bill_whose_shift_never_arrived_is_still_accepted(client, shop_a, device):
     b = _bill(device, [("Masala tea", 1, [])], uuid.uuid4())
     assert device.sync([b]).json()["results"][0]["status"] == "accepted"
-    rep = client.get(f"{API}/shifts", headers=shop_a.owner_h).json()
+    rep = client.get(f"{API}/shifts", headers=shop_a.owner_h).json()  # bills sold now: today
     assert rep["shifts"] == [] and rep["cash_outside_shifts"]["total_paise"] == 2000
     # Retrying it unchanged is a harmless duplicate.
     assert device.sync([b]).json()["results"][0]["status"] == "duplicate"
@@ -195,7 +207,7 @@ def test_shift_is_credited_to_who_opened_and_closed_it(client, shop_a, device):
     # Ravi opened it offline; the owner's login later sends it; the owner closes.
     _sync(client, shop_a.owner_h, device.device_id, [_open(sid, cashier_id=ravi["id"])])
     _sync(client, shop_a.owner_h, device.device_id, [_close(sid, 50000)])
-    (s,) = client.get(f"{API}/shifts", headers=shop_a.owner_h).json()["shifts"]
+    (s,) = _report(client, shop_a.owner_h)["shifts"]
     assert (s["opened_by_name"], s["closed_by_name"]) == ("Ravi", "Shop A owner")
 
 
@@ -218,7 +230,7 @@ def test_tablet_learns_its_open_shift_and_the_last_count(client, shop_a, device)
 def test_report_is_owner_only_and_per_shop(client, shop_a, shop_b, device):
     _sync(client, shop_a.cashier_h, device.device_id, [_open(uuid.uuid4())])
     assert client.get(f"{API}/shifts", headers=shop_a.cashier_h).status_code == 403
-    assert client.get(f"{API}/shifts", headers=shop_b.owner_h).json()["shifts"] == []
+    assert _report(client, shop_b.owner_h)["shifts"] == []
     # Shop B cannot sync into shop A's tablet.
     r = client.post(
         f"{API}/sync/shifts",
@@ -237,7 +249,6 @@ def test_shop_can_switch_shifts_off(client, shop_a):
 
 
 def test_daily_email_says_whether_each_drawer_matched(client, shop_a, device):
-    from app.core.time import business_date, utcnow
     from app.db.session import SessionLocal
     from app.db.tenancy import bind_tenant
     from app.services.reports import daily_figures
@@ -247,7 +258,7 @@ def test_daily_email_says_whether_each_drawer_matched(client, shop_a, device):
     _sync(client, shop_a.cashier_h, device.device_id, [_open(b, 49800)])
     with SessionLocal() as s:
         bind_tenant(s, shop_a.shop.id)
-        lines = daily_figures(s, business_date(utcnow()))["shifts"]
+        lines = daily_figures(s, date.fromisoformat(_day()))["shifts"]
     assert lines == [
         "Shop A cashier: ₹2 short (counted ₹498)",
         "Shop A cashier: shift not ended (cash not counted)",
