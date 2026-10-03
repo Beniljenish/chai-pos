@@ -2,12 +2,13 @@
  * Owner: the people who log in. Each has their own phone number and password,
  * so bills, voids and counts show who did them.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { firstPassword, formatPhone } from '../lib/staff';
 import type { StaffMember } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
 import { PasswordForm } from './PasswordForm';
+import { Sheet } from './Sheet';
 import { useSession } from './session';
 
 type Editing = { kind: 'new' } | { kind: 'person'; person: StaffMember } | { kind: 'me' };
@@ -106,37 +107,6 @@ export function StaffScreen() {
         </Sheet>
       )}
     </section>
-  );
-}
-
-function Sheet({ title, onClose, children }: { title: string; onClose(): void; children: React.ReactNode }) {
-  const dialog = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="staff-sheet-title"
-        tabIndex={-1}
-        ref={dialog}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="sheet-head">
-          <h2 id="staff-sheet-title">{title}</h2>
-          <button className="quiet" onClick={onClose}>
-            Close
-          </button>
-        </header>
-        {children}
-      </div>
-    </div>
   );
 }
 

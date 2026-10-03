@@ -2,7 +2,7 @@
  * The cash drawer on this tablet: start a shift, pay in / pay out, end it with a
  * blind count. Works offline; everything is sent later like bills.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { db } from '../lib/db';
 import { formatRupees } from '../lib/gst';
 import {
@@ -15,41 +15,11 @@ import {
   startShift,
   type LocalShift,
 } from '../lib/shift';
+import { Sheet } from './Sheet';
 import { useSession } from './session';
 
 const time = (iso: string) =>
   new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', timeStyle: 'short' }).format(new Date(iso));
-
-function Sheet({ title, onClose, children }: { title: string; onClose(): void; children: ReactNode }) {
-  const dialog = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        ref={dialog}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="sheet-head">
-          <h2>{title}</h2>
-          <button className="quiet" onClick={onClose}>
-            Close
-          </button>
-        </header>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 /** Asked at the first bill when no shift is open. */
 export function StartShiftSheet({ onStarted, onClose }: { onStarted(s: LocalShift): void; onClose(): void }) {

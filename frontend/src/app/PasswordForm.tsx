@@ -2,10 +2,11 @@
  * Changing your own password: forced after the owner set it (new staff or a
  * reset), or by choice from the account sheet. Needs internet.
  */
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { passwordProblem } from "../lib/staff";
 import { explainError } from "./errors";
+import { Sheet } from "./Sheet";
 import { useSession } from "./session";
 
 export function PasswordForm({
@@ -120,14 +121,6 @@ export function SetPasswordScreen() {
 export function AccountButton() {
   const { user } = useSession();
   const [open, setOpen] = useState(false);
-  const dialog = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
   if (!user) return null;
   return (
     <>
@@ -141,29 +134,16 @@ export function AccountButton() {
       {open &&
         // Out of the top bar's text styles: the sheet belongs to the page.
         createPortal(
-          <div className="overlay" onClick={() => setOpen(false)}>
-            <div
-              className="sheet"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="account-title"
-              tabIndex={-1}
-              ref={dialog}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <header className="sheet-head">
-                <h2 id="account-title">{user.name}: change my password</h2>
-                <button className="quiet" onClick={() => setOpen(false)}>
-                  Close
-                </button>
-              </header>
-              <PasswordForm forced={false} onDone={() => setOpen(false)} />
-              <p className="muted">
-                Needs internet. Saving logs you out on your other phones and
-                tablets.
-              </p>
-            </div>
-          </div>,
+          <Sheet
+            title={`${user.name}: change my password`}
+            onClose={() => setOpen(false)}
+          >
+            <PasswordForm forced={false} onDone={() => setOpen(false)} />
+            <p className="muted">
+              Needs internet. Saving logs you out on your other phones and
+              tablets.
+            </p>
+          </Sheet>,
           document.body,
         )}
     </>

@@ -1,8 +1,9 @@
 /** Menu items: price, category, GST rate and whether the price includes GST. */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { formatRate, formatRupees } from '../lib/gst';
 import type { MenuItem, Modifier } from '../lib/types';
 import { api } from './apiClient';
+import { Sheet } from './Sheet';
 import { explainError } from './errors';
 import { useSession } from './session';
 
@@ -114,17 +115,9 @@ export function MenuItemEditor({
       })
       .catch(() => setMods([]));
   }, [item]);
-  const dialog = useRef<HTMLDivElement>(null);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const pricePaise = Math.round(Number(d.price) * 100);
   const valid = d.name.trim() && d.category.trim() && Number.isFinite(pricePaise) && pricePaise >= 0 && d.price !== '';
-
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   async function save() {
     setBusy(true);
@@ -153,102 +146,86 @@ export function MenuItemEditor({
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="item-title"
-        tabIndex={-1}
-        ref={dialog}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="sheet-head">
-          <h2 id="item-title">{item ? item.name : 'New menu item'}</h2>
-          <button className="quiet" onClick={onClose}>
-            Close
-          </button>
-        </header>
-        <label>
-          Name
-          <input value={d.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
-        </label>
-        <label>
-          Category (menu tab)
-          <input value={d.category} maxLength={40} list="menu-categories" onChange={(e) => set({ category: e.target.value })} />
-          <datalist id="menu-categories">
-            {categories.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-        </label>
-        <label>
-          Price (₹)
-          <input inputMode="decimal" value={d.price} onChange={(e) => set({ price: e.target.value.replace(/[^0-9.]/g, '') })} />
-        </label>
-        <label>
-          GST rate
-          <select value={d.gst_rate_bp} onChange={(e) => set({ gst_rate_bp: Number(e.target.value) })}>
-            {RATES.map((r) => (
-              <option key={r.bp} value={r.bp}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </label>
+    <Sheet title={item ? item.name : 'New menu item'} onClose={onClose}>
+      <label>
+        Name
+        <input value={d.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
+      </label>
+      <label>
+        Category (menu tab)
+        <input value={d.category} maxLength={40} list="menu-categories" onChange={(e) => set({ category: e.target.value })} />
+        <datalist id="menu-categories">
+          {categories.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+      </label>
+      <label>
+        Price (₹)
+        <input inputMode="decimal" value={d.price} onChange={(e) => set({ price: e.target.value.replace(/[^0-9.]/g, '') })} />
+      </label>
+      <label>
+        GST rate
+        <select value={d.gst_rate_bp} onChange={(e) => set({ gst_rate_bp: Number(e.target.value) })}>
+          {RATES.map((r) => (
+            <option key={r.bp} value={r.bp}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={d.tax_inclusive} onChange={(e) => set({ tax_inclusive: e.target.checked })} />
+        Price includes GST (customer pays exactly the menu price)
+      </label>
+      {item && (
         <label className="check">
-          <input type="checkbox" checked={d.tax_inclusive} onChange={(e) => set({ tax_inclusive: e.target.checked })} />
-          Price includes GST (customer pays exactly the menu price)
+          <input type="checkbox" checked={d.is_active} onChange={(e) => set({ is_active: e.target.checked })} />
+          On the menu
         </label>
-        {item && (
-          <label className="check">
-            <input type="checkbox" checked={d.is_active} onChange={(e) => set({ is_active: e.target.checked })} />
-            On the menu
-          </label>
-        )}
-        {mods && mods.length > 0 && (
-          <fieldset>
-            <legend>Options on the bill</legend>
-            <div className="opt-drinks">
-              {mods.map((m) => (
-                <label key={m.id} className="check">
-                  <input
-                    type="checkbox"
-                    checked={offered.has(m.id)}
-                    onChange={(e) => {
-                      const next = new Set(offered);
-                      if (e.target.checked) next.add(m.id);
-                      else next.delete(m.id);
-                      setOffered(next);
-                      setOptionsTouched(true);
-                    }}
-                  />
-                  {m.name}
-                  {!m.is_active && <span className="muted"> (switched off)</span>}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        )}
-        <p className="muted">
-          GST only matters for a regular-GST shop. Changes reach each tablet when it next refreshes the menu; bills already
-          printed keep their prices.
-        </p>
-        {!item && !recipeNext && (
-          <p className="muted">After adding it, give it a recipe under Recipes, or its sales will not reduce stock.</p>
-        )}
-        <div className="sheet-actions">
-          <button className="primary" disabled={!valid || busy} onClick={() => void save()}>
-            {item ? 'Save' : recipeNext ? 'Next: the recipe' : 'Add to menu'}
-          </button>
-          <button onClick={onClose}>Cancel</button>
-        </div>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+      )}
+      {mods && mods.length > 0 && (
+        <fieldset>
+          <legend>Options on the bill</legend>
+          <div className="opt-drinks">
+            {mods.map((m) => (
+              <label key={m.id} className="check">
+                <input
+                  type="checkbox"
+                  checked={offered.has(m.id)}
+                  onChange={(e) => {
+                    const next = new Set(offered);
+                    if (e.target.checked) next.add(m.id);
+                    else next.delete(m.id);
+                    setOffered(next);
+                    setOptionsTouched(true);
+                  }}
+                />
+                {m.name}
+                {!m.is_active && <span className="muted"> (switched off)</span>}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <p className="muted">
+        GST only matters for a regular-GST shop. Changes reach each tablet when it next refreshes the menu; bills already
+        printed keep their prices.
+      </p>
+      {!item && !recipeNext && (
+        <p className="muted">After adding it, give it a recipe under Recipes, or its sales will not reduce stock.</p>
+      )}
+      <div className="sheet-actions">
+        <button className="primary" disabled={!valid || busy} onClick={() => void save()}>
+          {item ? 'Save' : recipeNext ? 'Next: the recipe' : 'Add to menu'}
+        </button>
+        <button onClick={onClose}>Cancel</button>
       </div>
-    </div>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </Sheet>
   );
 }
