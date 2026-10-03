@@ -5,6 +5,7 @@ rupee values (blind counts). The owner sees the variance report and approves.
 """
 
 from datetime import date, timedelta
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -111,15 +112,26 @@ def _wastage_out(caller: Caller, entries) -> list[WastageOut]:
 
 
 # ---------------------------------------------------------------- count
-@router.get("/day-counts/{business_date}/sheet", response_model=SheetOut)
+@router.get(
+    "/day-counts/{business_date}/sheet", response_model=SheetOut, response_model_exclude_none=True
+)
 def count_sheet(business_date: date, caller: Caller = Depends(get_caller)):
-    """What to count, in shelf order (by name for now). No quantities: blind."""
+    """What to count, in shelf order (by name for now). Blind for cashiers; the
+    owner also sees each item's expected balance, to reconcile against."""
     day = _day(business_date)
     dc = dayend.find_day(caller.db, day)
     lines = {ln.ingredient_id: ln for ln in dc.lines}
     ingredients = caller.db.scalars(
         select(Ingredient).where(Ingredient.is_active).order_by(func.lower(Ingredient.name))
     ).all()
+    expected = (
+        {
+            i: m.expected
+            for i, m in dayend.movements(caller.db, day, {x.id for x in ingredients}).items()
+        }
+        if caller.ctx.role == Role.owner and ingredients
+        else None
+    )
     return SheetOut(
         business_date=day,
         status=dc.status,
@@ -135,6 +147,7 @@ def count_sheet(business_date: date, caller: Caller = Depends(get_caller)):
                 recount=i.id in lines
                 and lines[i.id].recount_requested
                 and not lines[i.id].recounted,
+                expected=None if expected is None else expected.get(i.id, Decimal(0)),
             )
             for i in ingredients
         ],
@@ -157,6 +170,9 @@ def submit_counts(business_date: date, body: CountsIn, caller: Caller = Depends(
                 for ln in body.lines
             ],
             caller.user.id,
+            # The owner counts with the expected balance in view, so asking
+            # them to recount blind would be theatre; they review the report.
+            ask_recount=caller.ctx.role != Role.owner,
         )
     except dayend.DayLocked as e:
         caller.db.rollback()

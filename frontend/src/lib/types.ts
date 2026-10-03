@@ -166,6 +166,7 @@ export interface SheetItem {
   pack_units: { id: string; name: string; qty_in_base: string }[];
   counted: boolean;
   recount: boolean;
+  expected?: string; // owner only; never sent to cashiers
 }
 
 export interface CountSheet {

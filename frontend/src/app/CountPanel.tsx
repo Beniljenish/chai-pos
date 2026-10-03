@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { mustCount } from '../lib/dayend';
-import { formatQty, packsPayload, packsToBase } from '../lib/qty';
+import { formatDelta, formatQty, packsPayload, packsToBase } from '../lib/qty';
 import type { CountSheet, DayStatus, Ingredient, SheetItem } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
@@ -37,7 +37,8 @@ export function CountPanel({
   refreshKey?: number;
   onStatus?: (s: DayStatus) => void;
 }) {
-  const { sync } = useSession();
+  const { sync, user } = useSession();
+  const reconciling = user?.role === 'owner'; // the owner counts with the balance in view
   const [sheet, setSheet] = useState<CountSheet | null>(null);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [recount, setRecount] = useState<string[]>([]);
@@ -124,6 +125,11 @@ export function CountPanel({
           Count {recount.length === 1 ? 'this item' : 'these items'} once more, carefully, from the shelf. Do not copy
           the first number.
         </p>
+      ) : reconciling ? (
+        <p className="muted">
+          Each item shows what the stock record says. Tap “Matches” if the shelf agrees, or enter what is really there.
+          Staff counts stay blind: they never see these numbers.
+        </p>
       ) : (
         <p className="muted">
           Count what is on the shelf now. Enter packs and loose amounts; the app adds them up. Use “It is zero” for an
@@ -141,8 +147,28 @@ export function CountPanel({
           const e = entry(i.ingredient_id);
           const ing = asIngredient(i);
           const total = packsToBase(i.pack_units, e.counts, Number(e.loose) || 0);
+          const expected = i.expected !== undefined ? Number(i.expected) : null;
+          const diff = expected !== null && e.touched ? Math.round((total - expected) * 1000) / 1000 : null;
           return (
             <li key={i.ingredient_id} className={e.touched ? 'done' : ''}>
+              {expected !== null && (
+                <div className="balance">
+                  <span>
+                    Should be <strong className={`num ${expected < 0 ? 'neg' : ''}`}>{formatQty(expected, i.base_unit)}</strong>
+                  </span>
+                  {expected >= 0 ? (
+                    <button
+                      className="chip"
+                      aria-label={`${i.name} matches the balance`}
+                      onClick={() => set(i.ingredient_id, { counts: {}, loose: String(expected) })}
+                    >
+                      Matches
+                    </button>
+                  ) : (
+                    <span className="muted">below zero: count it</span>
+                  )}
+                </div>
+              )}
               <div className="count-head">
                 <strong>{i.name}</strong>
                 <span className="muted">
@@ -161,7 +187,12 @@ export function CountPanel({
                 <button className="quiet" onClick={() => set(i.ingredient_id, { counts: {}, loose: '0' })}>
                   It is zero
                 </button>
-                {e.touched && <span className="ok">✓ {formatQty(total, i.base_unit)}</span>}
+                {e.touched && (
+                  <span className={diff ? 'neg' : 'ok'}>
+                    ✓ {formatQty(total, i.base_unit)}
+                    {diff ? ` (${formatDelta(diff, i.base_unit)} vs balance)` : diff === 0 ? ' (matches)' : ''}
+                  </span>
+                )}
               </div>
             </li>
           );

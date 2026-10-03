@@ -64,6 +64,9 @@ class SheetItem(BaseModel):
     pack_units: list[PackUnitOut]
     counted: bool
     recount: bool
+    # Owner only. Never present for cashiers (the field is left out entirely):
+    # a cashier who sees "should be 13.5 L" can type it without counting.
+    expected: Decimal | None = None
 
 
 class SheetOut(BaseModel):
