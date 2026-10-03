@@ -6,6 +6,8 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   retries: 0,
+  // Specs share one seeded database; run them one after another.
+  workers: 1,
   // In CI, failures become GitHub annotations (readable via the API, not just the log page).
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
   use: {

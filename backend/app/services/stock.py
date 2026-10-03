@@ -18,6 +18,7 @@ from app.models import (
     PackUnit,
     PrepBatch,
     StockLedger,
+    StockOpening,
     StockReceipt,
 )
 from app.services.recipes import Q3, resolve_recipe
@@ -74,27 +75,7 @@ def stock_in(
     if ingredient.kind != IngredientKind.raw:
         raise StockError("Prep items are made with a prep batch, not received as stock-in")
 
-    units = {
-        u.id: u
-        for u in db.scalars(
-            select(PackUnit).where(PackUnit.id.in_([p.pack_unit_id for p in packs]))
-        )
-    }
-    entered, total = [], Decimal(0)
-    for p in packs:
-        unit = units.get(p.pack_unit_id)
-        if unit is None or unit.ingredient_id != ingredient.id:
-            raise StockError(f"Pack unit {p.pack_unit_id} does not belong to {ingredient.name}")
-        total += p.qty * unit.qty_in_base
-        entered.append(
-            {
-                "pack_unit_id": str(unit.id),
-                "name": unit.name,
-                "qty": str(p.qty),
-                "qty_in_base": str(unit.qty_in_base),
-            }
-        )
-    total = (total + loose_qty).quantize(Q3)
+    entered, total = _convert_packs(db, ingredient, packs, loose_qty)
     if total <= 0:
         raise StockError("Stock-in quantity must be more than zero")
 
@@ -131,6 +112,89 @@ def stock_in(
         # Latest purchase price per base unit; feeds variance in rupees later.
         ingredient.cost_per_unit_paise = (Decimal(cost_paise) / total).quantize(Decimal("0.0001"))
     return receipt
+
+
+def _convert_packs(
+    db: Session, ingredient: Ingredient, packs: list[PackQty], loose_qty: Decimal
+) -> tuple[list[dict], Decimal]:
+    """ "3 crates + 4 packets + 200 ml" -> base units, keeping what was entered."""
+    units = {
+        u.id: u
+        for u in db.scalars(
+            select(PackUnit).where(PackUnit.id.in_([p.pack_unit_id for p in packs]))
+        )
+    }
+    entered, total = [], Decimal(0)
+    for p in packs:
+        unit = units.get(p.pack_unit_id)
+        if unit is None or unit.ingredient_id != ingredient.id:
+            raise StockError(f"Pack unit {p.pack_unit_id} does not belong to {ingredient.name}")
+        total += p.qty * unit.qty_in_base
+        entered.append(
+            {
+                "pack_unit_id": str(unit.id),
+                "name": unit.name,
+                "qty": str(p.qty),
+                "qty_in_base": str(unit.qty_in_base),
+            }
+        )
+    return entered, (total + loose_qty).quantize(Q3)
+
+
+class OpeningAlreadySet(StockError):
+    pass
+
+
+def set_opening(
+    db: Session,
+    *,
+    ingredient: Ingredient,
+    packs: list[PackQty],
+    loose_qty: Decimal,
+    user_id: uuid.UUID,
+) -> StockOpening:
+    """Record the first physical count. The caller commits; a concurrent second
+    opening for the same ingredient fails on the unique constraint."""
+    if db.scalar(select(StockOpening.id).where(StockOpening.ingredient_id == ingredient.id)):
+        raise OpeningAlreadySet(
+            f"Opening stock for {ingredient.name} was already entered. "
+            "Corrections are made with the day-end count."
+        )
+    entered, counted = _convert_packs(db, ingredient, packs, loose_qty)
+    system = _on_hand_one(db, ingredient.id)
+    now = utcnow()
+    opening = StockOpening(
+        ingredient_id=ingredient.id,
+        entered=entered,
+        loose_qty=loose_qty,
+        counted_qty=counted,
+        system_qty=system,
+        business_date=business_date(now),
+        counted_by=user_id,
+        counted_at=now,
+    )
+    db.add(opening)
+    db.flush()
+    delta = (counted - system).quantize(Q3)
+    if delta:
+        _ledger(
+            db,
+            ingredient_id=ingredient.id,
+            delta=delta,
+            reason=LedgerReason.opening,
+            ref_type="stock_opening",
+            ref_id=opening.id,
+            user_id=user_id,
+            bdate=opening.business_date,
+        )
+    return opening
+
+
+def _on_hand_one(db: Session, ingredient_id: uuid.UUID) -> Decimal:
+    total = db.scalar(
+        select(func.sum(StockLedger.qty_delta)).where(StockLedger.ingredient_id == ingredient_id)
+    )
+    return Decimal(total or 0).quantize(Q3)
 
 
 def _typical_receipt(db: Session, ingredient_id: uuid.UUID) -> Decimal | None:
@@ -192,6 +256,7 @@ def make_prep_batch(
 class OnHand:
     ingredient: Ingredient
     qty: Decimal
+    has_opening: bool
 
 
 def stock_on_hand(db: Session) -> list[OnHand]:
@@ -204,5 +269,6 @@ def stock_on_hand(db: Session) -> list[OnHand]:
             )
         ).all()
     )
+    opened = set(db.scalars(select(StockOpening.ingredient_id)))
     items = db.scalars(select(Ingredient).order_by(Ingredient.kind, Ingredient.name)).all()
-    return [OnHand(i, Decimal(totals.get(i.id) or 0)) for i in items]
+    return [OnHand(i, Decimal(totals.get(i.id) or 0), i.id in opened) for i in items]

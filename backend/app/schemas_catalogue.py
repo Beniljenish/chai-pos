@@ -201,6 +201,20 @@ class StockReceiptOut(ORM):
     business_date: date
 
 
+class OpeningIn(BaseModel):
+    ingredient_id: uuid.UUID
+    packs: list[PackQtyIn] = []
+    loose_qty: Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=3)] = Decimal(0)
+
+
+class OpeningOut(ORM):
+    id: uuid.UUID
+    ingredient_id: uuid.UUID
+    counted_qty: Decimal
+    system_qty: Decimal
+    business_date: date
+
+
 class PrepBatchIn(BaseModel):
     ingredient_id: uuid.UUID
     batches: Annotated[Decimal, Field(gt=0, le=100, max_digits=8, decimal_places=3)]
@@ -221,6 +235,8 @@ class StockOut(BaseModel):
     on_hand: Decimal
     is_negative: bool
     below_reorder: bool
+    has_opening: bool
+    is_active: bool
 
 
 class LedgerOut(ORM):

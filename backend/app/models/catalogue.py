@@ -239,6 +239,32 @@ class StockReceipt(IdMixin, TenantScoped, Base):
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class StockOpening(IdMixin, TenantScoped, Base):
+    """The first physical count of an ingredient: the starting point for variance.
+
+    Once per ingredient (unique). Re-entering "opening stock" whenever numbers
+    look wrong would silently absorb losses, which is what variance exists to
+    catch. After this, every change needs a reason (stock-in, sale, wastage,
+    day-end count). The ledger row is the adjustment from what the system
+    thought was there; it is skipped when that adjustment is exactly zero.
+    """
+
+    __tablename__ = "stock_openings"
+    __table_args__ = (
+        UniqueConstraint("shop_id", "ingredient_id", name="uq_stock_openings_ingredient"),
+        CheckConstraint("counted_qty >= 0", name="ck_stock_openings_counted"),
+    )
+
+    ingredient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), _fk("ingredients.id"))
+    entered: Mapped[list] = mapped_column(JSONB)  # same shape as stock_receipts.entered
+    loose_qty: Mapped[Decimal] = mapped_column(QTY, default=Decimal(0))
+    counted_qty: Mapped[Decimal] = mapped_column(QTY)
+    system_qty: Mapped[Decimal] = mapped_column(QTY)  # what the ledger said before
+    business_date: Mapped[date] = mapped_column(Date)
+    counted_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), _fk("users.id"))
+    counted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class PrepBatch(IdMixin, TenantScoped, Base):
     __tablename__ = "prep_batches"
     __table_args__ = (CheckConstraint("batches > 0", name="ck_prep_batches_positive"),)
