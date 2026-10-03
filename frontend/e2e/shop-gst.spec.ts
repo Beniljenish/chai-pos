@@ -36,11 +36,16 @@ test('owner GST: mistyped GSTIN refused, regular GST prints a tax invoice', asyn
 
   await page.getByRole('textbox', { name: /^GSTIN/ }).fill(GSTIN.toLowerCase());
   await expect(page.locator('#gstin-help')).toContainText('Valid · registered in Tamil Nadu');
-  // Rs 20 tea, 5% included: taxable 19.05, CGST 0.48, SGST 0.47
+  // Rs 20 tea, 5% included. Each tax is rounded on its own (2000 x 2.5/105 =
+  // 47.6 -> 48 paise) and the taxable value takes the remainder: 19.04 + 0.48
+  // + 0.48 = 20.00. (Rounding taxable first gives 19.05 + 0.48 + 0.47, also
+  // Rs 20, but it is not the rule shared with the server: see services/gst.py.)
   const preview = page.locator('.preview');
   await expect(preview).toContainText('Tax invoice');
-  await expect(preview).toContainText('CGST @2.5%');
-  await expect(preview).toContainText('₹19.05');
+  await expect(preview).toContainText('CGST @2.5%₹0.48');
+  await expect(preview).toContainText('SGST @2.5%₹0.48');
+  await expect(preview).toContainText('Taxable value₹19.04');
+  await expect(preview).toContainText('Customer pays₹20');
   await shot(page, '30-shop-gst');
   await save.click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
