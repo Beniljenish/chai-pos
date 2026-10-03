@@ -66,6 +66,8 @@ jobs:
   end-to-end:
     runs-on: ubuntu-24.04
     needs: [backend, frontend]
+    permissions:
+      contents: write # to publish screenshots to the e2e-screenshots branch
     services:
       postgres:
         image: postgres:17
@@ -126,6 +128,16 @@ jobs:
         env:
           E2E_PASSWORD: e2e-password-123
         run: npx playwright test
+      - name: Publish screenshots to the e2e-screenshots branch (for review via git)
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          [ -d frontend/e2e-screenshots ] || exit 0
+          mkdir /tmp/shots && cp frontend/e2e-screenshots/*.png /tmp/shots/
+          cd /tmp/shots
+          git init -q -b e2e-screenshots
+          git -c user.name=ci -c user.email=ci@localhost add .
+          git -c user.name=ci -c user.email=ci@localhost commit -q -m "Screenshots for ${{ github.sha }}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" e2e-screenshots
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
