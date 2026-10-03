@@ -1162,3 +1162,15 @@ label.check input {
 .breakdown .strong {
   font-weight: 700;
 }
+
+/* ---------- reports by email ---------- */
+.email-settings {
+  margin-top: var(--s5);
+}
+label.check.email-switch {
+  align-items: flex-start;
+  padding: var(--s2) 0;
+}
+label.check.email-switch input {
+  margin-top: 3px;
+}

@@ -10,7 +10,7 @@ from app.api.deps import Caller, get_caller
 from app.core.time import business_date
 from app.models import Bill, BillLine, Device, Role, Shop
 from app.schemas_billing import BillOut, SyncRequest, SyncResponse, SyncResultOut
-from app.services import billing
+from app.services import billing, email
 
 router = APIRouter(tags=["bills"])
 
@@ -27,6 +27,7 @@ def sync_bills(body: SyncRequest, caller: Caller = Depends(get_caller)):
     shop = caller.db.scalar(select(Shop))
     ctx = billing.SyncContext(db=caller.db, shop=shop, device=device, cashier_id=caller.user.id)
     results = billing.ingest_batch(ctx, [b.model_dump() for b in body.bills])
+    email.deliver_pending(caller.db)  # bill emails, if switched on; never raises
     return SyncResponse(
         results=[
             SyncResultOut(

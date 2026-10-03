@@ -135,6 +135,10 @@ def _ingest_one(ctx: SyncContext, b: dict) -> Result:
         _deduct_stock(ctx, bill, b)
         ctx.db.flush()
         savepoint.commit()
+        # Same transaction as the bill: the email exists if and only if the bill does.
+        from app.services.reports import enqueue_bill  # local: reports imports billing
+
+        enqueue_bill(ctx.db, ctx.shop, bill)
         return Result(bill_id, Outcome.accepted, bill.invoice_no, bill.totals_mismatch)
     except Reject as e:
         savepoint.rollback()

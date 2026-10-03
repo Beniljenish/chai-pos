@@ -332,3 +332,18 @@ The owner's tab is now **Manage**, with **Stock** and **Recipes** inside it (Sho
 - **Found by the browser test, not the unit tests:** the screen loads the sheet and the report at the same moment, and both tried to create the day's record, so one crashed. Reads no longer write, and creation survives two tablets submitting at once (a regression test runs six simultaneous requests).
 
 **Not in this PR (next):** shifts and cash, voiding bills, sales reports, the 30-day adherence trend, approval for large wastage.
+
+## Reports by email (Resend)
+
+**Manage → Shop & GST → Reports by email**: the address, and four switches: daily sales summary (7:00 AM IST, yesterday's sales), day-end report (when the owner closes a day), weekly data export (Mondays: CSV files of every bill, line, stock movement and wastage entry), and every bill (off by default). A **Send test email** button checks the whole path.
+
+Server settings (Vercel env, API project): `RESEND_API_KEY` (secret), `EMAIL_FROM` (default `Chai POS <reports@beniljenish.dev>`, a verified Resend domain), `CRON_SECRET` (Vercel Cron sends it as a bearer token; without it the cron endpoint refuses everything).
+
+### Decisions and trade-offs
+
+- **Outbox, not "send now".** Every email is first a row (`email_outbox`) written in the same transaction as its event: the bill email exists if and only if the bill does. Delivery happens after, never raises into the caller, and is retried (next sync, next approval, the daily cron) up to 5 times. A provider outage never blocks billing or loses an email.
+- **Exactly once.** Each email has a dedupe key (`bill:<id>`, `daily:<date>`, `weekly:<monday>`) that is unique per shop and is sent to Resend as the idempotency key, so a resent bill, a retried cron or a crash between "sent" and "marked sent" cannot produce a second email.
+- **Per-bill emails go in batches** (one Resend call per sync, up to 100 messages): one call instead of 50 keeps far inside Resend's rate limit and adds well under a second to a sync.
+- **One cron a day** (Vercel's free plan allows exactly that) at 01:30 UTC = 07:00 IST: yesterday is a complete day by then, even for shops that close after midnight.
+- **HTML-escaped**: item and shop names are shop data; a name like `<b>Chai</b>` is shown, not rendered.
+- **CSV with a BOM** so Excel opens ₹ and names correctly.
