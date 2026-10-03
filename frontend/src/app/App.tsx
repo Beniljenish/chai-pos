@@ -25,7 +25,7 @@ function SyncBadge() {
     tone = 'wait';
   } else {
     text = 'All bills sent';
-    short = 'All sent';
+    short = 'Sent';
     tone = 'ok';
   }
   return (

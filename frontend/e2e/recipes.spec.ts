@@ -22,8 +22,13 @@ test('owner recipes: new version is what the next sale deducts', async ({ page }
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
   await tab(page, 'Manage').click();
+  // Regression guard: on a phone, tabs and sync badge share one row (this wrapped twice).
+  const tabsBox = await page.locator('.tabs').boundingBox();
+  const badgeBox = await page.locator('.sync-badge').boundingBox();
+  expect(Math.abs((tabsBox?.y ?? 0) - (badgeBox?.y ?? 999))).toBeLessThan(4);
   await sub(page, 'Recipes').click();
   await expect(page.getByRole('heading', { name: 'Recipes', exact: true })).toBeVisible();
+  await expect(page.locator('.sop-list li', { hasText: 'Masala tea' })).toBeVisible();
   await shot(page, '20-recipes');
 
   // ---- Masala tea: decoction 100 ml -> 120 ml, saved as a new version ----
@@ -64,7 +69,7 @@ test('owner recipes: new version is what the next sale deducts', async ({ page }
   await page.locator('.till-handle').click();
   await page.getByRole('button', { name: 'Save and print' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'New bill', exact: true }).click();
-  await expect(page.getByText('All sent')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
 
   await tab(page, 'Manage').click();
   await sub(page, 'Stock').click();

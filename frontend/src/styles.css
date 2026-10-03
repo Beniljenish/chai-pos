@@ -243,8 +243,11 @@ input {
     flex-basis: 100%;
   }
   .topbar button {
-    padding: 0 var(--s3);
+    padding: 0 10px;
     min-height: 44px;
+  }
+  .tabs {
+    gap: 6px;
   }
   .sync-badge .long {
     display: none;
@@ -867,6 +870,9 @@ select {
 }
 .recipe-lines .unit {
   color: var(--ink-soft);
+}
+.sheet button.quiet {
+  text-align: left;
 }
 .recipe-lines .quiet {
   min-width: 44px;
