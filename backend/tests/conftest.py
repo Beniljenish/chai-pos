@@ -73,7 +73,9 @@ def _phone() -> str:
 
 def make_shop(client: TestClient, name: str) -> ShopFixture:
     db = mark_system(SessionLocal())
-    shop = Shop(name=name, gst_type=GstType.regular, state_code="33")
+    # A regular-GST shop always has a GSTIN; this one is synthetic but has a
+    # valid check digit and Tamil Nadu's state code.
+    shop = Shop(name=name, gst_type=GstType.regular, gstin="33ABCDE1234F1Z7", state_code="33")
     db.add(shop)
     db.flush()
     owner = User(

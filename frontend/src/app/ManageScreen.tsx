@@ -1,12 +1,14 @@
-/** Owner-only: the shop's records. More sections (Shop & GST) join this list. */
+/** Owner-only: the shop's records. */
 import { useState } from 'react';
 import { RecipesScreen } from './RecipesScreen';
+import { ShopScreen } from './ShopScreen';
 import { StockScreen } from './StockScreen';
 
-type Section = 'stock' | 'recipes';
+type Section = 'stock' | 'recipes' | 'shop';
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'stock', label: 'Stock' },
   { id: 'recipes', label: 'Recipes' },
+  { id: 'shop', label: 'Shop & GST' },
 ];
 
 export function ManageScreen() {
@@ -20,7 +22,7 @@ export function ManageScreen() {
           </button>
         ))}
       </nav>
-      {section === 'stock' ? <StockScreen /> : <RecipesScreen />}
+      {section === 'stock' ? <StockScreen /> : section === 'recipes' ? <RecipesScreen /> : <ShopScreen />}
     </main>
   );
 }
