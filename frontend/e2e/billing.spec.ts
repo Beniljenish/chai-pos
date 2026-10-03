@@ -58,7 +58,7 @@ test('offline billing, end to end', async ({ page, context }) => {
   await sell(page, 'Masala tea', 2);
   await category(page, 'Juice').click();
   await sell(page, 'Orange juice');
-  await page.locator('.till').getByRole('button', { name: /^Large/ }).click();
+  await page.locator('.lines li', { hasText: 'Orange juice' }).getByRole('button', { name: /^Large/ }).click();
   // 2 x Rs 20 + (Rs 60 + Rs 10) = Rs 110
   await expect(page.locator('.total strong')).toHaveText('₹110');
   await shot(page, '04-billing-cart');
