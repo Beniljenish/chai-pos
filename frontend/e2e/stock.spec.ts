@@ -28,6 +28,8 @@ test('owner stock: opening count, stock-in, batch, history', async ({ page }) =>
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
   await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
+  // Manage opens on Sales (what the owner checks most); Stock is one tap away.
+  await page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true }).click();
   await expect(page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',

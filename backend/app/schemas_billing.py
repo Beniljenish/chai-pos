@@ -8,7 +8,7 @@ from typing import Annotated
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from app.models import GstType, PaymentMode
+from app.models import GstType, PaymentMode, VoidReason
 
 Paise = Annotated[int, Field(ge=-10_000_000, le=10_000_000)]
 
@@ -107,6 +107,20 @@ class BillLineOut(ORM):
     modifiers: list[BillLineModifierOut]
 
 
+class BillVoidOut(ORM):
+    reason: VoidReason
+    note: str
+    stock_returned: bool
+    voided_by_name: str
+    voided_at: datetime
+
+
+class VoidIn(BaseModel):
+    reason: VoidReason
+    note: Annotated[str, Field(max_length=200)] = ""
+    drink_was_made: bool = False
+
+
 class BillOut(ORM):
     id: uuid.UUID
     invoice_no: str
@@ -125,3 +139,4 @@ class BillOut(ORM):
     totals_mismatch: bool
     server_totals: dict
     lines: list[BillLineOut]
+    void: BillVoidOut | None = None

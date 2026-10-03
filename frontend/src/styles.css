@@ -517,7 +517,7 @@ button.save {
   width: 100%;
   display: grid;
   grid-template-columns: auto 1fr auto auto;
-  gap: var(--s3);
+  gap: var(--s2);
   align-items: center;
   text-align: left;
 }
@@ -1262,4 +1262,156 @@ label.check.email-switch input {
 }
 .opt-preview td.changed {
   font-weight: 700;
+}
+
+/* ---------- sales report and voids ---------- */
+.day-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.day-nav button {
+  min-width: var(--tap);
+  font-size: 1.3rem;
+  padding: 0;
+}
+.day-now {
+  min-width: 6.5rem;
+  text-align: center;
+  font-weight: 700;
+}
+.sales-total {
+  margin: var(--s4) 0 var(--s3);
+}
+.sales-total .big {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+.sales-total p {
+  margin: 0;
+}
+.mode-split {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: var(--s2);
+}
+.mode-split li {
+  background: var(--paper);
+  border-radius: var(--radius-control);
+  padding: var(--s3);
+  display: grid;
+  gap: 2px;
+}
+.mode-split strong {
+  font-size: 1.15rem;
+}
+.warn-box {
+  background: var(--turmeric-soft);
+  margin: var(--s4) 0;
+}
+.warn-box ul {
+  margin: var(--s2) 0;
+  padding-left: var(--s4);
+}
+.sales-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--paper);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.sales-table th,
+.sales-table td {
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--steel);
+  text-align: left;
+}
+.sales-table tbody th {
+  font-weight: 400;
+}
+.sales-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.sales-table .total-row th,
+.sales-table .total-row td {
+  font-weight: 700;
+  border-bottom: 0;
+}
+.hour-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s1);
+}
+.hour-bars li {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr 4.5rem;
+  gap: var(--s2);
+  align-items: center;
+}
+.hour-bars .hour {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.hour-bars .bar {
+  display: block;
+  height: 14px;
+  background: var(--steel);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hour-bars .bar span {
+  display: block;
+  height: 100%;
+  background: var(--leaf);
+}
+.hour-bars .num {
+  text-align: right;
+}
+.void-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.void-list li {
+  background: var(--chilli-soft);
+  border-radius: var(--radius-control);
+  padding: var(--s3);
+}
+.void-stamp {
+  background: var(--chilli-soft);
+  color: var(--chilli);
+  border-radius: var(--radius-control);
+  padding: var(--s3);
+}
+.struck,
+.struck td,
+.struck th {
+  text-decoration: line-through;
+  color: var(--ink-soft);
+}
+.status.voided {
+  background: var(--chilli-soft);
+  color: var(--chilli);
+}
+button.danger {
+  background: var(--chilli);
+  border-color: var(--chilli);
+  color: var(--paper);
+  margin-top: var(--s4);
+}
+.void-form .check {
+  margin: 0;
+}
+
+.bill-list button > span {
+  white-space: nowrap; /* "8:26 pm" wrapped at phone width */
 }

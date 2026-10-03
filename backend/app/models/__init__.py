@@ -95,7 +95,9 @@ from app.models.billing import (  # noqa: E402
     BillLine,
     BillLineModifier,
     BillStatus,
+    BillVoid,
     PaymentMode,
+    VoidReason,
 )
 from app.models.catalogue import (  # noqa: E402
     BaseUnit,
@@ -129,6 +131,8 @@ __all__ = [
     "BillLine",
     "BillLineModifier",
     "BillStatus",
+    "BillVoid",
+    "VoidReason",
     "PaymentMode",
     "BaseUnit",
     "DayCount",

@@ -357,3 +357,24 @@ Manage → Recipes → **+ New drink** asks for the name, price and GST, then op
 - **Direction + number, not signed numbers.** Many phone number pads have no minus key, so "Less sugar 5 g" is a *− less* picker plus 5.
 - **Live preview uses the server's rule** (`consumption_for_line`): the recipe times the size, except things that do not grow with size (cups), plus the option's own changes, never below zero. Unit tests pin the two to the same numbers.
 - **Two calls, retry-safe.** Saving creates or updates the option, then its drinks. If the second call fails, the editor keeps the new id, so retrying does not create a duplicate.
+
+## Phase 3f: voids and the daily sales report
+
+**Manage → Sales** (now the first Manage tab) shows one day from all tablets:
+- the total and payment split
+- item-wise quantity and ₹, sales by hour, and sales by staff (when more than one person billed)
+- GST by rate (regular-GST shops)
+- voided bills and their reasons
+- bills where a tablet's total disagreed with the server's
+
+Tap a bill to see it and, as owner, void it. Tablets show voided bills on their Today screen when online.
+
+### Decisions and trade-offs
+- **Owner only, enforced on the server.** If a cashier could void, they could keep a cash payment and erase its bill: the most common POS fraud. A cashier who made a mistake tells the owner.
+- **The bill is never edited or deleted.** A `bill_voids` row records the reason, the note, who did it and when. The bill's `status` flag turns to `void` in the same transaction. The invoice number stays used: GST wants an unbroken series, and a cancelled invoice is kept as cancelled.
+- **Stock comes back by mirroring that bill's own `sale` rows** (ledger reason `void`, same business date). Large and Less sugar come back exactly as they went out, even if the recipe changed since. The exception is "the drink was already made": then nothing comes back, because those ingredients really were used.
+- **Day end treats a void as un-selling.** `movements()` nets `void` rows against `sold`, so a cancelled order does not raise the expected usage the count is judged against.
+- **No voids once the day is approved.** Approval froze that day's expected stock and variance. A later void would put stock back into a day whose shelf was already counted, and quietly unbalance it. Correcting a closed day needs a credit note, which is later work. Void and approval take the same per-day advisory lock (`lock_day`), so a void lands wholly before the approval freeze or is refused after it.
+- **Voids need internet.** Only the server can tell whether the day is still open. Billing itself stays offline-first.
+- **Reports use printed totals.** The invoice is the legal record and what the customer paid. Bills where the server's arithmetic differed are listed, not silently corrected.
+- The daily email leaves voided bills out of its totals and says how many there were. The weekly `bills.csv` gains `status` and `void_reason` columns.
