@@ -30,11 +30,11 @@ test('owner GST: mistyped GSTIN refused, regular GST prints a tax invoice', asyn
   const save = page.getByRole('button', { name: 'Save shop settings' });
   await expect(save).toBeDisabled(); // regular needs a GSTIN
 
-  await page.getByLabel(/GSTIN/).fill(TYPO);
+  await page.getByRole('textbox', { name: /^GSTIN/ }).fill(TYPO);
   await expect(page.locator('#gstin-help')).toContainText('mistyped');
   await expect(save).toBeDisabled();
 
-  await page.getByLabel(/GSTIN/).fill(GSTIN.toLowerCase());
+  await page.getByRole('textbox', { name: /^GSTIN/ }).fill(GSTIN.toLowerCase());
   await expect(page.locator('#gstin-help')).toContainText('Valid · registered in Tamil Nadu');
   // Rs 20 tea, 5% included: taxable 19.05, CGST 0.48, SGST 0.47
   const preview = page.locator('.preview');
