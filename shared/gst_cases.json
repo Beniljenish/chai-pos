@@ -1,0 +1,103 @@
+{
+  "_about": "Shared GST test vectors. backend/app/services/gst.py AND the PWA's TypeScript port must both pass every case. All money in integer paise. rate_bp: 500 = 5%. Change a case only with a reason in the commit message.",
+  "cases": [
+    {
+      "name": "tea 20 rupees inclusive x1: taxable adjusted down by 1 paise so the customer pays exactly 20",
+      "gst_type": "regular",
+      "lines": [{"unit_price_paise": 2000, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true}],
+      "expect_lines": [{"gross": 2000, "taxable": 1904, "cgst": 48, "sgst": 48, "total": 2000}],
+      "expect_bill": {"taxable": 1904, "cgst": 48, "sgst": 48, "subtotal": 2000, "round_off": 0, "total": 2000}
+    },
+    {
+      "name": "tea x3: tax is computed on the line gross, not per unit",
+      "gst_type": "regular",
+      "lines": [{"unit_price_paise": 2000, "qty": 3, "gst_rate_bp": 500, "tax_inclusive": true}],
+      "expect_lines": [{"gross": 6000, "taxable": 5714, "cgst": 143, "sgst": 143, "total": 6000}],
+      "expect_bill": {"taxable": 5714, "cgst": 143, "sgst": 143, "subtotal": 6000, "round_off": 0, "total": 6000}
+    },
+    {
+      "name": "juice 60 + Large modifier 10, inclusive: modifier price is part of the gross",
+      "gst_type": "regular",
+      "lines": [{"unit_price_paise": 6000, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true, "modifier_deltas_paise": [1000]}],
+      "expect_lines": [{"gross": 7000, "taxable": 6666, "cgst": 167, "sgst": 167, "total": 7000}],
+      "expect_bill": {"taxable": 6666, "cgst": 167, "sgst": 167, "subtotal": 7000, "round_off": 0, "total": 7000}
+    },
+    {
+      "name": "exclusive price: tax added on top",
+      "gst_type": "regular",
+      "lines": [{"unit_price_paise": 10000, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": false}],
+      "expect_lines": [{"gross": 10000, "taxable": 10000, "cgst": 250, "sgst": 250, "total": 10500}],
+      "expect_bill": {"taxable": 10000, "cgst": 250, "sgst": 250, "subtotal": 10500, "round_off": 0, "total": 10500}
+    },
+    {
+      "name": "exclusive odd price: bill rounds to the nearest rupee, difference in round_off",
+      "gst_type": "regular",
+      "lines": [{"unit_price_paise": 3333, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": false}],
+      "expect_lines": [{"gross": 3333, "taxable": 3333, "cgst": 83, "sgst": 83, "total": 3499}],
+      "expect_bill": {"taxable": 3333, "cgst": 83, "sgst": 83, "subtotal": 3499, "round_off": 1, "total": 3500}
+    },
+    {
+      "name": "18 percent inclusive",
+      "gst_type": "regular",
+      "lines": [{"unit_price_paise": 4000, "qty": 1, "gst_rate_bp": 1800, "tax_inclusive": true}],
+      "expect_lines": [{"gross": 4000, "taxable": 3390, "cgst": 305, "sgst": 305, "total": 4000}],
+      "expect_bill": {"taxable": 3390, "cgst": 305, "sgst": 305, "subtotal": 4000, "round_off": 0, "total": 4000}
+    },
+    {
+      "name": "composition shop: no GST charged",
+      "gst_type": "composition",
+      "lines": [{"unit_price_paise": 2000, "qty": 2, "gst_rate_bp": 500, "tax_inclusive": true}],
+      "expect_lines": [{"gross": 4000, "taxable": 4000, "cgst": 0, "sgst": 0, "total": 4000}],
+      "expect_bill": {"taxable": 4000, "cgst": 0, "sgst": 0, "subtotal": 4000, "round_off": 0, "total": 4000}
+    },
+    {
+      "name": "unregistered shop: no GST even on an exclusive price",
+      "gst_type": "unregistered",
+      "lines": [{"unit_price_paise": 3333, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": false}],
+      "expect_lines": [{"gross": 3333, "taxable": 3333, "cgst": 0, "sgst": 0, "total": 3333}],
+      "expect_bill": {"taxable": 3333, "cgst": 0, "sgst": 0, "subtotal": 3333, "round_off": -33, "total": 3300}
+    },
+    {
+      "name": "complimentary item at zero price",
+      "gst_type": "regular",
+      "lines": [{"unit_price_paise": 0, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true}],
+      "expect_lines": [{"gross": 0, "taxable": 0, "cgst": 0, "sgst": 0, "total": 0}],
+      "expect_bill": {"taxable": 0, "cgst": 0, "sgst": 0, "subtotal": 0, "round_off": 0, "total": 0}
+    },
+    {
+      "name": "mixed bill: each line computed separately, then summed",
+      "gst_type": "regular",
+      "lines": [
+        {"unit_price_paise": 2000, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true},
+        {"unit_price_paise": 6000, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true, "modifier_deltas_paise": [1000]},
+        {"unit_price_paise": 3333, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": false}
+      ],
+      "expect_lines": [
+        {"gross": 2000, "taxable": 1904, "cgst": 48, "sgst": 48, "total": 2000},
+        {"gross": 7000, "taxable": 6666, "cgst": 167, "sgst": 167, "total": 7000},
+        {"gross": 3333, "taxable": 3333, "cgst": 83, "sgst": 83, "total": 3499}
+      ],
+      "expect_bill": {"taxable": 11903, "cgst": 298, "sgst": 298, "subtotal": 12499, "round_off": 1, "total": 12500}
+    },
+    {
+      "name": "half-rupee subtotal rounds up",
+      "gst_type": "unregistered",
+      "lines": [{"unit_price_paise": 1050, "qty": 1, "gst_rate_bp": 0, "tax_inclusive": true}],
+      "expect_lines": [{"gross": 1050, "taxable": 1050, "cgst": 0, "sgst": 0, "total": 1050}],
+      "expect_bill": {"taxable": 1050, "cgst": 0, "sgst": 0, "subtotal": 1050, "round_off": 50, "total": 1100}
+    }
+  ],
+  "errors": [
+    {"name": "zero quantity", "gst_type": "regular",
+     "lines": [{"unit_price_paise": 2000, "qty": 0, "gst_rate_bp": 500, "tax_inclusive": true}]},
+    {"name": "negative quantity", "gst_type": "regular",
+     "lines": [{"unit_price_paise": 2000, "qty": -1, "gst_rate_bp": 500, "tax_inclusive": true}]},
+    {"name": "price negative after modifier", "gst_type": "regular",
+     "lines": [{"unit_price_paise": 500, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true, "modifier_deltas_paise": [-1000]}]},
+    {"name": "negative base price", "gst_type": "regular",
+     "lines": [{"unit_price_paise": -1, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true}]},
+    {"name": "rate above 28 percent", "gst_type": "regular",
+     "lines": [{"unit_price_paise": 2000, "qty": 1, "gst_rate_bp": 3000, "tax_inclusive": true}]},
+    {"name": "empty bill", "gst_type": "regular", "lines": []}
+  ]
+}
