@@ -53,6 +53,17 @@ ID_ROUTES = {
 }
 
 
+# Routes keyed by a business DATE, not an id: there is no foreign id to smuggle.
+# Their risk is different (shop A reading shop B's count for the same date), so
+# each one must appear here AND be exercised by test_day_counts_are_per_shop.
+DATE_ROUTES = {
+    ("/api/v1/day-counts/{business_date}/sheet", "GET"),
+    ("/api/v1/day-counts/{business_date}/counts", "POST"),
+    ("/api/v1/day-counts/{business_date}/report", "GET"),
+    ("/api/v1/day-counts/{business_date}/approve", "POST"),
+}
+
+
 def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
     if key == "bill":
         return cat.bill_id
@@ -88,7 +99,7 @@ def test_every_id_route_is_covered():
         for method in ops
     }
     covered = {(t, m) for t, (_, calls) in ID_ROUTES.items() for m in calls}
-    missing = actual - covered
+    missing = actual - covered - DATE_ROUTES
     assert not missing, f"Add these to ID_ROUTES in the tenant gate: {sorted(missing)}"
 
 
@@ -207,3 +218,34 @@ def test_new_rows_land_in_callers_shop_even_if_client_sends_shop_id(
     assert r.status_code == 201
     b_devices = client.get("/api/v1/devices", headers=shop_b.owner_h).json()
     assert all(d["name"] != "Sneaky" for d in b_devices)
+
+
+def test_day_counts_are_per_shop(client: TestClient, two_shops):
+    """Same date, two shops: B's count, report and approval never touch A's day."""
+    from app.core.time import business_date, utcnow
+
+    shop_a, shop_b, cat_a, cat_b = two_shops
+    day = business_date(utcnow()).isoformat()
+    base = f"/api/v1/day-counts/{day}"
+    r = client.post(
+        f"{base}/counts",
+        json={"lines": [{"ingredient_id": cat_b.milk["id"], "loose_qty": "0"}]},
+        headers=shop_b.owner_h,
+    )
+    assert r.status_code == 200, r.text
+    # Shop A cannot count shop B's ingredient...
+    r = client.post(
+        f"{base}/counts",
+        json={"lines": [{"ingredient_id": cat_b.milk["id"], "loose_qty": "1"}]},
+        headers=shop_a.owner_h,
+    )
+    assert r.status_code == 422
+    # ...and sees none of B's day: nothing counted, no report lines.
+    sheet = client.get(f"{base}/sheet", headers=shop_a.owner_h).json()
+    assert not any(i["counted"] for i in sheet["items"])
+    assert cat_b.milk["id"] not in {i["ingredient_id"] for i in sheet["items"]}
+    assert client.get(f"{base}/report", headers=shop_a.owner_h).json()["lines"] == []
+    # Approving A's (empty) day is refused and leaves B's day alone.
+    assert client.post(f"{base}/approve", headers=shop_a.owner_h).status_code == 422
+    b = client.get(f"{base}/report", headers=shop_b.owner_h).json()
+    assert [ln["ingredient_id"] for ln in b["lines"]] == [cat_b.milk["id"]]

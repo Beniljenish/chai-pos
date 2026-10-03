@@ -190,6 +190,23 @@ def set_opening(
     return opening
 
 
+def physically_counted(db: Session, before: date | None = None) -> set[uuid.UUID]:
+    """Ingredients whose stock was once set by a physical count: an opening count,
+    or an approved day-end count (before `before`, when given). Until then, the
+    stock number is only the sum of entries and may not match the shelf."""
+    from app.models import DayCount, DayCountLine, DayCountStatus  # dayend models
+
+    ids = set(db.scalars(select(StockOpening.ingredient_id)))
+    q = (
+        select(DayCountLine.ingredient_id)
+        .join(DayCount, DayCount.id == DayCountLine.day_count_id)
+        .where(DayCount.status == DayCountStatus.approved)
+    )
+    if before is not None:
+        q = q.where(DayCount.business_date < before)
+    return ids | set(db.scalars(q))
+
+
 def _on_hand_one(db: Session, ingredient_id: uuid.UUID) -> Decimal:
     total = db.scalar(
         select(func.sum(StockLedger.qty_delta)).where(StockLedger.ingredient_id == ingredient_id)
@@ -269,6 +286,6 @@ def stock_on_hand(db: Session) -> list[OnHand]:
             )
         ).all()
     )
-    opened = set(db.scalars(select(StockOpening.ingredient_id)))
+    opened = physically_counted(db)
     items = db.scalars(select(Ingredient).order_by(Ingredient.kind, Ingredient.name)).all()
     return [OnHand(i, Decimal(totals.get(i.id) or 0), i.id in opened) for i in items]

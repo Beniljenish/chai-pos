@@ -356,3 +356,8 @@ def _deduct_stock(ctx: SyncContext, bill: Bill, b: dict) -> None:
                     created_by=ctx.cashier_id,
                 )
             )
+    # A bill from a day the owner already closed: its stock was gone before the
+    # count, so keep stock on hand equal to that count (see dayend.py).
+    from app.services.dayend import late_bill_correction  # local: dayend imports billing
+
+    late_bill_correction(ctx.db, bill.business_date, total, bill.id, ctx.cashier_id)

@@ -139,3 +139,77 @@ export interface Recipe {
   lines: RecipeLine[];
 }
 
+
+// ---- day end ----
+export type WastageReason = 'spoiled' | 'spilled' | 'remake' | 'prep_loss' | 'staff' | 'complimentary' | 'theft';
+export type DayStatus = 'counting' | 'submitted' | 'approved';
+
+export interface WastageRow {
+  id: string;
+  name: string;
+  is_menu_item: boolean;
+  qty: string;
+  base_unit: BaseUnit | null;
+  reason: WastageReason;
+  note: string;
+  value_paise: number | null;
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface SheetItem {
+  ingredient_id: string;
+  name: string;
+  kind: 'raw' | 'prep';
+  base_unit: BaseUnit;
+  count_frequency: string;
+  pack_units: { id: string; name: string; qty_in_base: string }[];
+  counted: boolean;
+  recount: boolean;
+}
+
+export interface CountSheet {
+  business_date: string;
+  status: DayStatus;
+  items: SheetItem[];
+}
+
+export interface ReportLine {
+  ingredient_id: string;
+  name: string;
+  base_unit: BaseUnit;
+  opening: string;
+  stock_in: string;
+  prep_in: string;
+  prep_out: string;
+  sold: string;
+  wasted: string;
+  other: string;
+  expected: string;
+  counted: string;
+  variance: string;
+  variance_paise: number;
+  cost_per_unit_paise: string;
+  expected_usage: string;
+  actual_usage: string;
+  adherence_pct: string | null;
+  tolerance_bp: number;
+  flagged: boolean;
+  recounted: boolean;
+  has_opening: boolean;
+}
+
+export interface DayReport {
+  business_date: string;
+  status: DayStatus;
+  submitted_by_name: string | null;
+  approved_by_name: string | null;
+  lines: ReportLine[];
+  missing_paise: number;
+  surplus_paise: number;
+  flagged_count: number;
+  wastage_paise: number;
+  wastage_by_reason: Record<string, number>;
+  late_bills: number;
+  late_bills_explained_paise: number;
+}
