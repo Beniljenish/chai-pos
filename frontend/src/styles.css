@@ -1514,11 +1514,16 @@ button.account {
 .shift-list {
   list-style: none;
   margin: 0;
+/* ---------- tablets ---------- */
+.tablet-list {
+  list-style: none;
+  margin: var(--s3) 0 0;
   padding: 0;
   display: grid;
   gap: var(--s3);
 }
 .shift-list > li {
+.tablet-list > li {
   background: var(--paper);
   border-radius: var(--radius-panel);
   padding: var(--s3);
@@ -1537,6 +1542,20 @@ button.account {
 }
 .small-print {
   font-size: 0.9rem;
+.tablet-list > li.off {
+  opacity: 0.7;
+}
+.tablet-list p {
+  margin: var(--s1) 0;
+}
+.tablet-facts {
+  margin: var(--s2) 0;
+  padding-left: var(--s4);
+  display: grid;
+  gap: var(--s2);
+}
+.bad-text {
+  color: var(--chilli);
 }
 .flag.ok {
   background: #dff3e8;

@@ -9,8 +9,9 @@ from app.api.common import get_or_404
 from app.api.deps import Caller, get_caller, require_owner
 from app.core.time import business_date
 from app.models import Bill, BillLine, BillVoid, Device, Role, Shop, User
+from app.schemas import DeviceReportIn
 from app.schemas_billing import BillOut, SyncRequest, SyncResponse, SyncResultOut, VoidIn
-from app.services import billing, email, voids
+from app.services import billing, email, health, voids
 from app.services import shifts as shift_service
 from app.services.sales import sales_report
 
@@ -52,9 +53,10 @@ def sync_bills(body: SyncRequest, caller: Caller = Depends(get_caller)):
 
 @router.get("/devices/{device_id}/sync-state", tags=["devices"])
 def device_sync_state(device_id: uuid.UUID, caller: Caller = Depends(get_caller)) -> dict:
-    """The highest invoice sequence the server holds for this device, per financial
-    year. A tablet whose storage was wiped resumes numbering after it instead of
-    reissuing C1/26-27/000001 (which the server would reject as a duplicate)."""
+    """Where this tablet's invoice numbering stands, per financial year: the
+    highest number the server received OR the tablet reported printing. A tablet
+    whose storage was wiped resumes after it, so it never reprints a number that
+    is already on a receipt (unsent bills lost in the wipe show as missing)."""
     device = get_or_404(caller.db, Device, device_id)
     rows = caller.db.execute(
         select(Bill.fy, func.max(Bill.local_seq))
@@ -65,10 +67,10 @@ def device_sync_state(device_id: uuid.UUID, caller: Caller = Depends(get_caller)
         "device_id": device.id,
         "code": device.code,
         "is_active": device.is_active,
-        "last_seq_by_fy": {fy: seq for fy, seq in rows},
         # The drawer: its open shift (a wiped tablet must not start a second
         # one) and the last count (the next opening float).
         **shift_service.device_state(caller.db, device.id),
+        "last_seq_by_fy": health.resume_seq_by_fy(caller.db, device, {fy: seq for fy, seq in rows}),
     }
 
 
@@ -140,3 +142,18 @@ def sales(
     caller: Caller = Depends(require_owner),
 ) -> dict:
     return sales_report(caller.db, day or business_date())
+
+
+@router.post("/devices/{device_id}/report", status_code=204, tags=["devices"])
+def device_report(device_id: uuid.UUID, body: DeviceReportIn, caller: Caller = Depends(get_caller)):
+    """The tablet says what it holds (see services/health.py). Any logged-in
+    person on the tablet sends it; it changes no bill."""
+    device = get_or_404(caller.db, Device, device_id)
+    health.record_report(caller.db, device, body.model_dump())
+    caller.db.commit()
+
+
+@router.get("/devices-health", tags=["devices"])
+def devices_health(caller: Caller = Depends(require_owner)) -> list[dict]:
+    """Owner: every tablet's outbox, refusals, and printed bills never received."""
+    return health.tablet_health(caller.db)

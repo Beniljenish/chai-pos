@@ -418,3 +418,29 @@ The daily email lists one line per shift. **Shop & GST → Cash drawer** switche
 - **Shifts block nothing.** A bill with no open shift asks for the float once and then saves. An unended shift shows as "Not ended" for the owner; the app never prevents billing because of it.
 - **A cleared tablet picks up its open shift from the server** (`sync-state`), so it does not start a second shift over the first. It never re-opens a shift that it ended but hasn't yet sent.
 - **Not done yet:** owner approval of a shortage, and a cash handover between two named people where the second confirms the first's count.
+
+## Phase 4a: bill safety (no lost bills)
+
+Phase 4's gate is "7 days live, no lost bills", so a lost bill must be visible.
+
+**Manage → Tablets** shows, per tablet:
+- when it was last seen, and its app build
+- bills still waiting to send, and since when (flagged after 2 hours)
+- bills the server refused
+- **printed invoice numbers that never reached the server**
+- whether its browser storage is protected
+
+The daily email warns about any of these.
+
+### Decisions and trade-offs
+- **Only the tablet knows what it printed.** The server cannot see a bill it never received. After each sync the tablet reports what it holds (`POST /devices/{id}/report`), even if the sync failed, because a stuck tablet is what the owner most needs to hear about:
+  - the highest invoice number per financial year
+  - the numbers of the bills it still holds, waiting or refused
+  - the oldest waiting bill
+  - its storage persistence and app build
+
+  A number up to the reported highest that the server lacks, and the tablet no longer holds, is **lost**.
+- **A wiped tablet never reprints a number.** Before this, a tablet whose browser data was cleared resumed numbering after the server's last bill. That re-issued the numbers of bills that were printed but never sent, giving two paper receipts the same invoice number. `sync-state` now resumes after the higher of the server's last bill and the tablet's last reported number. That reported number only ever goes up, so a wiped tablet reporting "0" cannot lower it. The lost numbers then show on the Tablets screen.
+- **Reports are throttled:** sent when something changed, or every 5 minutes so "last seen" stays fresh. They never block or fail billing.
+- **Limit:** a bill printed and wiped before the tablet ever had internet again cannot be detected by anything. The paper receipt is the only record. Installing the app to the home screen makes the browser far less likely to clear its storage; the screen says so for tablets where it is not protected.
+- **CI's screenshot branch** now carries `vercel.json` files that switch deployments off. Each screenshot push used to create two failed deployments that counted against Vercel's daily limit.

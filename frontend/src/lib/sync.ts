@@ -13,6 +13,7 @@
 import { AuthRequiredError, HttpError, NetworkError, type Api } from './api';
 import type { PosDB } from './db';
 import { syncShiftOps } from './shift';
+import { HealthReporter } from './health';
 import type { SyncResult } from './types';
 
 export const BATCH_SIZE = 50;
@@ -92,12 +93,14 @@ export class SyncWorker {
   private db: PosDB;
   private deviceId: string;
   private intervalMs: number;
+  private health: HealthReporter;
 
   constructor(api: Api, db: PosDB, deviceId: string, intervalMs = 30_000) {
     this.api = api;
     this.db = db;
     this.deviceId = deviceId;
     this.intervalMs = intervalMs;
+    this.health = new HealthReporter(api, db, deviceId);
   }
 
   subscribe(fn: Listener): () => void {
@@ -185,6 +188,10 @@ export class SyncWorker {
       await this.refreshCounts();
       this.set({ syncing: false });
     }
+    // After the bills, even if they failed (a stuck tablet is exactly what the
+    // owner needs to hear about): tell the owner what this tablet holds. Offline
+    // or logged out it simply fails, quietly. Never throws.
+    if (!this.state.needsLogin) await this.health.maybeSend();
   }
 
   private schedule() {

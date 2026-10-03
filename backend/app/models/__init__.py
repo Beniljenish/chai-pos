@@ -10,8 +10,9 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantScoped, TimestampMixin
@@ -87,6 +88,15 @@ class Device(IdMixin, TimestampMixin, TenantScoped, Base):
     code: Mapped[str] = mapped_column(String(4))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The highest invoice sequence the tablet says it has PRINTED, per financial
+    # year. Only ever goes up. A wiped tablet resumes after this, not after the
+    # last bill the server received: those unsent numbers were already on paper.
+    reported_seq_by_fy: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    # The tablet's last health report (outbox, rejections, storage), and when.
+    health: Mapped[dict | None] = mapped_column(JSONB)
+    health_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class RefreshToken(IdMixin, TenantScoped, Base):

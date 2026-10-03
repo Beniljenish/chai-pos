@@ -204,6 +204,7 @@ def daily_figures(db: Session, d: date) -> dict:
         "by_mode": dict(by_mode),
         "mismatch": sum(1 for b in bills if b.totals_mismatch),
         "shifts": _shift_lines(db, d),
+        "tablets": _tablet_warnings(db),
         "voids": len(voided),
         "voided_total": sum(b.total_paise for b in voided),
         "top": [(n, int(q), int(t)) for n, q, t in top],
@@ -230,6 +231,12 @@ def _shift_lines(db: Session, d: date) -> list[str]:
                 f"{who}: {rupees(abs(diff))} {word} (counted {rupees(s['counted_cash_paise'])})"
             )
     return out
+
+
+def _tablet_warnings(db: Session) -> list[str]:
+    from app.services.health import warnings  # local: health imports billing
+
+    return warnings(db)
 
 
 def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
@@ -266,6 +273,13 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
             else ""
         )
         + (
+            "<h3 style='font-size:15px;color:#b3261e'>Tablets need attention</h3><p>"
+            + "<br>".join(escape(x) for x in f["tablets"])
+            + "</p>"
+            if f["tablets"]
+            else ""
+        )
+        + (
             f"<p>{f['voids']} voided bill(s) worth {rupees(f['voided_total'])}, "
             "not included above. Reasons are in the app under Manage → Sales.</p>"
             if f["voids"]
@@ -282,6 +296,7 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         f"{subject}\n"
         + "\n".join(f"{a}: {b}" for a, b in modes)
         + f"\nGST {rupees(f['gst'])}\n{status}"
+        + "".join(f"\nTablet: {x}" for x in f["tablets"])
         + (f"\nVoided: {f['voids']} bill(s), {rupees(f['voided_total'])}" if f["voids"] else "")
         + "".join(f"\nCash: {x}" for x in f["shifts"])
     )

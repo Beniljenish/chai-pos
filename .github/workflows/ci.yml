@@ -134,6 +134,12 @@ jobs:
           [ -d frontend/e2e-screenshots ] || exit 0
           mkdir /tmp/shots && cp frontend/e2e-screenshots/*.png /tmp/shots/
           cd /tmp/shots
+          # Vercel builds every pushed branch from frontend/ and backend/. Without
+          # these, each screenshot push made two failed deployments that counted
+          # against the daily limit (see CLAUDE.md, Deploy).
+          for d in frontend backend; do
+            mkdir -p $d && echo '{"git": {"deploymentEnabled": false}}' > $d/vercel.json
+          done
           git init -q -b e2e-screenshots
           git -c user.name=ci -c user.email=ci@localhost add .
           git -c user.name=ci -c user.email=ci@localhost commit -q -m "Screenshots for ${{ github.sha }}"

@@ -179,7 +179,10 @@ def test_cashier_sees_only_today_owner_can_choose(client, shop_a, device):
     _one(device, device.bill([("Masala tea", 1, [])]))
     old = device.bill([("Masala tea", 1, [])], sold_at=datetime.now(UTC) - timedelta(days=3))
     _one(device, old)
-    day = old["sold_at"][:10]
+    # The shop's business day (IST), not the UTC date: they differ 00:00-05:30 IST.
+    from app.core.time import business_date
+
+    day = business_date(datetime.fromisoformat(old["sold_at"])).isoformat()
     owner = client.get(f"/api/v1/bills?business_date={day}", headers=shop_a.owner_h).json()
     assert [b["id"] for b in owner] == [old["id"]]
     cashier = client.get(f"/api/v1/bills?business_date={day}", headers=shop_a.cashier_h).json()
