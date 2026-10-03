@@ -444,3 +444,19 @@ The daily email warns about any of these.
 - **Reports are throttled:** sent when something changed, or every 5 minutes so "last seen" stays fresh. They never block or fail billing.
 - **Limit:** a bill printed and wiped before the tablet ever had internet again cannot be detected by anything. The paper receipt is the only record. Installing the app to the home screen makes the browser far less likely to clear its storage; the screen says so for tablets where it is not protected.
 - **CI's screenshot branch** now carries `vercel.json` files that switch deployments off. Each screenshot push used to create two failed deployments that counted against Vercel's daily limit.
+
+## Phase 4b: printing
+
+Each tablet chooses how its receipts reach paper: **Today → Printer**, or **Printer settings** on any receipt.
+- **RawBT app:** recommended for Android with a Bluetooth printer.
+- **Bluetooth LE, straight from the browser.**
+- **The browser's print dialog:** for a PC with a USB printer.
+
+Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on save, and a **Test print**. Receipts opened from Today print with a "(Reprint)" mark.
+
+### Decisions and trade-offs
+- **ESC/POS, generated in the app.** `lib/escpos.ts` lays the receipt out in fixed columns and encodes it in the command language almost every thermal printer uses: reset, alignment, bold, double-size total, feed and cut. It shows the same GST content as the on-screen receipt. Byte-level unit tests pin the layout, for example `CGST @2.5%  Rs.0.48` on exactly 32 columns.
+- **RawBT over direct Bluetooth.** Most cheap printers sold in India use classic Bluetooth (SPP), which no web page can reach. RawBT is a free Android app that takes the receipt as a `rawbt:base64,…` link and handles any paired printer, so it covers the most printers with the least setup. Direct Bluetooth LE needs no app, but only some printers have LE, and Chrome makes the person pick the printer again after each reload.
+- **ASCII only.** Printers print from their built-in code page, so "₹" becomes "Rs." and other characters become "?". A menu in Tamil or Hindi would need the receipt sent as an image (raster). That is possible later, if the pilot shop needs it.
+- **Browser print stays the default** until a tablet is set up, so nothing changes for a tablet nobody has configured.
+- **Untested on real hardware from here.** The pilot visit (or any ESC/POS printer) is the check. Run **Test print** first: if the line of digits wraps, the paper width setting is wrong.
