@@ -5,9 +5,10 @@ import { RecipesScreen } from './RecipesScreen';
 import { SalesScreen } from './SalesScreen';
 import { ShopScreen } from './ShopScreen';
 import { StaffScreen } from './StaffScreen';
+import { TabletsScreen } from './TabletsScreen';
 import { StockScreen } from './StockScreen';
 
-type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop' | 'staff';
+type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop' | 'staff' | 'tablets';
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'sales', label: 'Sales' },
   { id: 'stock', label: 'Stock' },
@@ -15,6 +16,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'recipes', label: 'Recipes' },
   { id: 'shop', label: 'Shop & GST' },
   { id: 'staff', label: 'Staff' },
+  { id: 'tablets', label: 'Tablets' },
 ];
 
 export function ManageScreen() {
@@ -38,8 +40,10 @@ export function ManageScreen() {
         <RecipesScreen />
       ) : section === 'shop' ? (
         <ShopScreen />
-      ) : (
+      ) : section === 'staff' ? (
         <StaffScreen />
+      ) : (
+        <TabletsScreen />
       )}
     </main>
   );

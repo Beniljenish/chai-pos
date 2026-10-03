@@ -55,6 +55,10 @@ ID_ROUTES = {
     "/api/v1/bills/{bill_id}": ("bill", {"GET": None}),
     "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
+    "/api/v1/devices/{device_id}/report": (
+        "device",
+        {"POST": {"seq_by_fy": {"26-27": 999}, "pending_bills": 0}},
+    ),
 }
 
 

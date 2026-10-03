@@ -69,7 +69,11 @@ export default defineConfig(({ mode }) => {
         },
       }),
     ],
-    define: { __API_URL__: JSON.stringify(apiUrl) },
+    define: {
+      __API_URL__: JSON.stringify(apiUrl),
+      // Which build a tablet runs (PWAs update in the background): Vercel's commit, or "dev".
+      __APP_VERSION__: JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev').slice(0, 7)),
+    },
     test: {
       environment: 'node',
       include: ['src/**/*.test.ts'],

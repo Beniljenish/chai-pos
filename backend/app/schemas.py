@@ -1,6 +1,7 @@
 import re
 import uuid
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -146,3 +147,21 @@ class DeviceCreate(BaseModel):
 class DeviceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
     is_active: bool | None = None
+
+
+# --- tablet health ---
+FyKey = Annotated[str, Field(pattern=r"^\d{2}-\d{2}$")]
+
+
+class DeviceReportIn(BaseModel):
+    """What a tablet holds, sent whenever it syncs (see services/health.py)."""
+
+    seq_by_fy: dict[FyKey, Annotated[int, Field(ge=0, le=999_999)]]
+    pending_bills: Annotated[int, Field(ge=0)]
+    pending_ops: Annotated[int, Field(ge=0)] = 0
+    rejected: Annotated[int, Field(ge=0)] = 0
+    oldest_pending_at: datetime | None = None
+    # Invoice sequences still on the tablet (waiting or refused): not lost.
+    held_seqs_by_fy: dict[FyKey, Annotated[list[int], Field(max_length=2000)]] = {}
+    persisted_storage: bool | None = None
+    app_version: Annotated[str, Field(max_length=40)] | None = None
