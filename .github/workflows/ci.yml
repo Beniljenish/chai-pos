@@ -38,7 +38,7 @@ jobs:
       - name: Lint and format
         run: ruff check . && ruff format --check .
       - name: Migrations round-trip (up, all the way down, up again) and match models
-        run: alembic upgrade head && alembic downgrade base && alembic upgrade head && alembic check
+        run: alembic upgrade heads && alembic downgrade base && alembic upgrade heads && alembic check
       - name: Tests
         run: pytest
 
@@ -100,7 +100,7 @@ jobs:
         working-directory: backend
         run: |
           pip install .
-          alembic upgrade head
+          alembic upgrade heads
           python -m scripts.seed
           nohup uvicorn app.main:app --port 8000 > ../uvicorn.log 2>&1 &
           for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 1; done

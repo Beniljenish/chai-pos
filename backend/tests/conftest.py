@@ -29,7 +29,7 @@ def _migrate():
         conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
     cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
     cfg.set_main_option("script_location", os.path.join(os.path.dirname(__file__), "..", "alembic"))
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "heads")  # parallel feature branches (README, Hosting)
     yield
 
 
