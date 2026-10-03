@@ -39,6 +39,7 @@ class IngredientCreate(BaseModel):
     tolerance_bp: Annotated[int, Field(ge=0, le=5000)] = 300
     count_frequency: Annotated[str, Field(pattern="^(shift|daily|weekly)$")] = "daily"
     reorder_level: Qty | None = None
+    scales_with_size: bool = True  # False for cups, lids, straws
     pack_units: list[PackUnitIn] = []
 
 
@@ -47,6 +48,7 @@ class IngredientUpdate(BaseModel):
     tolerance_bp: Annotated[int, Field(ge=0, le=5000)] | None = None
     count_frequency: Annotated[str, Field(pattern="^(shift|daily|weekly)$")] | None = None
     reorder_level: Qty | None = None
+    scales_with_size: bool | None = None
     is_active: bool | None = None
 
 
@@ -59,6 +61,7 @@ class IngredientOut(ORM):
     tolerance_bp: int
     count_frequency: str
     reorder_level: Decimal | None
+    scales_with_size: bool
     is_active: bool
     pack_units: list[PackUnitOut]
 

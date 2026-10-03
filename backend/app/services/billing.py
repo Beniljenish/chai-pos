@@ -14,6 +14,7 @@ import hashlib
 import json
 import uuid
 from collections import defaultdict
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -283,11 +284,17 @@ def _load(db: Session, model, ids: set, reason: str) -> dict:
 
 
 def consumption_for_line(
-    recipe_lines: dict[uuid.UUID, Decimal], qty: int, modifiers: list[dict]
+    recipe_lines: dict[uuid.UUID, Decimal],
+    qty: int,
+    modifiers: list[dict],
+    fixed: Collection[uuid.UUID] = frozenset(),
 ) -> dict[uuid.UUID, Decimal]:
     """Ingredients used by `qty` units of one line.
 
     per unit = recipe x (product of modifier scale factors) + sum of modifier deltas
+    Ingredients in `fixed` (packaging: cups, lids) are not scaled: a Large tea
+    still uses one cup. Modifier deltas still apply to them, which is how a
+    "Large" can swap a regular cup (-1) for a large cup (+1).
     An ingredient never goes below zero use: "Less sugar" on a drink whose recipe
     has no loose sugar must not ADD sugar back into stock.
     """
@@ -296,7 +303,7 @@ def consumption_for_line(
         scale *= Decimal(m["scale_factor"])
     per_unit: dict[uuid.UUID, Decimal] = defaultdict(Decimal)
     for ingredient_id, q in recipe_lines.items():
-        per_unit[ingredient_id] += q * scale
+        per_unit[ingredient_id] += q if ingredient_id in fixed else q * scale
     for m in modifiers:
         for ml in m["lines"]:
             per_unit[ml["ingredient_id"]] += Decimal(ml["qty_delta"])
@@ -313,12 +320,24 @@ def _deduct_stock(ctx: SyncContext, bill: Bill, b: dict) -> None:
         if recipe_ids
         else {}
     )
+    used = {i for lines in recipes.values() for i in lines}
+    fixed = (
+        set(
+            ctx.db.scalars(
+                select(Ingredient.id).where(
+                    Ingredient.id.in_(used), Ingredient.scales_with_size.is_(False)
+                )
+            )
+        )
+        if used
+        else set()
+    )
 
     total: dict[uuid.UUID, Decimal] = defaultdict(Decimal)
     for ln in b["lines"]:
         recipe_lines = recipes.get(ln["recipe_id"], {})
         for ingredient_id, q in consumption_for_line(
-            recipe_lines, ln["qty"], ln["modifiers"]
+            recipe_lines, ln["qty"], ln["modifiers"], fixed
         ).items():
             total[ingredient_id] += q
 

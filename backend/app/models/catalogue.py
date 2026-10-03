@@ -23,6 +23,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -71,6 +72,12 @@ class Ingredient(IdMixin, TimestampMixin, TenantScoped, Base):
     count_frequency: Mapped[str] = mapped_column(String(10), default="daily")
     reorder_level: Mapped[Decimal | None] = mapped_column(QTY)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # False for packaging (cups, lids, straws): one per serving whatever the size.
+    # A "Large" modifier scales milk and fruit, never the number of cups. A larger
+    # cup is a different ingredient, swapped in by the modifier's deltas.
+    scales_with_size: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )
 
     pack_units: Mapped[list["PackUnit"]] = relationship(
         back_populates="ingredient", order_by="PackUnit.qty_in_base"
