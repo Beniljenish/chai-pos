@@ -2,7 +2,7 @@
  * Owner: one day's sales from the server (all tablets), and voiding a bill.
  * Totals are the printed invoices; voided bills are left out and listed below.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { businessDate } from '../lib/billing';
 import { formatRate, formatRupees } from '../lib/gst';
 import { formatPriceDelta } from '../lib/options';
@@ -19,6 +19,8 @@ import {
 import type { SalesReport, ServerBill } from '../lib/types';
 import { PROBLEM_LABELS } from '../lib/payments';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
+import { Sheet } from './Sheet';
 import { ServiceReport } from './ServiceReport';
 import { CashDrawer } from './CashDrawer';
 import { explainError } from './errors';
@@ -77,13 +79,9 @@ export function SalesScreen() {
           </button>
         </div>
       </header>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
       {!report ? (
-        !error && <p className="muted">Loading…</p>
+        !error && <Loading />
       ) : (
         <>
           <div className="sales-total">
@@ -333,14 +331,6 @@ function BillSheet({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dialog = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   async function confirm() {
     if (!reason) return setError('Choose why this bill is being voided.');
@@ -361,104 +351,90 @@ function BillSheet({
 
   const v = bill.void;
   return (
-    <div className="overlay" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bill-title"
-        tabIndex={-1}
-        ref={dialog}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="sheet-head">
-          <div>
-            <h2 id="bill-title" className="num">
-              {bill.invoice_no}
-            </h2>
-            <p className="muted">
-              {time(bill.sold_at)} · {PAYMENT_LABELS[bill.payment_mode]}
-            </p>
-          </div>
-          <button className="quiet" onClick={onClose}>
-            Close
-          </button>
-        </header>
+    <Sheet
+      title={<span className="num">{bill.invoice_no}</span>}
+      label={`Bill ${bill.invoice_no}`}
+      sub={
+        <p className="muted">
+          {time(bill.sold_at)} · {PAYMENT_LABELS[bill.payment_mode]}
+        </p>
+      }
+      onClose={onClose}
+    >
 
-        {v && (
-          <p className="void-stamp" role="status">
-            <strong>Voided</strong> by {v.voided_by_name} at {time(v.voided_at)}: {voidReasonLabel(v.reason)}
-            {v.note && ` (${v.note})`}.{' '}
-            {v.stock_returned ? 'Stock was put back.' : 'The drink was made, so stock was not put back.'}
-          </p>
-        )}
+      {v && (
+        <p className="void-stamp" role="status">
+          <strong>Voided</strong> by {v.voided_by_name} at {time(v.voided_at)}: {voidReasonLabel(v.reason)}
+          {v.note && ` (${v.note})`}.{' '}
+          {v.stock_returned ? 'Stock was put back.' : 'The drink was made, so stock was not put back.'}
+        </p>
+      )}
 
-        <table className={`sales-table ${v ? 'struck' : ''}`}>
-          <tbody>
-            {bill.lines.map((l) => (
-              <tr key={l.position}>
-                <th scope="row">
-                  {l.qty} × {l.name_snapshot}
-                  {l.modifiers.length > 0 && (
-                    <span className="muted">
-                      {' '}
-                      ({l.modifiers.map((m) => `${m.name_snapshot} ${formatPriceDelta(m.price_delta_paise)}`.trim()).join(', ')})
-                    </span>
-                  )}
-                </th>
-                <td className="num">{formatRupees(l.total_paise)}</td>
-              </tr>
-            ))}
-            <tr className="total-row">
-              <th scope="row">Total</th>
-              <td className="num">{formatRupees(bill.total_paise)}</td>
+      <table className={`sales-table ${v ? 'struck' : ''}`}>
+        <tbody>
+          {bill.lines.map((l) => (
+            <tr key={l.position}>
+              <th scope="row">
+                {l.qty} × {l.name_snapshot}
+                {l.modifiers.length > 0 && (
+                  <span className="muted">
+                    {' '}
+                    ({l.modifiers.map((m) => `${m.name_snapshot} ${formatPriceDelta(m.price_delta_paise)}`.trim()).join(', ')})
+                  </span>
+                )}
+              </th>
+              <td className="num">{formatRupees(l.total_paise)}</td>
             </tr>
-          </tbody>
-        </table>
+          ))}
+          <tr className="total-row">
+            <th scope="row">Total</th>
+            <td className="num">{formatRupees(bill.total_paise)}</td>
+          </tr>
+        </tbody>
+      </table>
 
-        {!v && canVoid && !voiding && (
-          <button className="danger" onClick={() => setVoiding(true)}>
-            Void this bill
-          </button>
-        )}
+      {!v && canVoid && !voiding && (
+        <button className="danger" onClick={() => setVoiding(true)}>
+          Void this bill
+        </button>
+      )}
 
-        {!v && voiding && (
-          <fieldset className="void-form">
-            <legend>Why is it being voided?</legend>
-            <div role="radiogroup" aria-label="Reason">
-              {VOID_REASONS.map((r) => (
-                <label key={r.id} className="check">
-                  <input type="radio" name="void-reason" checked={reason === r.id} onChange={() => setReason(r.id)} />
-                  {r.label}
-                </label>
-              ))}
-            </div>
-            <label>
-              Note {reason === 'other' ? '' : '(optional)'}
-              <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={made} onChange={(e) => setMade(e.target.checked)} />
-              The drink was already made (do not put the stock back)
-            </label>
-            <p className="muted">
-              The bill stays on record with its number, marked voided, and drops out of the day&apos;s sales. This
-              cannot be undone.
-            </p>
-            <div className="sheet-actions">
-              <button className="danger" disabled={busy} onClick={() => void confirm()}>
-                Void {formatRupees(bill.total_paise)}
-              </button>
-              <button onClick={() => setVoiding(false)}>Keep the bill</button>
-            </div>
-          </fieldset>
-        )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
+      {!v && voiding && (
+        <fieldset className="void-form">
+          <legend>Why is it being voided?</legend>
+          <div role="radiogroup" aria-label="Reason">
+            {VOID_REASONS.map((r) => (
+              <label key={r.id} className="check">
+                <input type="radio" name="void-reason" checked={reason === r.id} onChange={() => setReason(r.id)} />
+                {r.label}
+              </label>
+            ))}
+          </div>
+          <label>
+            Note {reason === 'other' ? '' : '(optional)'}
+            <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={made} onChange={(e) => setMade(e.target.checked)} />
+            The drink was already made (do not put the stock back)
+          </label>
+          <p className="muted">
+            The bill stays on record with its number, marked voided, and drops out of the day&apos;s sales. This
+            cannot be undone.
           </p>
-        )}
-      </div>
-    </div>
+          <div className="sheet-actions">
+            <button className="danger" disabled={busy} onClick={() => void confirm()}>
+              Void {formatRupees(bill.total_paise)}
+            </button>
+            <button onClick={() => setVoiding(false)}>Keep the bill</button>
+          </div>
+        </fieldset>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </Sheet>
   );
 }

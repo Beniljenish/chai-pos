@@ -5,6 +5,7 @@ import { formatRupees } from '../lib/gst';
 import { formatDelta, formatQty } from '../lib/qty';
 import type { DayReport as Report } from '../lib/types';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 
 export function DayReport({
@@ -46,8 +47,8 @@ export function DayReport({
     }
   }
 
-  if (error && !rep) return <p className="error">{error}</p>;
-  if (!rep) return <p className="muted">Loading…</p>;
+  if (error && !rep) return <LoadError error={error} onRetry={() => void load()} />;
+  if (!rep) return <Loading />;
   if (rep.lines.length === 0)
     return (
       <section className="report">

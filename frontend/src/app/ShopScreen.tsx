@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { computeBill, formatRate, formatRupees, type GstType } from '../lib/gst';
 import { checkGstin, STATES } from '../lib/gstin';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { CashSettings } from './CashDrawer';
 import { EmailSettings } from './EmailSettings';
@@ -62,8 +63,12 @@ export function ShopScreen() {
     setGstin(s.gstin ?? '');
   }
 
-  useEffect(() => {
+  const load = () => {
+    setError(null);
     api.get<Shop>('/shop').then(fill, (e) => setError(explainError(e)));
+  };
+  useEffect(() => {
+    load();
   }, []);
 
   const needsGstin = type !== 'unregistered';
@@ -100,7 +105,7 @@ export function ShopScreen() {
     }
   }
 
-  if (!shop) return error ? <p className="error">{error}</p> : <p className="muted">Loading…</p>;
+  if (!shop) return error ? <LoadError error={error} onRetry={load} /> : <Loading />;
 
   return (
     <section className="shop">

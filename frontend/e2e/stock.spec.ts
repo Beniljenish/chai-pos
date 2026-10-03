@@ -29,7 +29,14 @@ test('owner stock: opening count, stock-in, batch, history', async ({ page }) =>
 
   await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
   // Manage opens on Sales (what the owner checks most); Stock is one tap away.
+  // The first load fails (a network blip): the screen says so and reloads in place.
+  await page.route('**/api/v1/stock', (r) => r.abort('internetdisconnected'));
   await page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+  await page.unroute('**/api/v1/stock');
+  await page.getByRole('alert').getByRole('button', { name: 'Reload' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',

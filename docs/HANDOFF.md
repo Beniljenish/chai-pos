@@ -8,7 +8,7 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 | --- | --- |
 | `main` | `a9b0dee` (PR #23 merged). Deployed: app on chai-pos-app.vercel.app. |
 | Supabase `alembic_version` | `3e72290e9f62` (tables and orders). Every migration after this one is **not** on Supabase yet. |
-| Phases done | 0–3, 4 (lost-bill detection, printing), 5.1 (order engine, floor setup), 5.2 (Tables screen: KOT, bill at the table, settle, takeaway/delivery). |
+| Phases done | 0–3, 4 (lost-bill detection, printing), 5.1 (order engine, floor setup), 5.2 (Tables screen: KOT, bill at the table, settle, takeaway/delivery), 5.3 (kitchen screen, table-service report; PR #24 merged), 5.4 (UI polish). |
 | Phase 5.3 | Reviewed, tested and finished on `kitchen-and-service-report-wip` (kitchen view, owner table-service report, daily email lines). No migration. |
 | Flaky `e2e/sales.spec.ts` | Fixed in the app: the sync badge could say "All bills sent" with a bill saved mid-sync still waiting (README, Phase 5.3). Unit tests pin it. |
 

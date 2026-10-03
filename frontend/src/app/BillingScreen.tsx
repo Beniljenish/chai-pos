@@ -6,6 +6,7 @@ import { formatRupees, GstError } from '../lib/gst';
 import { formatPriceDelta } from '../lib/options';
 import { OnlinePayment } from './OnlinePayment';
 import { Receipt } from './Receipt';
+import { PAYMENT_LABELS } from '../lib/sales';
 import { shiftsOn } from '../lib/shift';
 import { StartShiftSheet } from './ShiftUI';
 import { useSession } from './session';
@@ -156,10 +157,18 @@ export function BillingScreen() {
       </section>
 
       <aside className={`till ${tillOpen ? 'open' : ''}`} aria-label="Current bill">
-        <button className="till-handle" onClick={() => setTillOpen((o) => !o)} aria-expanded={tillOpen}>
-          <span>{itemCount ? `${itemCount} item${itemCount > 1 ? 's' : ''}` : 'Empty bill'}</span>
-          <strong className="num">{formatRupees(totals?.total ?? 0)}</strong>
-        </button>
+        <div className="till-bar">
+          <button className="till-handle" onClick={() => setTillOpen((o) => !o)} aria-expanded={tillOpen}>
+            <span>{itemCount ? `${itemCount} item${itemCount > 1 ? 's' : ''}` : 'Empty bill'}</span>
+            <strong className="num">{formatRupees(totals?.total ?? 0)}</strong>
+          </button>
+          {/* Phones: the usual sale (a tea, paid as before) without opening the bill. */}
+          {!tillOpen && itemCount > 0 && totals && (
+            <button className="primary quick-save" disabled={saving} onClick={() => void save()}>
+              Save · {PAYMENT_LABELS[payment]}
+            </button>
+          )}
+        </div>
 
         <div className="till-body">
           {cart.length === 0 ? (

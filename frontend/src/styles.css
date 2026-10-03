@@ -121,6 +121,13 @@ input {
   color: var(--chilli);
   font-weight: 700;
 }
+/* A failed load: the reason, and Reload beside it (app/Status.tsx). */
+.load-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
 .warn {
   background: var(--turmeric-soft);
   padding: var(--s3);
@@ -369,6 +376,22 @@ input {
 .till-handle:active {
   background: transparent;
 }
+.till-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.till-bar .till-handle {
+  flex: 1;
+  min-width: 0;
+}
+.till .quick-save {
+  flex: none;
+  margin-right: var(--s4);
+  min-height: 52px;
+  padding: 0 var(--s4);
+  font-size: 1.05rem;
+}
 .till-body {
   display: none;
   overflow-y: auto;
@@ -485,7 +508,8 @@ button.save {
     max-height: none;
     border-radius: 0;
   }
-  .till-handle {
+  .till-handle,
+  .till .quick-save {
     display: none;
   }
   .till-body {

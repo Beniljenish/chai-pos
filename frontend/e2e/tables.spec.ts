@@ -129,6 +129,13 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
   await page.getByRole('button', { name: 'Cancel Masala tea' }).click();
   const cancel = page.getByRole('dialog', { name: 'Cancel Masala tea' });
   await expect(cancel.getByRole('button', { name: 'Cancel 1 Masala tea' })).toBeDisabled();
+  // Typing a reason survives the floor's 5-second refresh (the sheet used to take
+  // the focus back from the box on every refresh).
+  const own = cancel.getByRole('textbox');
+  await own.click();
+  await page.waitForTimeout(6_000);
+  await expect(own).toBeFocused();
+  await own.clear();
   await cancel.getByRole('button', { name: 'Customer changed mind' }).click();
   await cancel.getByRole('button', { name: 'Cancel 1 Masala tea' }).click();
   await expect.poll(() => printCount(page)).toBe(3);
