@@ -3,11 +3,13 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.api.common import get_or_404, unprocessable
+from app.api.common import commit_or_409, get_or_404, unprocessable
 from app.api.deps import Caller, get_caller, require_owner
 from app.models import Ingredient, StockLedger
 from app.schemas_catalogue import (
     LedgerOut,
+    OpeningIn,
+    OpeningOut,
     PrepBatchIn,
     PrepBatchOut,
     StockInIn,
@@ -52,6 +54,27 @@ def stock_in(body: StockInIn, caller: Caller = Depends(require_owner)):
     return receipt
 
 
+@router.post("/stock/opening", response_model=OpeningOut, status_code=201)
+def set_opening(body: OpeningIn, caller: Caller = Depends(require_owner)):
+    ingredient = get_or_404(caller.db, Ingredient, body.ingredient_id)
+    try:
+        opening = stock_service.set_opening(
+            caller.db,
+            ingredient=ingredient,
+            packs=[stock_service.PackQty(p.pack_unit_id, p.qty) for p in body.packs],
+            loose_qty=body.loose_qty,
+            user_id=caller.user.id,
+        )
+    except stock_service.OpeningAlreadySet as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    except stock_service.StockError as e:
+        caller.db.rollback()
+        raise unprocessable(str(e)) from None
+    commit_or_409(caller.db, "Opening stock for this ingredient was already entered")
+    return opening
+
+
 @router.post("/prep-batches", response_model=PrepBatchOut, status_code=201)
 def make_prep_batch(body: PrepBatchIn, caller: Caller = Depends(get_caller)):
     # Cashiers make the decoction, so they log batches too.
@@ -81,6 +104,8 @@ def stock_on_hand(caller: Caller = Depends(require_owner)):
             is_negative=s.qty < 0,
             below_reorder=s.ingredient.reorder_level is not None
             and s.qty < s.ingredient.reorder_level,
+            has_opening=s.has_opening,
+            is_active=s.ingredient.is_active,
         )
         for s in stock_service.stock_on_hand(caller.db)
     ]

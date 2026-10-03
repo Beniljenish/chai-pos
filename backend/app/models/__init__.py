@@ -104,6 +104,7 @@ from app.models.catalogue import (  # noqa: E402
     Recipe,
     RecipeLine,
     StockLedger,
+    StockOpening,
     StockReceipt,
 )
 
@@ -131,6 +132,7 @@ __all__ = [
     "Role",
     "Shop",
     "StockLedger",
+    "StockOpening",
     "StockReceipt",
     "User",
 ]

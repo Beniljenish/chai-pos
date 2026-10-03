@@ -271,3 +271,15 @@ Environment variables (set in Vercel, never in the repo):
 - **`DB_SERVERLESS=true`: no connection pool, no prepared statements.** A serverless instance can be frozen between requests, so pooled connections go stale; Supabase's transaction pooler hands each transaction to any Postgres backend, so a statement prepared on one is missing on the next. `NullPool` plus psycopg `prepare_threshold=None` avoids both. Tested in `tests/test_serverless_db.py`.
 - **Cold starts accepted for staging.** The first request after idle takes a few seconds. The app does not care: bills are saved on the device first and the sync worker retries.
 - **Migrations are not run on deploy.** They are applied to Supabase deliberately after a PR merges (see the Supabase section), so a deploy can never change the schema by surprise.
+
+## Phase 3a: owner stock screen
+
+The owner's **Stock** tab (cashiers see **Prep** instead): stock on hand, stock-in by pack, a one-time opening count, logging decoction batches, and the history behind every number.
+
+### Decisions and trade-offs
+
+- **Opening stock once per ingredient** (`stock_openings`, unique per shop and ingredient). A "set stock to X" button usable any time would silently absorb theft and wastage, which is exactly what day-end variance exists to catch. After the opening count, every change needs a reason.
+- **Openings have their own table, not just a ledger row.** The ledger forbids zero movements, but an opening that matches the system (often zero for a new shop) still has to be remembered. The table also keeps what was counted ("3 packets + 200 ml") and what the system thought before (`system_qty`), so sales made before the first count are visible, not hidden.
+- **Cashiers log batches but never see stock levels.** They make the decoction, so they log it (otherwise milk never goes down and decoction goes negative). Seeing expected quantities would defeat blind day-end counts.
+- **Owner screens are online-only.** They edit the shop's records; working from a stale offline copy would be worse than a clear "needs internet" message. Billing stays fully offline.
+- **Entry by pack, display in L/kg.** Staff count packets and crates; the total is previewed, and the server's conversion is the one stored.

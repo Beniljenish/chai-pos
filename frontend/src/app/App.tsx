@@ -3,7 +3,9 @@ import { BillingScreen } from './BillingScreen';
 import { BillsScreen } from './BillsScreen';
 import { DeviceSetupScreen } from './DeviceSetupScreen';
 import { LoginScreen } from './LoginScreen';
+import { PrepPanel } from './PrepPanel';
 import { useSession } from './session';
+import { StockScreen } from './StockScreen';
 
 function SyncBadge() {
   const { sync, worker } = useSession();
@@ -42,7 +44,9 @@ function SyncBadge() {
 
 export function App() {
   const { phase, user, device, catalogue, sync, notice, logout } = useSession();
-  const [tab, setTab] = useState<'bill' | 'today'>('bill');
+  const [tab, setTab] = useState<'bill' | 'today' | 'stock'>('bill');
+
+  const isOwner = user?.role === 'owner';
 
   if (phase === 'loading') return <main className="centered" aria-busy="true" />;
   if (phase === 'login') return <LoginScreen />;
@@ -64,6 +68,10 @@ export function App() {
           <button aria-pressed={tab === 'today'} onClick={() => setTab('today')}>
             Today
           </button>
+          {/* Owners see stock levels; cashiers only log batches (counts stay blind). */}
+          <button aria-pressed={tab === 'stock'} onClick={() => setTab('stock')}>
+            {isOwner ? 'Stock' : 'Prep'}
+          </button>
         </nav>
         <SyncBadge />
         <button className="quiet" onClick={logout}>
@@ -75,7 +83,17 @@ export function App() {
           {notice ?? sync?.lastError}
         </p>
       )}
-      {tab === 'bill' ? <BillingScreen /> : <BillsScreen />}
+      {tab === 'bill' ? (
+        <BillingScreen />
+      ) : tab === 'today' ? (
+        <BillsScreen />
+      ) : isOwner ? (
+        <StockScreen />
+      ) : (
+        <main className="manage">
+          <PrepPanel />
+        </main>
+      )}
     </div>
   );
 }

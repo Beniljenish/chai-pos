@@ -93,3 +93,45 @@ export interface SyncResult {
   totals_mismatch: boolean;
   reason: string | null;
 }
+
+// ---- owner: stock ----
+import type { BaseUnit } from './qty';
+export type { BaseUnit };
+
+export interface Ingredient {
+  id: string;
+  name: string;
+  kind: 'raw' | 'prep';
+  base_unit: BaseUnit;
+  scales_with_size: boolean;
+  is_active: boolean;
+  reorder_level: string | null;
+  pack_units: { id: string; name: string; qty_in_base: string }[];
+}
+
+export interface StockRow {
+  ingredient_id: string;
+  name: string;
+  kind: 'raw' | 'prep';
+  base_unit: BaseUnit;
+  on_hand: string;
+  is_negative: boolean;
+  below_reorder: boolean;
+  has_opening: boolean;
+  is_active: boolean;
+}
+
+export interface LedgerRow {
+  id: string;
+  qty_delta: string;
+  reason: 'opening' | 'stock_in' | 'sale' | 'prep_in' | 'prep_out' | 'void' | 'wastage' | 'count_adjustment';
+  business_date: string;
+  created_at: string;
+}
+
+export interface PrepRecipe {
+  id: string;
+  version: number;
+  yield_qty: string | null;
+  lines: RecipeLine[];
+}
