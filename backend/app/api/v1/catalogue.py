@@ -30,10 +30,12 @@ from app.schemas_catalogue import (
     IngredientOut,
     IngredientUpdate,
     MenuItemCreate,
+    MenuItemIdsIn,
     MenuItemOut,
     MenuItemUpdate,
     MenuRecipeIn,
     ModifierCreate,
+    ModifierDetailOut,
     ModifierIdsIn,
     ModifierOut,
     ModifierUpdate,
@@ -299,6 +301,23 @@ def _modifier(caller: Caller, modifier_id: uuid.UUID) -> Modifier:
     return mod
 
 
+def _detail(caller: Caller, mods: list[Modifier]) -> list[ModifierDetailOut]:
+    links: dict[uuid.UUID, list[uuid.UUID]] = {m.id: [] for m in mods}
+    if mods:
+        for mi, mid in caller.db.execute(
+            select(MenuItemModifier.menu_item_id, MenuItemModifier.modifier_id).where(
+                MenuItemModifier.modifier_id.in_(links)
+            )
+        ):
+            links[mid].append(mi)
+    return [
+        ModifierDetailOut(
+            **ModifierOut.model_validate(m).model_dump(), menu_item_ids=sorted(links[m.id], key=str)
+        )
+        for m in mods
+    ]
+
+
 def _check_line_ingredients(caller: Caller, lines) -> None:
     ids = [ln.ingredient_id for ln in lines]
     if len(ids) != len(set(ids)):
@@ -308,29 +327,30 @@ def _check_line_ingredients(caller: Caller, lines) -> None:
         raise unprocessable("Unknown ingredient in modifier lines")
 
 
-@router.get("/modifiers", response_model=list[ModifierOut], tags=["menu"])
+@router.get("/modifiers", response_model=list[ModifierDetailOut], tags=["menu"])
 def list_modifiers(caller: Caller = Depends(get_caller)):
-    return caller.db.scalars(
+    mods = caller.db.scalars(
         select(Modifier).options(selectinload(Modifier.lines)).order_by(Modifier.name)
     ).all()
+    return _detail(caller, list(mods))
 
 
-@router.post("/modifiers", response_model=ModifierOut, status_code=201, tags=["menu"])
+@router.post("/modifiers", response_model=ModifierDetailOut, status_code=201, tags=["menu"])
 def create_modifier(body: ModifierCreate, caller: Caller = Depends(require_owner)):
     _check_line_ingredients(caller, body.lines)
     mod = Modifier(**body.model_dump(exclude={"lines"}))
     mod.lines = [ModifierLine(**ln.model_dump()) for ln in body.lines]
     caller.db.add(mod)
-    commit_or_409(caller.db, "A modifier with that name already exists")
-    return mod
+    commit_or_409(caller.db, "An option with that name already exists")
+    return _detail(caller, [mod])[0]
 
 
-@router.get("/modifiers/{modifier_id}", response_model=ModifierOut, tags=["menu"])
+@router.get("/modifiers/{modifier_id}", response_model=ModifierDetailOut, tags=["menu"])
 def get_modifier(modifier_id: uuid.UUID, caller: Caller = Depends(get_caller)):
-    return _modifier(caller, modifier_id)
+    return _detail(caller, [_modifier(caller, modifier_id)])[0]
 
 
-@router.patch("/modifiers/{modifier_id}", response_model=ModifierOut, tags=["menu"])
+@router.patch("/modifiers/{modifier_id}", response_model=ModifierDetailOut, tags=["menu"])
 def update_modifier(
     modifier_id: uuid.UUID, body: ModifierUpdate, caller: Caller = Depends(require_owner)
 ):
@@ -338,13 +358,30 @@ def update_modifier(
     data = body.model_dump(exclude_unset=True)
     if "lines" in data:
         _check_line_ingredients(caller, body.lines)
-        # Safe to replace: Phase 2 bills snapshot the modifier's effect at sale time.
+        # Safe to replace: bills snapshot the modifier's effect at sale time.
         mod.lines = [ModifierLine(**ln.model_dump()) for ln in body.lines]
         data.pop("lines")
     for field, value in data.items():
         setattr(mod, field, value)
-    commit_or_409(caller.db, "A modifier with that name already exists")
-    return mod
+    commit_or_409(caller.db, "An option with that name already exists")
+    return _detail(caller, [mod])[0]
+
+
+@router.put("/modifiers/{modifier_id}/menu-items", response_model=ModifierDetailOut, tags=["menu"])
+def set_modifier_menu_items(
+    modifier_id: uuid.UUID, body: MenuItemIdsIn, caller: Caller = Depends(require_owner)
+):
+    """Which drinks offer this option. Replaces the whole set for this option only."""
+    mod = _modifier(caller, modifier_id)
+    ids = set(body.menu_item_ids)
+    found = caller.db.scalars(select(MenuItem.id).where(MenuItem.id.in_(ids))).all() if ids else []
+    if len(found) != len(ids):
+        raise unprocessable("Unknown menu item id")
+    caller.db.execute(delete(MenuItemModifier).where(MenuItemModifier.modifier_id == mod.id))
+    for mi in ids:
+        caller.db.add(MenuItemModifier(menu_item_id=mi, modifier_id=mod.id))
+    caller.db.commit()
+    return _detail(caller, [mod])[0]
 
 
 # ---------------- catalogue (what a billing device caches) ----------------

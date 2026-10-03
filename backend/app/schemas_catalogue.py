@@ -117,6 +117,10 @@ class ModifierIdsIn(BaseModel):
     modifier_ids: list[uuid.UUID]
 
 
+class MenuItemIdsIn(BaseModel):
+    menu_item_ids: list[uuid.UUID]
+
+
 # --- recipes ---
 class RecipeLineIn(BaseModel):
     ingredient_id: uuid.UUID
@@ -189,6 +193,12 @@ class ModifierOut(ORM):
     scale_factor: Decimal
     is_active: bool
     lines: list[ModifierLineOut]
+
+
+class ModifierDetailOut(ModifierOut):
+    """Owner view: also which drinks offer this option (including drinks off the menu)."""
+
+    menu_item_ids: list[uuid.UUID] = []
 
 
 # --- stock ---

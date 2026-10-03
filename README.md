@@ -347,3 +347,13 @@ Server settings (Vercel env, API project): `RESEND_API_KEY` (secret), `EMAIL_FRO
 - **One cron a day** (Vercel's free plan allows exactly that) at 01:30 UTC = 07:00 IST: yesterday is a complete day by then, even for shops that close after midnight.
 - **HTML-escaped**: item and shop names are shop data; a name like `<b>Chai</b>` is shown, not rendered.
 - **CSV with a BOM** so Excel opens ₹ and names correctly.
+
+## Phase 3e: new drinks and options on the bill
+
+Manage → Recipes → **+ New drink** asks for the name, price and GST, then opens the recipe editor straight away, so no drink is left without a recipe by accident. **Options on the bill** (Large, Less sugar, Extra ginger) are created and edited in the same screen: price change, size, ingredient changes, and which drinks offer them. The drink editor (Recipes and Shop & GST) also has a tick-list of options.
+
+### Decisions and trade-offs
+- **Assign from both sides.** "Which drinks get Large?" is asked per option; "what does Ginger tea offer?" is asked per drink. `PUT /modifiers/{id}/menu-items` replaces only that option's links; `PUT /menu-items/{id}/modifiers` replaces only that drink's. Links to drinks taken off the menu are kept and sent back unchanged.
+- **Direction + number, not signed numbers.** Many phone number pads have no minus key, so "Less sugar 5 g" is a *− less* picker plus 5.
+- **Live preview uses the server's rule** (`consumption_for_line`): the recipe times the size, except things that do not grow with size (cups), plus the option's own changes, never below zero. Unit tests pin the two to the same numbers.
+- **Two calls, retry-safe.** Saving creates or updates the option, then its drinks. If the second call fails, the editor keeps the new id, so retrying does not create a duplicate.

@@ -5,6 +5,8 @@ import type { Catalogue, Ingredient, Recipe, RecipeLine } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
 import { IngredientsPanel } from './IngredientsPanel';
+import { MenuItemEditor } from './MenuPrices';
+import { OptionsPanel } from './OptionsPanel';
 import { RecipeEditor, type RecipeTarget } from './RecipeEditor';
 import { useSession } from './session';
 
@@ -21,6 +23,7 @@ export function RecipesScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [prepRecipes, setPrepRecipes] = useState<Record<string, Recipe | null>>({});
   const [editing, setEditing] = useState<RecipeTarget | null>(null);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -50,6 +53,9 @@ export function RecipesScreen() {
     <section className="recipes">
       <header className="manage-head">
         <h1>Recipes</h1>
+        <button className="primary" onClick={() => setAdding(true)}>
+          + New drink
+        </button>
       </header>
       <p className="muted">
         The SOP for every drink: what one serving takes out of stock. Changing a recipe makes a new version; old bills
@@ -90,6 +96,8 @@ export function RecipesScreen() {
             </div>
           ))}
 
+          <OptionsPanel menu={menu} ingredients={ingredients} onChanged={() => void reloadCatalogue()} />
+
           {preps.length > 0 && (
             <>
               <h2>Made here (batches)</h2>
@@ -117,6 +125,22 @@ export function RecipesScreen() {
 
           <IngredientsPanel ingredients={ingredients} onChanged={() => void load()} />
         </>
+      )}
+
+      {adding && (
+        <MenuItemEditor
+          item={null}
+          categories={categories}
+          defaultCategory={categories[0]}
+          recipeNext
+          onClose={() => setAdding(false)}
+          onSaved={(item) => {
+            setAdding(false);
+            void load();
+            void reloadCatalogue();
+            setEditing({ kind: 'menu', id: item.id, name: item.name });
+          }}
+        />
       )}
 
       {editing && (

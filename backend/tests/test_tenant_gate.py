@@ -24,6 +24,10 @@ ID_ROUTES = {
         "cat.milk",
         {"GET": None, "PATCH": {"name": "hijacked"}},
     ),
+    "/api/v1/modifiers/{modifier_id}/menu-items": (
+        "cat.less_sugar",
+        {"PUT": {"menu_item_ids": []}},
+    ),
     "/api/v1/ingredients/{ingredient_id}/pack-units": (
         "cat.milk",
         {"GET": None, "POST": {"name": "hijack", "qty_in_base": "1"}},
@@ -162,6 +166,14 @@ def test_other_shops_ids_inside_request_bodies_are_rejected(client: TestClient, 
     r = client.put(
         f"/api/v1/menu-items/{cat_a.tea['id']}/modifiers",
         json={"modifier_ids": [cat_b.less_sugar["id"]]},
+        headers=h,
+    )
+    assert r.status_code == 422
+    # my modifier offered on THEIR drink
+    my_mod = client.get("/api/v1/modifiers", headers=h).json()[0]
+    r = client.put(
+        f"/api/v1/modifiers/{my_mod['id']}/menu-items",
+        json={"menu_item_ids": [cat_b.tea["id"]]},
         headers=h,
     )
     assert r.status_code == 422

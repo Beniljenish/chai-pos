@@ -3,6 +3,7 @@ import { buildLines, priceLines, saveBill, type CartLine, type PaymentMode } fro
 import type { LocalBill } from '../lib/db';
 import { db } from '../lib/db';
 import { formatRupees, GstError } from '../lib/gst';
+import { formatPriceDelta } from '../lib/options';
 import { Receipt } from './Receipt';
 import { useSession } from './session';
 
@@ -172,7 +173,7 @@ export function BillingScreen() {
                             onClick={() => toggleModifier(l.key, mid)}
                           >
                             {m.name}
-                            {m.price_delta_paise ? ` +${formatRupees(m.price_delta_paise)}` : ''}
+                            {m.price_delta_paise ? ` ${formatPriceDelta(m.price_delta_paise)}` : ''}
                           </button>
                         );
                       })}
