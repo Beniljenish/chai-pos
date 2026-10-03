@@ -57,6 +57,11 @@ ID_ROUTES = {
     "/api/v1/areas/{area_id}": ("area", {"PATCH": {"name": "hijacked"}}),
     "/api/v1/tables/{table_id}": ("table", {"PATCH": {"name": "hijacked"}}),
     "/api/v1/orders/{order_id}": ("order", {"GET": None}),
+    "/api/v1/customers/{customer_id}": ("customer", {"GET": None}),
+    "/api/v1/customers/{customer_id}/repayments": (
+        "customer",
+        {"POST": {"id": ANY_ID, "amount_paise": 100, "mode": "cash"}},
+    ),
     "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
     "/api/v1/devices/{device_id}/report": (
@@ -78,7 +83,7 @@ DATE_ROUTES = {
 
 
 def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
-    if key in ("bill", "area", "table", "order"):
+    if key in ("bill", "area", "table", "order", "customer"):
         return getattr(cat, f"{key}_id")
     if key.startswith("cat."):
         return getattr(cat, key[4:])["id"]
@@ -93,9 +98,11 @@ def _url(template: str, obj_id: str) -> str:
 def _with_bill(client, shop) -> Catalogue:
     cat = build_catalogue(client, shop)
     device = FakeDevice(client, shop)
-    bill = device.bill([("Masala tea", 1, [])])
+    customer = {"id": str(uuid.uuid4()), "phone": "9876543210", "name": "Priya"}
+    bill = device.bill([("Masala tea", 1, [])], payment_mode="credit", customer=customer)
     assert device.sync([bill]).json()["results"][0]["status"] == "accepted"
     cat.bill_id = bill["id"]
+    cat.customer_id = customer["id"]  # a credit bill: shop B's khata must stay shop B's
     # Restaurant service: an area, a table, and an open order on it.
     h = shop.owner_h
     cat.area_id = client.post("/api/v1/areas", json={"name": "Hall"}, headers=h).json()["id"]

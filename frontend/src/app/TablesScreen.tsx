@@ -899,6 +899,8 @@ function emptyFor(start: OpenInput) {
     bill_prints: 0,
     changed_after_bill: false,
     bill_id: null,
+    bill_ids: [],
+    parts: 1,
     settled_at: null,
     cancel_reason: null,
     last_at: null,

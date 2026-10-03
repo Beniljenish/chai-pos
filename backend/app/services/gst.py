@@ -112,9 +112,7 @@ def compute_line(line: LineIn, gst_type: GstType, bill_share: int = 0) -> LineTo
     net = gross - discount  # what GST is charged on (or included in)
 
     if gst_type != GstType.regular or line.gst_rate_bp == 0:
-        return LineTotals(
-            gross=gross, discount=discount, taxable=net, cgst=0, sgst=0, total=net
-        )
+        return LineTotals(gross=gross, discount=discount, taxable=net, cgst=0, sgst=0, total=net)
 
     rate = Decimal(line.gst_rate_bp)
     half_rate = rate / 2

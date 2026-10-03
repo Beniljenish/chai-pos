@@ -66,6 +66,9 @@ def empty_state() -> dict:
         "bill_prints": 0,
         "changed_after_bill": False,
         "bill_id": None,
+        # Split bill (Phase 6): the invoices paid so far, and how many parts there are.
+        "bill_ids": [],
+        "parts": 1,
         "settled_at": None,
         "cancel_reason": None,
         "last_at": None,
@@ -159,7 +162,16 @@ def reduce(events: list[dict]) -> dict:
                 if lid in lines:
                     lines[lid]["ready"] = True
         elif kind == "settle":
-            s["status"], s["bill_id"], s["settled_at"] = "settled", d.get("bill_id"), at
+            # A split bill settles part by part; the order is done when every part is.
+            bid = d.get("bill_id")
+            s["parts"] = max(1, int(d.get("parts") or 1))
+            if bid and bid not in s["bill_ids"]:
+                s["bill_ids"].append(bid)
+            if len(s["bill_ids"]) >= s["parts"]:
+                s["status"], s["settled_at"] = "settled", at
+                s["bill_id"] = s["bill_ids"][0] if s["bill_ids"] else bid
+            else:
+                s["status"] = "billed"
         elif kind == "cancel_order":
             s["status"], s["cancel_reason"] = "cancelled", d.get("reason") or ""
         else:

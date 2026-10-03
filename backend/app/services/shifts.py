@@ -27,6 +27,7 @@ from app.models import (
     BillStatus,
     CashMovement,
     CashMovementKind,
+    CreditRepayment,
     Device,
     PaymentMode,
     Shift,
@@ -177,6 +178,8 @@ def device_state(db: Session, device_id: uuid.UUID) -> dict:
 
 
 def shift_report(db: Session, d: date) -> dict:
+    from app.services.billing import payment_split  # local: billing imports shifts' models
+
     shifts = db.scalars(
         select(Shift).where(Shift.business_date == d).order_by(Shift.opened_at)
     ).all()
@@ -188,12 +191,20 @@ def shift_report(db: Session, d: date) -> dict:
     if ids:
         for b in db.scalars(select(Bill).where(Bill.shift_id.in_(ids))):
             t = sales[b.shift_id]
+            parts = payment_split(b)  # a split bill: each part where it belongs
             if b.status == BillStatus.void:
-                if b.payment_mode == PaymentMode.cash:
-                    t["voided_cash"] += b.total_paise
+                t["voided_cash"] += sum(p for m, p in parts if m == "cash")
                 continue
             t["bills"] += 1
-            t[b.payment_mode.value] += b.total_paise
+            for mode, paise in parts:
+                t[mode] += paise
+        # Khata repaid in cash at this drawer.
+        for r in db.scalars(
+            select(CreditRepayment).where(
+                CreditRepayment.shift_id.in_(ids), CreditRepayment.mode == "cash"
+            )
+        ):
+            sales[r.shift_id]["repaid_cash"] += r.amount_paise
     moves: dict = defaultdict(list)
     if ids:
         for m in db.scalars(
@@ -206,7 +217,7 @@ def shift_report(db: Session, d: date) -> dict:
         t = sales[s.id]
         paid_in = sum(m.amount_paise for m in moves[s.id] if m.kind == CashMovementKind.pay_in)
         paid_out = sum(m.amount_paise for m in moves[s.id] if m.kind == CashMovementKind.pay_out)
-        expected = s.opening_float_paise + t["cash"] + paid_in - paid_out
+        expected = s.opening_float_paise + t["cash"] + t["repaid_cash"] + paid_in - paid_out
         dv = devices.get(s.device_id)
         rows.append(
             {
@@ -222,6 +233,8 @@ def shift_report(db: Session, d: date) -> dict:
                 "upi_paise": t["upi"],
                 "card_paise": t["card"],
                 "voided_cash_paise": t["voided_cash"],
+                "credit_paise": t["credit"],
+                "repaid_cash_paise": t["repaid_cash"],
                 "paid_in_paise": paid_in,
                 "paid_out_paise": paid_out,
                 "movements": [
@@ -243,20 +256,24 @@ def shift_report(db: Session, d: date) -> dict:
                 "close_note": s.close_note,
             }
         )
-    outside = db.scalars(
-        select(Bill).where(
-            Bill.business_date == d,
-            Bill.shift_id.is_(None),
-            Bill.status != BillStatus.void,
-            Bill.payment_mode == PaymentMode.cash,
+    outside = [
+        cash
+        for b in db.scalars(
+            select(Bill).where(
+                Bill.business_date == d,
+                Bill.shift_id.is_(None),
+                Bill.status != BillStatus.void,
+                Bill.payment_mode.in_([PaymentMode.cash, PaymentMode.split]),
+            )
         )
-    ).all()
+        if (cash := sum(p for m, p in payment_split(b) if m == "cash"))
+    ]
     return {
         "business_date": d,
         "shifts": rows,
         # Cash bills in no shift (an app from before shifts, or shifts switched off).
         "cash_outside_shifts": {
             "bills": len(outside),
-            "total_paise": sum(b.total_paise for b in outside),
+            "total_paise": sum(outside),
         },
     }

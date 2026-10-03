@@ -32,7 +32,7 @@ from app.models import (
 from app.services import dayend
 from app.services.email import b64, enqueue
 
-PAYMENT = {"cash": "Cash", "upi": "UPI", "card": "Card"}
+PAYMENT = {"cash": "Cash", "upi": "UPI", "card": "Card", "split": "Split", "credit": "Credit"}
 REASON = {
     "spoiled": "Spoiled / expired",
     "spilled": "Spilled / dropped",
@@ -180,9 +180,12 @@ def daily_figures(db: Session, d: date) -> dict:
     every = db.scalars(select(Bill).where(Bill.business_date == d)).all()
     bills = [b for b in every if b.status != BillStatus.void]
     voided = [b for b in every if b.status == BillStatus.void]
+    from app.services.billing import payment_split  # local: billing imports reports lazily
+
     by_mode: dict[str, int] = defaultdict(int)
     for b in bills:
-        by_mode[b.payment_mode.value] += b.total_paise
+        for mode, paise in payment_split(b):  # a split bill: each part under its mode
+            by_mode[mode] += paise
     top = db.execute(
         select(BillLine.name_snapshot, func.sum(BillLine.qty), func.sum(BillLine.total_paise))
         .join(Bill, Bill.id == BillLine.bill_id)
@@ -211,7 +214,32 @@ def daily_figures(db: Session, d: date) -> dict:
         "wasted": int(wasted or 0),
         "day_status": day.status.value if day else None,
         "service": _service_lines(db, d),
+        "money": _money_lines(db, d, bills),
     }
+
+
+def _money_lines(db: Session, d: date, bills: list[Bill]) -> list[str]:
+    """Phase 6: discounts given, and the khata (credit given, credit repaid)."""
+    from app.models import CreditRepayment
+    from app.services.billing import credit_paise
+
+    out = []
+    discounted = [b for b in bills if b.discount_paise]
+    if discounted:
+        over = sum(1 for b in discounted if "discount_over_limit" in (b.flags or []))
+        out.append(
+            f"Discounts: {rupees(sum(b.discount_paise for b in discounted))} on "
+            f"{len(discounted)} bill(s)" + (f", {over} over the cashier limit" if over else "")
+        )
+    credit = sum(credit_paise(b) for b in bills)
+    repaid = db.scalar(
+        select(func.coalesce(func.sum(CreditRepayment.amount_paise), 0)).where(
+            CreditRepayment.business_date == d
+        )
+    )
+    if credit or repaid:
+        out.append(f"Khata: {rupees(credit)} given on credit, {rupees(int(repaid))} repaid")
+    return out
 
 
 def _service_lines(db: Session, d: date) -> list[str]:
@@ -292,6 +320,7 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
             if f["top"]
             else "<p>No sales.</p>"
         )
+        + "".join(f"<p>{escape(x)}</p>" for x in f["money"])
         + f"<p>{escape(status)}</p>"
         + (
             "<h3 style='font-size:15px'>Cash drawer</h3><p>"
@@ -335,6 +364,7 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         + (f"\nVoided: {f['voids']} bill(s), {rupees(f['voided_total'])}" if f["voids"] else "")
         + "".join(f"\nCash: {x}" for x in f["shifts"])
         + "".join(f"\nTables: {x}" for x in f["service"])
+        + "".join(f"\n{x}" for x in f["money"])
     )
     enqueue(
         db, shop, EmailKind.daily, f"daily:{d.isoformat()}", subject, _page(subject, body), text

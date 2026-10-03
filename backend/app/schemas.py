@@ -65,6 +65,7 @@ class ShopOut(ORM):
     email_daily: bool
     email_weekly: bool
     cash_shifts: bool
+    max_discount_bp: int = 1000
 
 
 class ShopUpdate(BaseModel):
@@ -78,6 +79,8 @@ class ShopUpdate(BaseModel):
     email_daily: bool | None = None
     email_weekly: bool | None = None
     cash_shifts: bool | None = None
+    # The most a cashier may take off a bill (1000 = 10%); the owner has no limit.
+    max_discount_bp: int | None = Field(default=None, ge=0, le=10_000)
 
     @field_validator("report_email")
     @classmethod

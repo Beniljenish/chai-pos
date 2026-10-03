@@ -225,8 +225,22 @@ class FakeDevice:
     def refresh_catalogue(self):
         self.catalogue = self.client.get("/api/v1/catalogue", headers=self.shop.cashier_h).json()
 
-    def bill(self, items, *, payment_mode="cash", sold_at=None, seq=None) -> dict:
-        """items: [(menu item name, qty, [modifier names])]"""
+    def bill(
+        self,
+        items,
+        *,
+        payment_mode="cash",
+        sold_at=None,
+        seq=None,
+        line_discounts: dict[int, int] | None = None,
+        bill_discount: int = 0,
+        reason: str = "",
+        parts: list[tuple[str, int]] | None = None,
+        customer: dict | None = None,
+        order_part: int = 1,
+    ) -> dict:
+        """items: [(menu item name, qty, [modifier names])]. Phase 6 keys are sent
+        only when used, as the app does."""
         import uuid as _uuid
         from datetime import UTC
         from datetime import datetime as _dt
@@ -278,12 +292,16 @@ class FakeDevice:
                     ln["gst_rate_bp"],
                     ln["tax_inclusive"],
                     tuple(m["price_delta_paise"] for m in ln["modifiers"]),
+                    (line_discounts or {}).get(i, 0),
                 )
-                for ln in lines
+                for i, ln in enumerate(lines)
             ],
             gst_type,
+            bill_discount,
         )
-        for ln, lt in zip(lines, totals.lines, strict=True):
+        for i, (ln, lt) in enumerate(zip(lines, totals.lines, strict=True)):
+            if (line_discounts or {}).get(i):
+                ln["discount_paise"] = line_discounts[i]
             ln["totals"] = {
                 "gross": lt.gross,
                 "taxable": lt.taxable,
@@ -291,8 +309,10 @@ class FakeDevice:
                 "sgst": lt.sgst,
                 "total": lt.total,
             }
+            if lt.discount:
+                ln["totals"]["discount"] = lt.discount
         fy = self._fy(business_date(sold_at))
-        return {
+        bill = {
             "id": str(_uuid.uuid4()),
             "local_seq": seq,
             "invoice_no": f"{self.code}/{fy}/{seq:06d}",
@@ -309,6 +329,19 @@ class FakeDevice:
                 "total": totals.total,
             },
         }
+        if totals.discount:
+            bill["totals"]["discount"] = totals.discount
+        if bill_discount:
+            bill["bill_discount_paise"] = bill_discount
+        if reason:
+            bill["discount_reason"] = reason
+        if parts:
+            bill["payment_parts"] = [{"mode": m, "paise": p} for m, p in parts]
+        if customer:
+            bill["customer"] = customer
+        if order_part != 1:
+            bill["order_part"] = order_part
+        return bill
 
     def sync(self, bills: list[dict], headers=None):
         return self.client.post(

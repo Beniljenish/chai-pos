@@ -2,6 +2,28 @@
   "about": "How an order's state follows from its events. backend/app/services/orders.py and frontend/src/lib/orders.ts must both give exactly `expect` (only the keys listed are compared). Events are applied in order of `at`, then `id`, whatever order they arrive in.",
   "cases": [
     {
+      "name": "split bill: one part of two paid leaves the order waiting for the other",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t1", "covers": 2}},
+        {"id": "e2", "kind": "kot", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 2, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e3", "kind": "settle", "at": "2026-10-04T06:30:00Z", "by": "ravi", "data": {"bill_id": "b1", "part": 1, "parts": 2}}
+      ],
+      "expect": {"status": "billed", "bill_ids": ["b1"], "parts": 2, "bill_id": null}
+    },
+    {
+      "name": "split bill: the last part settles the order; the same part twice counts once",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t1", "covers": 2}},
+        {"id": "e2", "kind": "kot", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"kot_no": "C1-1", "lines": [
+          {"line_id": "l1", "menu_item_id": "tea", "name": "Masala tea", "qty": 2, "unit_price_paise": 2000, "gst_rate_bp": 500, "tax_inclusive": true, "modifiers": []}]}},
+        {"id": "e3", "kind": "settle", "at": "2026-10-04T06:30:00Z", "by": "ravi", "data": {"bill_id": "b1", "part": 1, "parts": 2}},
+        {"id": "e4", "kind": "settle", "at": "2026-10-04T06:30:30Z", "by": "anu", "data": {"bill_id": "b1", "part": 1, "parts": 2}},
+        {"id": "e5", "kind": "settle", "at": "2026-10-04T06:31:00Z", "by": "ravi", "data": {"bill_id": "b2", "part": 2, "parts": 2}}
+      ],
+      "expect": {"status": "settled", "bill_ids": ["b1", "b2"], "parts": 2, "bill_id": "b1", "settled_at": "2026-10-04T06:31:00Z"}
+    },
+    {
       "name": "dine-in: open, two KOTs, bill, settle",
       "events": [
         {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t4", "covers": 2}},

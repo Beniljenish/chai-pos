@@ -410,6 +410,7 @@ def catalogue(
                 "state_code": shop.state_code,
                 "address": shop.address,
                 "cash_shifts": shop.cash_shifts,
+                "max_discount_bp": shop.max_discount_bp,
             },
             "menu_items": [
                 {
