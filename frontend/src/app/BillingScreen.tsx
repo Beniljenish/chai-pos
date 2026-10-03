@@ -165,7 +165,7 @@ export function BillingScreen() {
           {/* Phones: the usual sale (a tea, paid as before) without opening the bill. */}
           {!tillOpen && itemCount > 0 && totals && (
             <button className="primary quick-save" disabled={saving} onClick={() => void save()}>
-              Save · {PAYMENT_LABELS[payment]}
+              {canCollectOnline && online ? 'Collect' : 'Save'} · {PAYMENT_LABELS[payment]}
             </button>
           )}
         </div>
