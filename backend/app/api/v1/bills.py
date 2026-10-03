@@ -79,7 +79,7 @@ def _as_received(b) -> dict:
     existed did not send them: leave them out rather than add null, or a retry of
     such a bill would hash differently and be refused as altered."""
     d = b.model_dump()
-    for key in ("cashier_id", "shift_id"):
+    for key in ("cashier_id", "shift_id", "order_id"):
         if d.get(key) is None:
             d.pop(key, None)
     return d

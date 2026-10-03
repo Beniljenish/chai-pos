@@ -172,6 +172,9 @@ def _after_integrity_error(ctx: SyncContext, bill_id, digest, err: IntegrityErro
     msg = str(err.orig)
     if "uq_bills_device_seq" in msg or "uq_bills_invoice_no" in msg:
         return Result(bill_id, Outcome.rejected, reason="invoice_number_already_used")
+    if "uq_bills_order_id" in msg:
+        # Two tablets settled the same table: the first invoice stands.
+        return Result(bill_id, Outcome.rejected, reason="order_already_billed")
     # e.g. the id collides with a row in ANOTHER shop: say nothing about it.
     return Result(bill_id, Outcome.rejected, reason="id_conflict")
 
@@ -187,6 +190,17 @@ def _shift_for(ctx: SyncContext, b: dict) -> uuid.UUID | None:
         return None
     s = ctx.db.scalar(select(Shift).where(Shift.id == sid))
     return sid if s is not None and s.device_id == ctx.device.id else None
+
+
+def _order_for(ctx: SyncContext, b: dict) -> uuid.UUID | None:
+    """The running order this bill settles, if it is this shop's. Order events are
+    sent before bills; a bill whose order never arrived is still accepted."""
+    from app.models import Order  # local: models import order
+
+    oid = b.get("order_id")
+    if oid is None:
+        return None
+    return oid if ctx.db.scalar(select(Order.id).where(Order.id == oid)) else None
 
 
 def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
@@ -251,6 +265,7 @@ def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
         device_id=ctx.device.id,
         cashier_id=ctx.cashier_for(b),
         shift_id=_shift_for(ctx, b),
+        order_id=_order_for(ctx, b),
         fy=fy,
         local_seq=b["local_seq"],
         invoice_no=expected_no,

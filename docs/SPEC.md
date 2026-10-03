@@ -14,6 +14,7 @@ It stays the single source of truth; this file only tracks the phase gates.
 | 2 | `/sync/bills` idempotent, GST maths in paise, PWA billing + Dexie outbox | 20 bills offline then online -> 20 rows, 0 duplicates | Done (2a backend, 2b app) |
 | 3 | Blind counts, wastage codes, adherence %, shifts + cash, voids, reports | Variance matches a hand-worked sample day to the paise | Done: gate, voids, sales report, staff accounts, shifts + cash |
 | 4 | Deploy, backups, printing, 1-week recipe calibration in a real shop | 7 days live, no lost bills | Lost-bill detection and printing done; backups, Pro deploy, pilot week to do |
+| 5 | Restaurant service: tables, running orders, KOT, kitchen screen, bill then settle | A table order from two devices settles into one invoice | 5.1 engine and floor setup done |
 
 ## Placeholder data
 

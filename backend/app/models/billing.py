@@ -26,6 +26,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -62,6 +63,13 @@ class Bill(TenantScoped, Base):
         Index("ix_bills_shop_business_date", "shop_id", "business_date"),
         CheckConstraint("local_seq >= 1", name="ck_bills_seq"),
         CheckConstraint("total_paise >= 0", name="ck_bills_total"),
+        # One invoice per order: a second settle from another tablet is refused.
+        Index(
+            "uq_bills_order_id",
+            "order_id",
+            unique=True,
+            postgresql_where=text("order_id IS NOT NULL"),
+        ),
     )
 
     # Generated on the device (UUIDv7) and used as the idempotency key.
@@ -84,6 +92,10 @@ class Bill(TenantScoped, Base):
     # The drawer shift it was rung up in (NULL: older app, or shifts switched off).
     shift_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("shifts.id", ondelete="RESTRICT"), index=True
+    )
+    # The running order this bill settled (restaurant service), if any.
+    order_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("orders.id", ondelete="RESTRICT")
     )
     status: Mapped[BillStatus] = mapped_column(
         Enum(BillStatus, name="bill_status"), default=BillStatus.completed

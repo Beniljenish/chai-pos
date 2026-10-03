@@ -6,6 +6,7 @@
  * - counters:  the invoice sequence per device per financial year
  * - bills:     every bill made on this tablet. status "pending" = the outbox.
  * - shiftOps:  drawer shift starts, paid in/out and shift ends (outbox, like bills).
+ * - orderEvents: table orders made here (outbox); orders: the server's live view.
  *              The open shift itself is in meta 'shift'; the last count in 'lastCounted'.
  */
 import Dexie, { type EntityTable } from 'dexie';
@@ -35,6 +36,23 @@ export interface ShiftOpRow {
   payload: Record<string, unknown>; // exactly what is sent to /sync/shifts
 }
 
+/** An order event waiting to be sent (or already sent) from this device. */
+export interface OrderEventRow {
+  id: string;
+  orderId: string;
+  seq: number;
+  status: BillStatus;
+  reason?: string;
+  payload: import('./orders').OrderEvent; // exactly what is sent to /sync/orders
+}
+
+/** The server's latest events for an unfinished order (from /orders/live). */
+export interface OrderSnapshotRow {
+  id: string;
+  status: string;
+  events: import('./orders').OrderEvent[];
+}
+
 export interface MetaRow {
   key: string;
   value: unknown;
@@ -58,6 +76,8 @@ export class PosDB extends Dexie {
   counters!: EntityTable<CounterRow, 'key'>;
   bills!: EntityTable<LocalBill, 'id'>;
   shiftOps!: EntityTable<ShiftOpRow, 'id'>;
+  orderEvents!: EntityTable<OrderEventRow, 'id'>;
+  orders!: EntityTable<OrderSnapshotRow, 'id'>;
 
   constructor(name = 'chai-pos') {
     super(name);
@@ -70,6 +90,8 @@ export class PosDB extends Dexie {
     });
     // v2: drawer shifts. Adding a table keeps every existing bill as it was.
     this.version(2).stores({ shiftOps: 'id, seq, [status+seq], status' });
+    // v3: running orders (table service). The outbox and the server's live view.
+    this.version(3).stores({ orderEvents: 'id, seq, [status+seq], status, orderId', orders: 'id' });
   }
 
   async getMeta<T>(key: string): Promise<T | undefined> {
@@ -82,11 +104,12 @@ export class PosDB extends Dexie {
   }
 
   async pendingCount(): Promise<number> {
-    const [bills, ops] = await Promise.all([
+    const [bills, ops, events] = await Promise.all([
       this.bills.where('status').equals('pending').count(),
       this.shiftOps.where('status').equals('pending').count(),
+      this.orderEvents.where('status').equals('pending').count(),
     ]);
-    return bills + ops;
+    return bills + ops + events;
   }
 }
 

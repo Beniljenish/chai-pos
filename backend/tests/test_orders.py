@@ -1,0 +1,235 @@
+"""Restaurant service: tables, running orders, and settling into an invoice."""
+
+import json
+import uuid
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from sqlalchemy import text
+
+from app.services.orders import reduce
+from tests.conftest import FakeDevice, build_catalogue
+
+API = "/api/v1"
+CASES = json.loads((Path(__file__).parents[2] / "shared" / "order_cases.json").read_text())["cases"]
+
+
+@pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
+def test_shared_order_rules(case):
+    """The same cases run in frontend/src/lib/orders.test.ts."""
+    state = reduce(case["events"])
+    assert {k: state[k] for k in case["expect"]} == case["expect"]
+
+
+# ---------------------------------------------------------------- the API
+def _at(minutes=0):
+    return (datetime.now(UTC) + timedelta(minutes=minutes)).isoformat()
+
+
+def _ev(order_id, kind, data=None, minutes=0, by=None, eid=None):
+    e = {
+        "id": eid or str(uuid.uuid4()),
+        "order_id": order_id,
+        "kind": kind,
+        "at": _at(minutes),
+        "data": data or {},
+    }
+    if by:
+        e["by"] = by
+    return e
+
+
+def _line(cat, qty=1, line_id=None):
+    return {
+        "line_id": line_id or str(uuid.uuid4()),
+        "menu_item_id": cat.tea["id"],
+        "name": "Masala tea",
+        "qty": qty,
+        "unit_price_paise": 2000,
+        "gst_rate_bp": 500,
+        "tax_inclusive": True,
+    }
+
+
+@pytest.fixture
+def setup(client, shop_a):
+    cat = build_catalogue(client, shop_a)
+    h = shop_a.owner_h
+    hall = client.post(f"{API}/areas", json={"name": "Hall"}, headers=h).json()
+    t1 = client.post(
+        f"{API}/tables", json={"area_id": hall["id"], "name": "T1", "seats": 2}, headers=h
+    ).json()
+    t2 = client.post(f"{API}/tables", json={"area_id": hall["id"], "name": "T2"}, headers=h).json()
+    device = FakeDevice(client, shop_a)
+    return cat, device, t1, t2
+
+
+def _sync(client, h, device_id, events):
+    r = client.post(
+        f"{API}/sync/orders", json={"device_id": str(device_id), "events": events}, headers=h
+    )
+    assert r.status_code == 200, r.text
+    return [(x["status"], x["reason"]) for x in r.json()["results"]]
+
+
+def _live(client, h):
+    return {o["id"]: o for o in client.get(f"{API}/orders/live", headers=h).json()["orders"]}
+
+
+def test_tables_reach_the_tablet_catalogue(client, shop_a, setup):
+    cat_json = client.get(f"{API}/catalogue", headers=shop_a.cashier_h).json()
+    (hall,) = cat_json["areas"]
+    assert hall["name"] == "Hall" and [t["name"] for t in hall["tables"]] == ["T1", "T2"]
+    assert hall["tables"][0]["seats"] == 2
+
+
+def test_a_table_order_from_two_devices_settles_into_one_invoice(client, shop_a, setup):
+    cat, device, t1, _ = setup
+    h = shop_a.cashier_h
+    oid = str(uuid.uuid4())
+    l1 = _line(cat, 2)
+    assert (
+        _sync(
+            client,
+            h,
+            device.device_id,
+            [
+                _ev(oid, "open", {"order_type": "dine_in", "table_id": t1["id"], "covers": 2}, -30),
+                _ev(oid, "kot", {"kot_no": "C1-1", "lines": [l1]}, -29),
+            ],
+        )
+        == [("accepted", None)] * 2
+    )
+
+    # A waiter's phone (a second device) adds a round to the same table.
+    phone = client.post(
+        f"{API}/devices", json={"name": "Waiter phone"}, headers=shop_a.owner_h
+    ).json()
+    _sync(
+        client, h, phone["id"], [_ev(oid, "kot", {"kot_no": "C2-1", "lines": [_line(cat, 1)]}, -10)]
+    )
+
+    o = _live(client, h)[oid]
+    assert o["status"] == "open" and o["table_id"] == t1["id"]
+    assert [ln["qty"] for ln in o["state"]["lines"]] == [2, 1]
+    assert [k["kot_no"] for k in o["state"]["kots"]] == ["C1-1", "C2-1"]
+
+    _sync(client, h, device.device_id, [_ev(oid, "bill_printed", {}, -5)])
+    assert _live(client, h)[oid]["status"] == "billed"
+
+    # Settling: the invoice is an ordinary bill that names the order.
+    bill = device.bill([("Masala tea", 3, [])])
+    bill["order_id"] = oid
+    _sync(client, h, device.device_id, [_ev(oid, "settle", {"bill_id": bill["id"]}, -1)])
+    assert device.sync([bill]).json()["results"][0]["status"] == "accepted"
+    assert client.get(f"{API}/bills/{bill['id']}", headers=shop_a.owner_h).json()["order_id"] == oid
+
+    # Gone from the live floor, but a device that last looked earlier hears about it.
+    assert oid not in _live(client, h)
+    since = (datetime.now(UTC) - timedelta(minutes=5)).isoformat()
+    later = client.get(f"{API}/orders/live", params={"since": since}, headers=h).json()["orders"]
+    assert [o["status"] for o in later if o["id"] == oid] == ["settled"]
+
+    # A second tablet settling the same table is refused at the bill.
+    twice = device.bill([("Masala tea", 3, [])])
+    twice["order_id"] = oid
+    res = device.sync([twice]).json()["results"][0]
+    assert (res["status"], res["reason"]) == ("rejected", "order_already_billed")
+
+
+def test_retries_are_harmless_and_bad_events_refused(client, shop_a, setup):
+    cat, device, t1, _ = setup
+    h = shop_a.cashier_h
+    oid = str(uuid.uuid4())
+    opened = _ev(oid, "open", {"order_type": "dine_in", "table_id": t1["id"]}, -5)
+    assert _sync(client, h, device.device_id, [opened]) == [("accepted", None)]
+    assert _sync(client, h, device.device_id, [opened]) == [("duplicate", None)]
+    assert _sync(client, h, device.device_id, [{**opened, "data": {"order_type": "takeaway"}}]) == [
+        ("rejected", "id_reused_with_different_content")
+    ]
+    assert _sync(
+        client, h, device.device_id, [_ev(str(uuid.uuid4()), "move", {"table_id": None})]
+    ) == [("rejected", "unknown_order")]
+    assert _sync(client, h, device.device_id, [_ev(oid, "move", {"table_id": None}, 60)]) == [
+        ("rejected", "device_clock_ahead")
+    ]
+    # Malformed events are refused whole (the app is broken), never half-stored.
+    for bad in (
+        _ev(oid, "kot", {"kot_no": "C1-1", "lines": [{**_line(cat), "qty": 0}]}),
+        _ev(oid, "cancel", {"line_id": str(uuid.uuid4()), "qty": 1}),  # no reason
+        _ev(oid, "move", {"table_id": None, "extra": 1}),
+        {**_ev(oid, "move", {"table_id": None}), "kind": "teleport"},
+    ):
+        r = client.post(
+            f"{API}/sync/orders", json={"device_id": device.device_id, "events": [bad]}, headers=h
+        )
+        assert r.status_code == 422, bad
+
+
+def test_another_shops_table_is_dropped_from_the_order(client, shop_a, shop_b, setup):
+    _, device, _, _ = setup
+    build_catalogue(client, shop_b)
+    hall_b = client.post(f"{API}/areas", json={"name": "Hall"}, headers=shop_b.owner_h).json()
+    tb = client.post(
+        f"{API}/tables", json={"area_id": hall_b["id"], "name": "B1"}, headers=shop_b.owner_h
+    ).json()
+    oid = str(uuid.uuid4())
+    _sync(
+        client,
+        shop_a.cashier_h,
+        device.device_id,
+        [_ev(oid, "open", {"order_type": "dine_in", "table_id": tb["id"]})],
+    )
+    assert _live(client, shop_a.cashier_h)[oid]["table_id"] is None
+    assert _live(client, shop_b.owner_h) == {}  # and shop B sees nothing of it
+
+
+def test_only_the_owner_sets_up_tables(client, shop_a, setup):
+    _, _, t1, _ = setup
+    assert (
+        client.post(f"{API}/areas", json={"name": "Roof"}, headers=shop_a.cashier_h).status_code
+        == 403
+    )
+    assert (
+        client.patch(
+            f"{API}/tables/{t1['id']}", json={"seats": 9}, headers=shop_a.cashier_h
+        ).status_code
+        == 403
+    )
+    dup = client.post(
+        f"{API}/tables", json={"area_id": t1["area_id"], "name": "T1"}, headers=shop_a.owner_h
+    )
+    assert dup.status_code == 409
+    off = client.patch(
+        f"{API}/tables/{t1['id']}", json={"is_active": False}, headers=shop_a.owner_h
+    ).json()
+    assert off["is_active"] is False
+
+
+def test_order_history_is_for_the_owner_and_cannot_be_rewritten(client, shop_a, setup):
+    from app.db.session import SessionLocal
+    from app.db.tenancy import mark_system
+
+    cat, device, t1, _ = setup
+    oid = str(uuid.uuid4())
+    l1 = _line(cat, 3)
+    _sync(
+        client,
+        shop_a.cashier_h,
+        device.device_id,
+        [
+            _ev(oid, "open", {"order_type": "dine_in", "table_id": t1["id"]}, -10),
+            _ev(oid, "kot", {"kot_no": "C1-1", "lines": [l1]}, -9),
+            _ev(oid, "cancel", {"line_id": l1["line_id"], "qty": 1, "reason": "wrong item"}, -8),
+        ],
+    )
+    assert client.get(f"{API}/orders/{oid}", headers=shop_a.cashier_h).status_code == 403
+    full = client.get(f"{API}/orders/{oid}", headers=shop_a.owner_h).json()
+    assert [e["kind"] for e in full["events"]] == ["open", "kot", "cancel"]
+    assert full["events"][2]["by_name"] == "Shop A cashier"
+    assert full["state"]["cancellations"][0]["reason"] == "wrong item"
+
+    with mark_system(SessionLocal()) as s, pytest.raises(Exception, match="append-only"):
+        s.execute(text("UPDATE order_events SET data = '{}'::jsonb"))
+        s.commit()

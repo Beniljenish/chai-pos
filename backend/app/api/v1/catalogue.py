@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.common import commit_or_409, get_or_404, unprocessable
 from app.api.deps import Caller, get_caller, require_owner
+from app.api.v1.orders import floor as dining_floor
 from app.models import (
     Ingredient,
     IngredientKind,
@@ -419,6 +420,8 @@ def catalogue(
                 for i in items
             ],
             "modifiers": [ModifierOut.model_validate(m).model_dump() for m in mods],
+            # Tables, so a tablet can take table orders offline.
+            "areas": dining_floor(db),
             "ingredients": [
                 {"id": i.id, "name": i.name, "base_unit": i.base_unit, "kind": i.kind}
                 for i in sorted(ingredients, key=lambda i: i.name)

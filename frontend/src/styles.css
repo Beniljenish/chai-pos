@@ -1514,16 +1514,11 @@ button.account {
 .shift-list {
   list-style: none;
   margin: 0;
-/* ---------- tablets ---------- */
-.tablet-list {
-  list-style: none;
-  margin: var(--s3) 0 0;
   padding: 0;
   display: grid;
   gap: var(--s3);
 }
 .shift-list > li {
-.tablet-list > li {
   background: var(--paper);
   border-radius: var(--radius-panel);
   padding: var(--s3);
@@ -1542,6 +1537,25 @@ button.account {
 }
 .small-print {
   font-size: 0.9rem;
+}
+.flag.ok {
+  background: #dff3e8;
+  color: var(--leaf);
+}
+
+/* ---------- tablets ---------- */
+.tablet-list {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s3);
+}
+.tablet-list > li {
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  padding: var(--s3);
+}
 .tablet-list > li.off {
   opacity: 0.7;
 }
@@ -1557,14 +1571,61 @@ button.account {
 .bad-text {
   color: var(--chilli);
 }
-.flag.ok {
-  background: #dff3e8;
-  color: var(--leaf);
-}
 
 /* ---------- printing ---------- */
 .receipt-wrap .printer-link {
   display: block;
   margin: var(--s2) auto 0;
   color: var(--paper);
+}
+
+/* ---------- floor setup ---------- */
+.area-card {
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  padding: var(--s3) var(--s4);
+  margin: var(--s3) 0;
+}
+.area-card.off {
+  opacity: 0.6;
+}
+.area-card h2 {
+  margin: 0;
+}
+.table-chips {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: var(--s2);
+}
+.table-chips button {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  text-align: center;
+  padding: var(--s2);
+}
+.table-chips button.off {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.table-chips button.add {
+  border-style: dashed;
+  color: var(--leaf);
+  font-weight: 700;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: var(--s2);
+}
+.empty-card {
+  background: var(--paper);
+  border: 2px dashed var(--steel-deep);
+  border-radius: var(--radius-panel);
+  padding: var(--s4);
 }
