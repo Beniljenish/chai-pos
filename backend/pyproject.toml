@@ -12,6 +12,7 @@ dependencies = [
     "pydantic-settings>=2.4",
     "argon2-cffi>=23.1",
     "pyjwt>=2.9",
+    "tzdata>=2024.1",  # IANA timezones even on slim Docker images
 ]
 
 [project.optional-dependencies]
@@ -41,5 +42,5 @@ ignore = ["B008"]  # FastAPI Depends() in defaults is the intended pattern
 known-third-party = ["alembic"]  # our alembic/ folder is not the package
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106"]
+"tests/**" = ["S101", "S105", "S106", "S311"]  # S311: seeded random is for reproducible tests
 "scripts/**" = ["S105", "S106"]

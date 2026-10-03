@@ -65,3 +65,81 @@ person can't use the same number at two shops. Revisit for multi-shop.
 **Tests hit real Postgres, built by the real migrations**, not SQLite and
 `create_all()`, so the tests also prove the migrations work. CI runs
 `alembic check` to catch model changes without a migration.
+
+## Phase 1: catalogue, recipes, stock ledger
+
+```
+app/models/catalogue.py   ingredients, pack units, menu, versioned recipes, modifiers,
+                          stock receipts, prep batches, the append-only stock ledger
+app/services/recipes.py   recipe versions, resolve-at-time, juice yield maths
+app/services/stock.py     stock-in (pack conversion + sanity check), prep batches, on hand
+```
+
+### Decisions and trade-offs
+
+**Quantities are `NUMERIC(14,3)`, never floats.** 250 ml of juice at 450 ml/kg is
+555.556 g of oranges; floats would drift, integer grams would round every glass.
+API responses send them as strings (`"555.556"`) so JavaScript never turns them
+into floats either.
+
+**Stock on hand = `SUM(stock_ledger.qty_delta)`.** No stored balance that can
+disagree with history. A Postgres trigger rejects `UPDATE`/`DELETE` on the
+ledger, so even hand-written SQL can't rewrite it; corrections are new rows.
+*Trade-off:* summing gets slower as rows grow; the planned fix is a snapshot per
+day-close, not a running balance.
+
+**Recipes are immutable versions.** `PUT .../recipe` adds version N+1 with an
+`effective_from` time. `GET .../recipe?at=<time>` returns what was in force then.
+Phase 2 bills store the recipe id they used, so editing an SOP never rewrites
+past consumption.
+
+**Prep recipes use raw ingredients only (v1).** Decoction from milk: yes. A prep
+made from another prep: rejected. Avoids cycle detection and multi-level unwinding.
+
+**Negative stock is shown, not blocked.** A batch made before the morning's
+milk entry must never stop billing. `/stock` flags it as `is_negative`.
+
+**Pack units are add-only.** Changing "1 crate = 24 packets" would silently
+change the meaning of past receipts; receipts also store the conversion used.
+
+**Stock-in sanity check.** More than 3x the median of the last 10 receipts needs
+`confirm_large: true` (409 otherwise). Applies once there are 3+ receipts.
+
+**`/stock` is owner-only** so Phase 3's blind counts stay blind.
+
+**`/catalogue` has an ETag.** A billing device sends `If-None-Match` and gets an
+empty 304 when nothing changed, which matters on patchy shop internet.
+
+### Gate tests
+- `test_phase1_gate.py`: 200 random stock-ins and prep batches replayed
+  independently must equal `/stock` exactly; recipe versions pinned in time;
+  raw-SQL `UPDATE`/`DELETE` on the ledger fails.
+- Each gate test was checked by deliberately breaking the code it guards
+  (ignoring the recipe date, rounding prep yield, skipping pack conversion)
+  and confirming it fails.
+- `test_tenant_gate.py` now covers **every method** on every `/{id}` route, plus
+  another shop's ids smuggled inside request bodies.
+
+## Hosting: Supabase Postgres
+
+Production database: Supabase project `chai-pos` (ref `dffvdkxprmoxytbbummz`,
+Postgres 17, region `ap-northeast-2` Seoul). CI and Docker Compose also use
+Postgres 17 so tests run on the same major version.
+
+**Supabase-specific security.** Supabase publishes every `public` table through
+its Data API with a public "anon" key. Migration `d9b48b507dcc` turns on row-level
+security with no policies (deny all) on every table and revokes the Data API
+roles' grants. The backend connects as the table owner, so it is unaffected.
+`tests/test_database_security.py` fails if any new table lacks RLS.
+Supabase's linter will list "RLS enabled, no policy" as INFO: that is intended.
+
+**Applying migrations to Supabase.** From any machine that can reach the DB:
+`DATABASE_URL=<supabase session pooler URL> alembic upgrade head`.
+Without direct access: `alembic upgrade <current>:head --sql`, unescape `%%` -> `%`,
+review, and apply the SQL (it updates `alembic_version` too).
+
+**Connection string (Phase 4).** Use the **session pooler** (port 5432) from the
+Supabase dashboard's Connect button, with the `postgresql+psycopg://` prefix. The
+transaction pooler (6543) breaks psycopg's prepared statements unless
+`prepare_threshold=None` is set. The password goes only into the host's env
+settings, never into the repo.

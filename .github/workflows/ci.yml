@@ -7,13 +7,15 @@ on:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: a runner image upgrade should be a deliberate PR,
+    # not something that silently breaks CI one morning.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: chai
           POSTGRES_PASSWORD: chai
@@ -27,15 +29,15 @@ jobs:
       DATABASE_URL: postgresql+psycopg://chai:chai@localhost:5432/chai_pos_test
       JWT_SECRET: ci-only-secret-0123456789abcdef0123456789
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
       - run: pip install ".[dev]"
-      - name: Lint
-        run: ruff check .
-      - name: Migrations match models
-        run: alembic upgrade head && alembic check
+      - name: Lint and format
+        run: ruff check . && ruff format --check .
+      - name: Migrations round-trip (up, all the way down, up again) and match models
+        run: alembic upgrade head && alembic downgrade base && alembic upgrade head && alembic check
       - name: Tests
         run: pytest

@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     access_token_minutes: int = 15
     refresh_token_days: int = 7
     cors_origins: list[str] = ["http://localhost:5173"]
+    # The shop's "business day" (for stock and day-end) is in this timezone.
+    shop_timezone: str = "Asia/Kolkata"
 
     @field_validator("jwt_secret")
     @classmethod

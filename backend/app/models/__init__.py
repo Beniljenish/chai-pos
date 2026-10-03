@@ -80,3 +80,45 @@ class RefreshToken(IdMixin, TenantScoped, Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+# Phase 1 tables live in their own module; re-exported so `from app.models import X` works.
+from app.models.catalogue import (  # noqa: E402
+    BaseUnit,
+    Ingredient,
+    IngredientKind,
+    LedgerReason,
+    MenuItem,
+    MenuItemModifier,
+    Modifier,
+    ModifierLine,
+    PackUnit,
+    PrepBatch,
+    Recipe,
+    RecipeLine,
+    StockLedger,
+    StockReceipt,
+)
+
+__all__ = [
+    "BaseUnit",
+    "Device",
+    "GstType",
+    "Ingredient",
+    "IngredientKind",
+    "LedgerReason",
+    "MenuItem",
+    "MenuItemModifier",
+    "Modifier",
+    "ModifierLine",
+    "PackUnit",
+    "PrepBatch",
+    "Recipe",
+    "RecipeLine",
+    "RefreshToken",
+    "Role",
+    "Shop",
+    "StockLedger",
+    "StockReceipt",
+    "User",
+]

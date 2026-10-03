@@ -136,3 +136,6 @@ def downgrade() -> None:
     op.drop_table("devices")
     op.drop_table("shops")
     # ### end Alembic commands ###
+    # Hand-written: autogenerate never drops Postgres enum types.
+    op.execute("DROP TYPE IF EXISTS user_role")
+    op.execute("DROP TYPE IF EXISTS gst_type")
