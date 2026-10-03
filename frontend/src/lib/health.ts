@@ -108,3 +108,14 @@ export function ago(iso: string, now = Date.now()): string {
   const d = Math.round(h / 24);
   return `${d} day${d === 1 ? '' : 's'} ago`;
 }
+
+/** "4 Oct, 12:00 pm" in IST: when a tablet's oldest waiting bill was made. */
+export const dayTime = (iso: string) =>
+  // Not timeStyle: Intl throws when it is combined with day/month.
+  new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(iso));

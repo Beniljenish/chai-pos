@@ -214,3 +214,6 @@ __all__ += [
     "OrderStatus",
     "OrderType",
 ]
+from app.models.messages import Message  # noqa: E402
+
+__all__ += ["Message"]

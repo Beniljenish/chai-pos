@@ -3,7 +3,7 @@
  * refused, and printed bills that never reached the server (lost).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ago } from '../lib/health';
+import { ago, dayTime } from '../lib/health';
 import { api } from './apiClient';
 import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
@@ -28,10 +28,6 @@ interface Tablet {
   missing: string[];
 }
 
-const time = (iso: string) =>
-  new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', timeStyle: 'short' }).format(
-    new Date(iso),
-  );
 
 export function TabletsScreen() {
   const { device } = useSession();
@@ -126,7 +122,7 @@ export function TabletsScreen() {
               {t.pending_bills > 0 && (
                 <li className={t.stuck ? 'bad-text' : ''}>
                   {t.pending_bills} bill{t.pending_bills === 1 ? '' : 's'} waiting to send
-                  {t.oldest_pending_at && ` since ${time(t.oldest_pending_at)}`}
+                  {t.oldest_pending_at && ` since ${dayTime(t.oldest_pending_at)}`}
                   {t.stuck && ': check that tablet has internet and someone is logged in'}
                 </li>
               )}

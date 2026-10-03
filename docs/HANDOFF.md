@@ -46,6 +46,8 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 
 ## Waiting for Benil
 
+- **Customer messages PR (Phase 8b) has a migration (`feebafd74402`, new `messages` table, no phone numbers in it).** Its SQL is in the PR description. **Migration order:** #26 (Razorpay, `59c516ec02c9`) and the messages PR both start from `3e72290e9f62`. Apply and merge one; then the other needs its `down_revision` moved to the first one's revision before its SQL is applied (a one-line change; ask a Claude session to "re-chain the open migration PR onto main"). Then: add `INKBOX_API_KEY` to the `chai-pos-api` Vercel project (and `INKBOX_IDENTITY_ID` if the key is organisation-wide). **Decide on a dedicated Inkbox iMessage line:** on Inkbox's shared service, only customers who have messaged the shop's identity first can be messaged; everyone else shows as Failed on Manage → Messages.
+
 - Make the repo private, and set up backups (Supabase Pro or a nightly export with its own secrets).
 - Upgrade to Vercel Pro and Supabase Pro before real sales.
 - Pilot shop details: tables and areas, kitchen setup, printer model, menu language.
