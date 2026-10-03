@@ -42,6 +42,7 @@ Local Playwright: `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` with a gi
 
 ## Deploy (staging)
 
+- **Only `main` deploys** (`git.deploymentEnabled` in both `vercel.json`). The Hobby plan allows 100 deployments a day across both projects; branch previews and the CI `e2e-screenshots` pushes used them up on 3 Oct 2026 and the next merge silently did not deploy. If a merge does not deploy, check the count before anything else.
 - App: `chai-pos-app.vercel.app` (Vercel project `chai-pos-app`, root `frontend/`). API: `chai-pos-api.vercel.app` (project `chai-pos-api`, root `backend/`, region `icn1`). Both deploy on merge to `main`.
 - Database: Supabase project `chai-pos` (ref `dffvdkxprmoxytbbummz`, Seoul), reached through the transaction pooler (`DB_SERVERLESS=true`: NullPool, no prepared statements).
 - **Migrations are applied to Supabase by hand, before merging** when they are additive (new tables/columns the live code ignores): render with `alembic upgrade <from>:<to> --sql`, replace `%%` with `%`, drop BEGIN/COMMIT, run inside one transaction via the Supabase connector, then check `alembic_version`, RLS on, and zero `anon`/`authenticated` grants. A migration that removes or renames something needs a two-step deploy; ask first.
