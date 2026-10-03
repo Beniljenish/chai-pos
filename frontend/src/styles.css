@@ -460,6 +460,10 @@ input {
 .till .error {
   color: #ff8a80;
 }
+.till .online-toggle {
+  margin-bottom: var(--s3);
+  color: var(--paper);
+}
 button.save {
   width: 100%;
   min-height: 64px;

@@ -46,6 +46,8 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 
 ## Waiting for Benil
 
+- **Razorpay PR (Phase 8a) has a migration (`59c516ec02c9`, new `payments` table).** Apply its SQL (in the PR description) to Supabase, check `alembic_version` = `59c516ec02c9`, RLS on and no `anon`/`authenticated` grants, then merge. The code expects `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` in the `chai-pos-api` Vercel project. Then, in Razorpay (test mode), create a webhook to `https://chai-pos-api.vercel.app/api/v1/payments/razorpay/webhook` for `payment.captured` and `payment.failed` with that secret, and make one test payment: Save and collect on the till, pay with Razorpay's test UPI id `success@razorpay`, and check the till says Paid and Sales lists it.
+
 - Make the repo private, and set up backups (Supabase Pro or a nightly export with its own secrets).
 - Upgrade to Vercel Pro and Supabase Pro before real sales.
 - Pilot shop details: tables and areas, kitchen setup, printer model, menu language.

@@ -214,3 +214,6 @@ __all__ += [
     "OrderStatus",
     "OrderType",
 ]
+from app.models.payments import Payment  # noqa: E402
+
+__all__ += ["Payment"]
