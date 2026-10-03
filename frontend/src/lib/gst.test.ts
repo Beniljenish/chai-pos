@@ -14,6 +14,7 @@ type RawLine = {
   gst_rate_bp: number;
   tax_inclusive: boolean;
   modifier_deltas_paise?: number[];
+  discount_paise?: number;
 };
 
 const toLines = (raw: RawLine[]): LineIn[] =>
@@ -23,12 +24,13 @@ const toLines = (raw: RawLine[]): LineIn[] =>
     gstRateBp: r.gst_rate_bp,
     taxInclusive: r.tax_inclusive,
     modifierDeltasPaise: r.modifier_deltas_paise ?? [],
+    discountPaise: r.discount_paise ?? 0,
   }));
 
 describe('shared GST vectors (same file as the Python tests)', () => {
   for (const c of vectors.cases) {
     it(c.name, () => {
-      const bill = computeBill(toLines(c.lines), c.gst_type as GstType);
+      const bill = computeBill(toLines(c.lines), c.gst_type as GstType, c.bill_discount_paise ?? 0);
       expect(bill.lines).toEqual(c.expect_lines);
       const { lines: _lines, roundOff, ...rest } = bill;
       expect({ ...rest, round_off: roundOff }).toEqual(c.expect_bill);
@@ -36,7 +38,7 @@ describe('shared GST vectors (same file as the Python tests)', () => {
   }
   for (const c of vectors.errors) {
     it(`rejects: ${c.name}`, () => {
-      expect(() => computeBill(toLines(c.lines), c.gst_type as GstType)).toThrow(GstError);
+      expect(() => computeBill(toLines(c.lines), c.gst_type as GstType, c.bill_discount_paise ?? 0)).toThrow(GstError);
     });
   }
 });
@@ -97,5 +99,18 @@ describe('Python/TypeScript cross-check: 2000 random bills', () => {
       checked++;
     }
     expect(checked).toBe(2000);
+  });
+
+  it('and every Python answer for 1000 bills with line and bill discounts', () => {
+    let checked = 0;
+    for (const c of cross.discount_cases) {
+      const bill = computeBill(toLines(c.lines), c.gst_type as GstType, c.bill_discount_paise);
+      expect(bill.lines.map((l) => [l.gross, l.discount, l.taxable, l.cgst, l.sgst, l.total])).toEqual(c.expect.lines);
+      expect([bill.discount, bill.taxable, bill.cgst, bill.sgst, bill.subtotal, bill.roundOff, bill.total]).toEqual(
+        c.expect.bill,
+      );
+      checked++;
+    }
+    expect(checked).toBe(1000);
   });
 });
