@@ -21,7 +21,9 @@ from app.models import (
     ModifierLine,
     PackUnit,
     Recipe,
+    RecipeLine,
     Shop,
+    User,
 )
 from app.schemas_catalogue import (
     IngredientCreate,
@@ -50,7 +52,7 @@ def _ingredient(caller: Caller, ingredient_id: uuid.UUID) -> Ingredient:
     return get_or_404(caller.db, Ingredient, ingredient_id)
 
 
-def _recipe_out(recipe: Recipe | None) -> RecipeOut | None:
+def _recipe_out(recipe: Recipe | None, created_by_name: str | None = None) -> RecipeOut | None:
     if recipe is None:
         return None
     return RecipeOut(
@@ -59,16 +61,37 @@ def _recipe_out(recipe: Recipe | None) -> RecipeOut | None:
         effective_from=recipe.effective_from,
         yield_qty=recipe.yield_qty,
         yield_inputs=recipe.yield_inputs,
-        lines=[
-            RecipeLineOut(
-                ingredient_id=ln.ingredient_id,
-                ingredient_name=ln.ingredient.name,
-                base_unit=ln.ingredient.base_unit,
-                qty=ln.qty,
-            )
-            for ln in recipe.lines
-        ],
+        created_by_name=created_by_name,
+        # By name: an SOP card should read the same every time it is shown.
+        lines=sorted(
+            (
+                RecipeLineOut(
+                    ingredient_id=ln.ingredient_id,
+                    ingredient_name=ln.ingredient.name,
+                    base_unit=ln.ingredient.base_unit,
+                    qty=ln.qty,
+                )
+                for ln in recipe.lines
+            ),
+            key=lambda ln: ln.ingredient_name.lower(),
+        ),
     )
+
+
+def _versions(caller: Caller, column, output_id: uuid.UUID) -> list[RecipeOut]:
+    """Every version of one SOP, newest first, with who made each change."""
+    recipes = caller.db.scalars(
+        select(Recipe)
+        .where(column == output_id)
+        .order_by(Recipe.version.desc())
+        .options(selectinload(Recipe.lines).selectinload(RecipeLine.ingredient))
+    ).all()
+    names = dict(
+        caller.db.execute(
+            select(User.id, User.name).where(User.id.in_({r.created_by for r in recipes}))
+        ).all()
+    )
+    return [_recipe_out(r, names.get(r.created_by)) for r in recipes]
 
 
 # ---------------- ingredients ----------------
@@ -147,6 +170,16 @@ def get_prep_recipe(
     )
 
 
+@router.get(
+    "/ingredients/{ingredient_id}/recipe/versions",
+    response_model=list[RecipeOut],
+    tags=["recipes"],
+)
+def prep_recipe_versions(ingredient_id: uuid.UUID, caller: Caller = Depends(require_owner)):
+    ingredient = _ingredient(caller, ingredient_id)
+    return _versions(caller, Recipe.prep_ingredient_id, ingredient.id)
+
+
 @router.put("/ingredients/{ingredient_id}/recipe", response_model=RecipeOut, tags=["recipes"])
 def set_prep_recipe(
     ingredient_id: uuid.UUID, body: PrepRecipeIn, caller: Caller = Depends(require_owner)
@@ -203,6 +236,16 @@ def get_menu_recipe(
 ):
     item = get_or_404(caller.db, MenuItem, menu_item_id)
     return _recipe_out(recipe_service.resolve_recipe(caller.db, menu_item_id=item.id, at=at))
+
+
+@router.get(
+    "/menu-items/{menu_item_id}/recipe/versions",
+    response_model=list[RecipeOut],
+    tags=["recipes"],
+)
+def menu_recipe_versions(menu_item_id: uuid.UUID, caller: Caller = Depends(require_owner)):
+    item = get_or_404(caller.db, MenuItem, menu_item_id)
+    return _versions(caller, Recipe.menu_item_id, item.id)
 
 
 @router.put("/menu-items/{menu_item_id}/recipe", response_model=RecipeOut, tags=["recipes"])

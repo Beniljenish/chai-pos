@@ -3,9 +3,10 @@ import { BillingScreen } from './BillingScreen';
 import { BillsScreen } from './BillsScreen';
 import { DeviceSetupScreen } from './DeviceSetupScreen';
 import { LoginScreen } from './LoginScreen';
+import { ManageScreen } from './ManageScreen';
 import { PrepPanel } from './PrepPanel';
 import { useSession } from './session';
-import { StockScreen } from './StockScreen';
+
 
 function SyncBadge() {
   const { sync, worker } = useSession();
@@ -68,9 +69,9 @@ export function App() {
           <button aria-pressed={tab === 'today'} onClick={() => setTab('today')}>
             Today
           </button>
-          {/* Owners see stock levels; cashiers only log batches (counts stay blind). */}
+          {/* Owners manage stock and recipes; cashiers only log batches (counts stay blind). */}
           <button aria-pressed={tab === 'stock'} onClick={() => setTab('stock')}>
-            {isOwner ? 'Stock' : 'Prep'}
+            {isOwner ? 'Manage' : 'Prep'}
           </button>
         </nav>
         <SyncBadge />
@@ -88,7 +89,7 @@ export function App() {
       ) : tab === 'today' ? (
         <BillsScreen />
       ) : isOwner ? (
-        <StockScreen />
+        <ManageScreen />
       ) : (
         <main className="manage">
           <PrepPanel />

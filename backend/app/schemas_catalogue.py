@@ -135,6 +135,7 @@ class RecipeOut(BaseModel):
     effective_from: datetime
     yield_qty: Decimal | None
     yield_inputs: dict | None
+    created_by_name: str | None = None  # filled in version history only
     lines: list[RecipeLineOut]
 
 

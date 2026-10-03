@@ -283,3 +283,17 @@ The owner's **Stock** tab (cashiers see **Prep** instead): stock on hand, stock-
 - **Cashiers log batches but never see stock levels.** They make the decoction, so they log it (otherwise milk never goes down and decoction goes negative). Seeing expected quantities would defeat blind day-end counts.
 - **Owner screens are online-only.** They edit the shop's records; working from a stale offline copy would be worse than a clear "needs internet" message. Billing stays fully offline.
 - **Entry by pack, display in L/kg.** Staff count packets and crates; the total is previewed, and the server's conversion is the one stored.
+
+## Phase 3b: recipes (SOPs) and ingredients
+
+The owner's tab is now **Manage**, with **Stock** and **Recipes** inside it (Shop & GST joins next), so phones keep one row of tabs.
+
+- **Recipes:** every drink and batch with its current SOP; tap to edit. Saving creates a new version ("Save as version 3"), with the full history and who changed what. Fresh juice is edited as a yield ("1 kg gives 450 ml, glass 250 ml") and the fruit per glass is worked out, matching the server's formula.
+- **Ingredients:** add items (unit chosen once: every stock number is kept in it), add pack sizes (never edited, because past deliveries were counted with them), and tick "Same amount for every size" for cups, lids and straws. New "pieces" ingredients start ticked.
+
+### Decisions and trade-offs
+
+- **History is owner-only and names who changed it.** An SOP that can quietly change is not an SOP; "who set tea to 120 ml?" must have an answer.
+- **Recipe lines are listed by ingredient name.** They were ordered by internal ID, so the same SOP could read in a different order on another database.
+- **The editing tablet reloads its menu right after a save,** so its next sale uses the new version. Other tablets pick it up on their next menu refresh (the menu has an ETag, so that is one small request); bills already sold always keep the version they were sold under.
+- **Validation in plain words, before saving** ("Choose an ingredient on every row, or remove the empty row"), mirrored by the server's own checks.

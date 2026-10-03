@@ -27,7 +27,11 @@ test('owner stock: opening count, stock-in, batch, history', async ({ page }) =>
   await page.getByLabel('Tablet name').fill('E2E owner phone');
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
-  await page.locator('.tabs').getByRole('button', { name: 'Stock', exact: true }).click();
+  await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
+  await expect(page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await expect(page.getByRole('heading', { name: 'Stock', exact: true })).toBeVisible();
   await expect(row(page, 'Milk')).toContainText('Not counted');
   await shot(page, '10-stock-list');
