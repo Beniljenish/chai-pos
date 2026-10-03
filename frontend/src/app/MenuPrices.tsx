@@ -1,7 +1,7 @@
 /** Menu items: price, category, GST rate and whether the price includes GST. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatRate, formatRupees } from '../lib/gst';
-import type { MenuItem } from '../lib/types';
+import type { MenuItem, Modifier } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
 import { useSession } from './session';
@@ -64,7 +64,7 @@ export function MenuPrices() {
       </ul>
       <button onClick={() => setEditing('new')}>+ New menu item</button>
       {editing && (
-        <ItemEditor
+        <MenuItemEditor
           item={editing === 'new' ? null : editing}
           categories={[...new Set((items ?? []).map((m) => m.category))]}
           onClose={() => setEditing(null)}
@@ -79,20 +79,41 @@ export function MenuPrices() {
   );
 }
 
-function ItemEditor({
+/** Add or edit a menu item. Also used by Recipes for "+ New drink". */
+export function MenuItemEditor({
   item,
   categories,
+  defaultCategory,
+  recipeNext = false,
   onClose,
   onSaved,
 }: {
   item: MenuItem | null;
   categories: string[];
+  defaultCategory?: string;
+  /** True when the recipe editor opens straight after adding (the Recipes flow). */
+  recipeNext?: boolean;
   onClose(): void;
-  onSaved(): void;
+  onSaved(item: MenuItem): void;
 }) {
-  const [d, setD] = useState<Draft>(item ? toDraft(item) : blank);
+  const [d, setD] = useState<Draft>(item ? toDraft(item) : { ...blank, category: defaultCategory ?? blank.category });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Options (Large, Less sugar) this drink offers. null until loaded.
+  const [mods, setMods] = useState<Modifier[] | null>(null);
+  const [offered, setOffered] = useState<Set<string>>(new Set());
+  const [optionsTouched, setOptionsTouched] = useState(false);
+  const [savedItem, setSavedItem] = useState<MenuItem | null>(item);
+
+  useEffect(() => {
+    api
+      .get<Modifier[]>('/modifiers')
+      .then((ms) => {
+        setMods(ms);
+        if (item) setOffered(new Set(ms.filter((m) => m.menu_item_ids?.includes(item.id)).map((m) => m.id)));
+      })
+      .catch(() => setMods([]));
+  }, [item]);
   const dialog = useRef<HTMLDivElement>(null);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const pricePaise = Math.round(Number(d.price) * 100);
@@ -116,9 +137,14 @@ function ItemEditor({
       tax_inclusive: d.tax_inclusive,
     };
     try {
-      if (item) await api.patch(`/menu-items/${item.id}`, { ...body, is_active: d.is_active });
-      else await api.post('/menu-items', body);
-      onSaved();
+      let saved = savedItem;
+      if (saved) saved = await api.patch<MenuItem>(`/menu-items/${saved.id}`, { ...body, is_active: d.is_active });
+      else {
+        saved = await api.post<MenuItem>('/menu-items', body);
+        setSavedItem(saved); // a retry after a failed second step must not add it twice
+      }
+      if (optionsTouched) await api.put(`/menu-items/${saved.id}/modifiers`, { modifier_ids: [...offered] });
+      onSaved(saved);
     } catch (e) {
       setError(explainError(e));
     } finally {
@@ -180,14 +206,40 @@ function ItemEditor({
             On the menu
           </label>
         )}
+        {mods && mods.length > 0 && (
+          <fieldset>
+            <legend>Options on the bill</legend>
+            <div className="opt-drinks">
+              {mods.map((m) => (
+                <label key={m.id} className="check">
+                  <input
+                    type="checkbox"
+                    checked={offered.has(m.id)}
+                    onChange={(e) => {
+                      const next = new Set(offered);
+                      if (e.target.checked) next.add(m.id);
+                      else next.delete(m.id);
+                      setOffered(next);
+                      setOptionsTouched(true);
+                    }}
+                  />
+                  {m.name}
+                  {!m.is_active && <span className="muted"> (switched off)</span>}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
         <p className="muted">
-          Only matters for a regular-GST shop. Changes reach each tablet when it next refreshes the menu; bills already
+          GST only matters for a regular-GST shop. Changes reach each tablet when it next refreshes the menu; bills already
           printed keep their prices.
         </p>
-        {!item && <p className="muted">After adding it, give it a recipe under Recipes, or its sales will not reduce stock.</p>}
+        {!item && !recipeNext && (
+          <p className="muted">After adding it, give it a recipe under Recipes, or its sales will not reduce stock.</p>
+        )}
         <div className="sheet-actions">
           <button className="primary" disabled={!valid || busy} onClick={() => void save()}>
-            {item ? 'Save' : 'Add to menu'}
+            {item ? 'Save' : recipeNext ? 'Next: the recipe' : 'Add to menu'}
           </button>
           <button onClick={onClose}>Cancel</button>
         </div>

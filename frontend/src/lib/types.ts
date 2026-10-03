@@ -28,6 +28,8 @@ export interface Modifier {
   scale_factor: string;
   is_active: boolean;
   lines: { ingredient_id: string; qty_delta: string }[];
+  /** Owner endpoints only: drinks offering this option. */
+  menu_item_ids?: string[];
 }
 
 export interface Catalogue {

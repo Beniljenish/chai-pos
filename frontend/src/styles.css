@@ -837,6 +837,7 @@ select {
   border-color: var(--ink);
 }
 .sop-list,
+.opt-list,
 .recipe-lines,
 .ing-list {
   list-style: none;
@@ -845,7 +846,8 @@ select {
   display: grid;
   gap: var(--s2);
 }
-.sop-list button {
+.sop-list button,
+.opt-list button {
   width: 100%;
   display: grid;
   gap: var(--s1);
@@ -1184,4 +1186,80 @@ label.check.email-switch input {
   padding-bottom: var(--s2);
   margin-bottom: var(--s2);
   border-bottom: 1px solid var(--steel);
+}
+
+/* ---------- options on the bill (Large, Less sugar) ---------- */
+.sheet fieldset:not(.juice) {
+  border: 1.5px solid var(--steel-deep);
+  border-radius: var(--radius-control);
+  padding: var(--s2) var(--s3) var(--s3);
+  margin: var(--s3) 0;
+  min-width: 0;
+}
+.sheet fieldset legend {
+  font-weight: 700;
+  padding: 0 var(--s1);
+}
+.hint {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin-top: var(--s1);
+}
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.opt-row input {
+  width: 7rem;
+  text-align: right;
+}
+.recipe-lines.opt-lines li {
+  grid-template-columns: 6.5rem 5rem 2.5rem auto;
+  grid-template-areas:
+    'ing ing ing ing'
+    'dir qty unit del';
+}
+.opt-lines li > select:first-child {
+  grid-area: ing;
+}
+@media (min-width: 560px) {
+  .recipe-lines.opt-lines li {
+    grid-template-columns: 1fr 6.5rem 5rem 2.5rem auto;
+    grid-template-areas: 'ing dir qty unit del';
+  }
+}
+.opt-drinks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0 var(--s3);
+}
+.opt-preview {
+  background: var(--steel);
+  border-radius: var(--radius-control);
+  padding: var(--s3);
+  margin: var(--s3) 0;
+}
+.opt-preview label {
+  display: block;
+}
+.opt-preview select {
+  margin: var(--s1) 0;
+}
+.opt-preview table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.opt-preview th {
+  text-align: left;
+  font-weight: 400;
+  padding: var(--s1) 0;
+}
+.opt-preview td {
+  padding: var(--s1) var(--s2);
+  text-align: right;
+}
+.opt-preview td.changed {
+  font-weight: 700;
 }
