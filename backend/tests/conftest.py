@@ -204,3 +204,113 @@ def build_catalogue(client: TestClient, shop: ShopFixture) -> Catalogue:
     )
     put(f"/menu-items/{tea['id']}/modifiers", {"modifier_ids": [less_sugar["id"]]})
     return Catalogue(milk, sugar, tea_powder, oranges, decoction, tea, juice, less_sugar)
+
+
+class FakeDevice:
+    """Behaves like the billing app: reads /catalogue, numbers invoices per device
+    and financial year, and computes printed totals with the shared GST code."""
+
+    def __init__(self, client: TestClient, shop: ShopFixture, device_id=None, code="C1"):
+        from app.services.billing import financial_year  # local: avoid import cycles
+
+        self._fy = financial_year
+        self.client, self.shop = client, shop
+        self.device_id = str(device_id or shop.device.id)
+        self.code = code
+        self.seq = 0
+        self.catalogue = client.get("/api/v1/catalogue", headers=shop.cashier_h).json()
+
+    def refresh_catalogue(self):
+        self.catalogue = self.client.get("/api/v1/catalogue", headers=self.shop.cashier_h).json()
+
+    def bill(self, items, *, payment_mode="cash", sold_at=None, seq=None) -> dict:
+        """items: [(menu item name, qty, [modifier names])]"""
+        import uuid as _uuid
+        from datetime import UTC
+        from datetime import datetime as _dt
+
+        from app.core.time import business_date
+        from app.services.gst import LineIn, compute_bill
+
+        sold_at = sold_at or _dt.now(UTC)
+        if seq is None:
+            self.seq += 1
+            seq = self.seq
+        menu = {m["name"]: m for m in self.catalogue["menu_items"]}
+        mods = {m["name"]: m for m in self.catalogue["modifiers"]}
+        gst_type = GstType(self.catalogue["shop"]["gst_type"])
+
+        lines = []
+        for name, qty, mod_names in items:
+            item = menu[name]
+            snaps = [
+                {
+                    "modifier_id": mods[n]["id"],
+                    "name": n,
+                    "price_delta_paise": mods[n]["price_delta_paise"],
+                    "scale_factor": mods[n]["scale_factor"],
+                    "lines": [
+                        {"ingredient_id": ml["ingredient_id"], "qty_delta": ml["qty_delta"]}
+                        for ml in mods[n]["lines"]
+                    ],
+                }
+                for n in mod_names
+            ]
+            lines.append(
+                {
+                    "menu_item_id": item["id"],
+                    "recipe_id": item["recipe"]["id"] if item["recipe"] else None,
+                    "name": name,
+                    "unit_price_paise": item["price_paise"],
+                    "qty": qty,
+                    "gst_rate_bp": item["gst_rate_bp"],
+                    "tax_inclusive": item["tax_inclusive"],
+                    "modifiers": snaps,
+                }
+            )
+        totals = compute_bill(
+            [
+                LineIn(
+                    ln["unit_price_paise"],
+                    ln["qty"],
+                    ln["gst_rate_bp"],
+                    ln["tax_inclusive"],
+                    tuple(m["price_delta_paise"] for m in ln["modifiers"]),
+                )
+                for ln in lines
+            ],
+            gst_type,
+        )
+        for ln, lt in zip(lines, totals.lines, strict=True):
+            ln["totals"] = {
+                "gross": lt.gross,
+                "taxable": lt.taxable,
+                "cgst": lt.cgst,
+                "sgst": lt.sgst,
+                "total": lt.total,
+            }
+        fy = self._fy(business_date(sold_at))
+        return {
+            "id": str(_uuid.uuid4()),
+            "local_seq": seq,
+            "invoice_no": f"{self.code}/{fy}/{seq:06d}",
+            "sold_at": sold_at.isoformat(),
+            "payment_mode": payment_mode,
+            "gst_type": gst_type.value,
+            "lines": lines,
+            "totals": {
+                "taxable": totals.taxable,
+                "cgst": totals.cgst,
+                "sgst": totals.sgst,
+                "subtotal": totals.subtotal,
+                "round_off": totals.round_off,
+                "total": totals.total,
+            },
+        }
+
+    def sync(self, bills: list[dict], headers=None):
+        return self.client.post(
+            "/api/v1/sync/bills",
+            json={"device_id": self.device_id, "bills": bills},
+            headers=headers or self.shop.cashier_h,
+        )
