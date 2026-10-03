@@ -38,6 +38,11 @@ test('owner: wastage, reconcile against the balance, variance, approval', async 
   await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
 
   await tab(page, 'Manage').click();
+  // One decoction batch (+2.2 L) before counting: counting zero is then ~2.2 L
+  // short, far outside tolerance however many teas the other specs sold today.
+  await page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true }).click();
+  await page.getByRole('button', { name: 'Log 1 batch' }).click();
+  await expect(page.getByRole('status')).toContainText('Logged: 1 batch of Tea decoction');
   await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
   await expect(page.getByRole('heading', { name: 'Day end' })).toBeVisible();
 

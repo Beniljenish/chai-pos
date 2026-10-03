@@ -1,0 +1,188 @@
+/**
+ * The receipt in ESC/POS, the command language of almost every thermal receipt
+ * printer (README, "Printing"). Tested byte by byte in escpos.test.ts.
+ *
+ * Two steps, both pure:
+ *   receiptRows(): what to print, as rows of plain ASCII text with a style,
+ *                  laid out for the paper width (32 characters on 58 mm, 48 on 80 mm)
+ *   encode():      those rows as ESC/POS bytes
+ *
+ * Cheap printers print only their built-in code page, so text is reduced to
+ * ASCII: the rupee sign becomes "Rs." and other characters become "?". A shop
+ * whose menu is in Tamil or Hindi would need the receipt printed as an image;
+ * that is a later step if the pilot shop needs it.
+ */
+import { formatRate, taxByRate } from './gst';
+import type { LocalBill } from './db';
+import type { Catalogue } from './types';
+
+export type PaperWidth = 32 | 48;
+
+export interface Row {
+  text: string;
+  align?: 'left' | 'center';
+  bold?: boolean;
+  big?: boolean; // double width and height: half as many characters fit
+}
+
+const TITLES = { regular: 'TAX INVOICE', composition: 'BILL OF SUPPLY', unregistered: 'BILL' } as const;
+const PAYMENT = { cash: 'Cash', upi: 'UPI', card: 'Card' } as const;
+
+/** Paise as "Rs.19.04" / "Rs.20" (whole rupees drop the paise, as on screen). */
+export function rs(paise: number): string {
+  const sign = paise < 0 ? '-' : '';
+  const abs = Math.abs(paise);
+  const r = Math.floor(abs / 100);
+  const p = abs % 100;
+  return `${sign}Rs.${r.toLocaleString('en-IN')}${p ? '.' + String(p).padStart(2, '0') : ''}`;
+}
+
+/** Only what every printer's code page has: printable ASCII. */
+export function ascii(s: string): string {
+  return s
+    .replace(/₹/g, 'Rs.')
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/×/g, 'x')
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '') // é -> e
+    .replace(/[^\x20-\x7e]/g, '?');
+}
+
+/** Wrap at word boundaries; a word longer than the width is cut. */
+export function wrap(text: string, width: number): string[] {
+  const out: string[] = [];
+  let line = '';
+  for (const word of ascii(text).split(/\s+/).filter(Boolean)) {
+    let w = word;
+    while (w.length > width) {
+      if (line) out.push(line), (line = '');
+      out.push(w.slice(0, width));
+      w = w.slice(width);
+    }
+    if (!line) line = w;
+    else if (line.length + 1 + w.length <= width) line += ' ' + w;
+    else out.push(line), (line = w);
+  }
+  if (line) out.push(line);
+  return out.length ? out : [''];
+}
+
+/** "Label ........ value" on one line; the label is cut if both do not fit. */
+export function leftRight(left: string, right: string, width: number): string {
+  const r = ascii(right);
+  const l = ascii(left).slice(0, Math.max(0, width - r.length - 1));
+  return l + ' '.repeat(Math.max(1, width - l.length - r.length)) + r;
+}
+
+function istDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date(iso));
+}
+
+export function receiptRows(
+  bill: LocalBill,
+  shop: Catalogue['shop'],
+  width: PaperWidth,
+  opts: { voided?: boolean; reprint?: boolean } = {},
+): Row[] {
+  const p = bill.payload;
+  const rows: Row[] = [];
+  const line = (text: string, extra: Partial<Row> = {}) => rows.push({ text, ...extra });
+  const rule = () => line('-'.repeat(width));
+  const half = width / 2; // characters per line in big text
+
+  if (opts.voided) line('*** VOIDED: NOT A VALID BILL ***'.slice(0, width), { align: 'center', bold: true });
+  for (const t of wrap(shop.name, half)) line(t, { align: 'center', big: true });
+  if (shop.address) for (const t of wrap(shop.address, width)) line(t, { align: 'center' });
+  if (p.gst_type !== 'unregistered' && shop.gstin) line(`GSTIN ${shop.gstin}`, { align: 'center' });
+  line(TITLES[p.gst_type], { align: 'center', bold: true });
+  if (p.gst_type === 'composition')
+    for (const t of wrap('Composition taxable person, not eligible to collect tax on supplies', width))
+      line(t, { align: 'center' });
+  if (opts.reprint) line('(Reprint)', { align: 'center' });
+  rule();
+  line(leftRight('No.', bill.invoiceNo, width));
+  line(leftRight('Date', istDateTime(bill.soldAt), width));
+  rule();
+
+  for (const l of p.lines) {
+    const mods = l.modifiers.length ? ` (${l.modifiers.map((m) => m.name).join(', ')})` : '';
+    for (const t of wrap(l.name + mods, width)) line(t);
+    const each = l.unit_price_paise + l.modifiers.reduce((a, m) => a + m.price_delta_paise, 0);
+    line(leftRight(`  ${l.qty} x ${rs(each)}`, rs(l.totals.total), width));
+  }
+  rule();
+
+  if (p.gst_type === 'regular' && p.totals.cgst > 0) {
+    line(leftRight('Taxable value', rs(p.totals.taxable), width));
+    for (const g of taxByRate(p.lines)) {
+      line(leftRight(`CGST @${formatRate(g.rateBp / 2)}`, rs(g.cgst), width));
+      line(leftRight(`SGST @${formatRate(g.rateBp / 2)}`, rs(g.sgst), width));
+    }
+  }
+  if (p.totals.round_off !== 0) line(leftRight('Round off', rs(p.totals.round_off), width));
+  line(leftRight('TOTAL', rs(p.totals.total), half), { big: true, bold: true });
+  line(leftRight('Paid by', PAYMENT[p.payment_mode], width));
+  rule();
+  line('Thank you', { align: 'center' });
+  return rows.map((r) => ({ ...r, text: ascii(r.text) }));
+}
+
+// ---------------------------------------------------------------- bytes
+const ESC = 0x1b;
+const GS = 0x1d;
+const LF = 0x0a;
+
+export const CMD = {
+  init: [ESC, 0x40], // ESC @: reset the printer
+  alignLeft: [ESC, 0x61, 0],
+  alignCenter: [ESC, 0x61, 1],
+  boldOn: [ESC, 0x45, 1],
+  boldOff: [ESC, 0x45, 0],
+  sizeNormal: [GS, 0x21, 0x00],
+  sizeBig: [GS, 0x21, 0x11], // double width and double height
+  feed: (n: number) => [ESC, 0x64, n], // ESC d n: feed n lines
+  cut: [GS, 0x56, 0x42, 0x00], // GS V B 0: feed to the cutter and cut (ignored without one)
+};
+
+export function encode(rows: Row[]): Uint8Array {
+  const out: number[] = [...CMD.init];
+  for (const r of rows) {
+    out.push(...(r.align === 'center' ? CMD.alignCenter : CMD.alignLeft));
+    out.push(...(r.bold ? CMD.boldOn : CMD.boldOff));
+    out.push(...(r.big ? CMD.sizeBig : CMD.sizeNormal));
+    for (const ch of r.text) out.push(ch.charCodeAt(0));
+    out.push(LF);
+  }
+  out.push(...CMD.sizeNormal, ...CMD.boldOff, ...CMD.alignLeft, ...CMD.feed(3), ...CMD.cut);
+  return Uint8Array.from(out);
+}
+
+/** A short receipt to check the printer and paper width from the settings. */
+export function testRows(width: PaperWidth): Row[] {
+  const rows: Row[] = [
+    { text: 'TEST PRINT', align: 'center', big: true },
+    { text: '-'.repeat(width) },
+    { text: leftRight('Paper width', `${width} characters`, width) },
+    { text: '1234567890'.repeat(5).slice(0, width) },
+    { text: leftRight('Left', 'Right', width) },
+    { text: 'If the line of digits above fits on one line, the width is right.' },
+  ];
+  return rows.flatMap((r) => (r.text.length > width ? wrap(r.text, width).map((t) => ({ ...r, text: t })) : [r]));
+}
+
+/** Base64 of the bytes, for apps that take the receipt as a link (RawBT). */
+export function toBase64(bytes: Uint8Array): string {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}

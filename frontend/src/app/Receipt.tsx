@@ -3,9 +3,13 @@
  * tax invoice (regular), bill of supply (composition), or plain bill.
  * Printed through the browser's print dialog at 58 mm width (see styles.css).
  */
-import { Fragment, useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { LocalBill } from '../lib/db';
 import { formatRate, formatRupees, taxByRate } from '../lib/gst';
+import { db } from '../lib/db';
+import { receiptRows } from '../lib/escpos';
+import { browserEnv, loadPrinter, printRows } from '../lib/printer';
+import { PrinterSheet } from './PrinterSettings';
 import { useSession } from './session';
 
 const TITLES = {
@@ -40,8 +44,26 @@ export function Receipt({
   const p = bill.payload;
   const gstType = p.gst_type;
 
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  async function print(reprint: boolean) {
+    if (!shop) return;
+    setPrintError(null);
+    try {
+      const settings = await loadPrinter(db);
+      await printRows(receiptRows(bill, shop, settings.width, { voided, reprint }), settings, browserEnv);
+    } catch (e) {
+      setPrintError(e instanceof Error ? e.message : 'Could not print');
+    }
+  }
+
   useEffect(() => {
-    if (autoPrint && !navigator.webdriver) window.print();
+    if (!autoPrint) return;
+    void loadPrinter(db).then((s) => {
+      if (s.autoPrint) void print(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPrint]);
 
   return (
@@ -111,13 +133,25 @@ export function Receipt({
           </dl>
           <footer>Thank you</footer>
         </article>
+        {printError && (
+          <p className="error no-print" role="alert">
+            {printError}{' '}
+            <button className="quiet" onClick={() => setSettingsOpen(true)}>
+              Printer settings
+            </button>
+          </p>
+        )}
         <div className="receipt-actions no-print">
-          <button onClick={() => window.print()}>Print again</button>
+          <button onClick={() => void print(!autoPrint)}>{autoPrint ? 'Print again' : 'Reprint'}</button>
           <button className="primary" onClick={onClose} autoFocus>
             New bill
           </button>
         </div>
+        <button className="quiet no-print printer-link" onClick={() => setSettingsOpen(true)}>
+          Printer settings
+        </button>
       </div>
+      {settingsOpen && <PrinterSheet onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

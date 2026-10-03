@@ -1561,3 +1561,10 @@ button.account {
   background: #dff3e8;
   color: var(--leaf);
 }
+
+/* ---------- printing ---------- */
+.receipt-wrap .printer-link {
+  display: block;
+  margin: var(--s2) auto 0;
+  color: var(--paper);
+}
