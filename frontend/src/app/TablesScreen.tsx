@@ -323,6 +323,8 @@ function OrderScreen({
   const [busy, setBusy] = useState(false);
   const [tillOpen, setTillOpen] = useState(false);
   const [payment, setPayment] = useState<PaymentMode>('cash');
+  // Split bill waiting for the drawer shift to be started (see settleSplit).
+  const [pendingSplit, setPendingSplit] = useState<SplitPart[] | null>(null);
 
   const live = orderId ? orders.find((o) => o.id === orderId) : undefined;
   const state = live?.state;
@@ -490,7 +492,6 @@ function OrderScreen({
 
   // Split bill: every part's invoice is made at once (not one now, one later), so
   // a table is never left half-paid with the plan only in someone's head.
-  const [pendingSplit, setPendingSplit] = useState<SplitPart[] | null>(null);
   async function settleSplit(parts: SplitPart[], shiftId = shift?.id) {
     if (!device || !orderId) return;
     const needShift = shiftsOn(catalogue.shop.cash_shifts);
