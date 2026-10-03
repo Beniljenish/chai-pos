@@ -55,6 +55,15 @@ describe('a table order on this device', () => {
     expect(await db.pendingCount()).toBe(2); // in the sync badge with bills
   });
 
+  it("this device's own actions keep their order even within one millisecond", async () => {
+    const same = new Date('2026-10-04T06:00:00.000Z');
+    const id = await openOrder(db, { orderType: 'dine_in', tableId: 't1' }, 'ravi', same);
+    await sendKot(db, id, 'C1-1', [tea(2, 'x')], 'ravi', same);
+    await act(db, id, 'cancel', { line_id: 'x', qty: 1, reason: 'one less' }, 'ravi', same);
+    const state = (await liveOrder(db, id))!.state;
+    expect(state.lines[0]).toMatchObject({ qty: 1, cancelled_qty: 1 });
+  });
+
   it('numbers KOTs per device per day', async () => {
     const day1 = new Date('2026-10-04T06:00:00Z');
     expect(await nextKotNo(db, 'dev', 'C1', day1)).toBe('C1-1');

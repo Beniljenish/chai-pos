@@ -248,8 +248,21 @@ async function queue(db: PosDB, ev: OrderEvent & { order_id: string }) {
   await db.orderEvents.add({ id: ev.id, orderId: ev.order_id, seq: (last?.seq ?? 0) + 1, status: 'pending', payload: ev });
 }
 
+/**
+ * Events are ordered by time, then id. Two of this device's own events made in
+ * the same millisecond (a KOT, then at once a cancel) must keep their order, and
+ * the id's random part cannot promise that, so each event is at least 1 ms after
+ * the previous one made here.
+ */
+let lastAt = 0;
+export function tick(now: Date): Date {
+  lastAt = Math.max(now.getTime(), lastAt + 1);
+  return new Date(lastAt);
+}
+
 function event(orderId: string, kind: EventKind, by: string, data: Record<string, unknown>, now: Date): OrderEvent & { order_id: string } {
-  return { id: uuidv7(now.getTime()), order_id: orderId, kind, at: now.toISOString(), by, data };
+  const at = tick(now);
+  return { id: uuidv7(at.getTime()), order_id: orderId, kind, at: at.toISOString(), by, data };
 }
 
 export interface OpenInput {
