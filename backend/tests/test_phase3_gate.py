@@ -379,6 +379,13 @@ def test_an_approved_day_counts_as_the_starting_point(client, shop_a):
     stock = {r["name"]: r for r in client.get("/api/v1/stock", headers=h).json()}
     assert stock["Sugar"]["has_opening"] is True
     assert stock["Milk"]["has_opening"] is False  # not counted
+    # ...and an opening count can no longer be used to overwrite it.
+    r = client.post(
+        "/api/v1/stock/opening",
+        json={"ingredient_id": cat.sugar["id"], "loose_qty": "999"},
+        headers=h,
+    )
+    assert r.status_code == 409 and "day-end count" in r.json()["detail"]
     # The closed day's own report still says it had no starting count before it.
     rep = client.get(_url("report"), headers=h).json()
     assert rep["lines"][0]["has_opening"] is False

@@ -14,5 +14,15 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:4173',
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /dayend\.spec/ },
+    // Closing a day changes shop-wide state (counted items get a starting point),
+    // so day end runs only after every other spec has finished.
+    {
+      name: 'day-end',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /dayend\.spec/,
+      dependencies: ['chromium'],
+    },
+  ],
 });

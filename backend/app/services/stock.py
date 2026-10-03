@@ -155,9 +155,11 @@ def set_opening(
 ) -> StockOpening:
     """Record the first physical count. The caller commits; a concurrent second
     opening for the same ingredient fails on the unique constraint."""
-    if db.scalar(select(StockOpening.id).where(StockOpening.ingredient_id == ingredient.id)):
+    if ingredient.id in physically_counted(db):
+        # Once by opening count, or once any day-end count was approved: after
+        # that, "set stock to X" would be a back door around variance.
         raise OpeningAlreadySet(
-            f"Opening stock for {ingredient.name} was already entered. "
+            f"{ingredient.name} already has a counted starting point. "
             "Corrections are made with the day-end count."
         )
     entered, counted = _convert_packs(db, ingredient, packs, loose_qty)
