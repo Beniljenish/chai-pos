@@ -33,11 +33,13 @@ export function Receipt({
   onClose,
   autoPrint = false,
   voided = false,
+  doneLabel = 'New bill',
 }: {
   bill: LocalBill;
   onClose(): void;
   autoPrint?: boolean;
   voided?: boolean;
+  doneLabel?: string;
 }) {
   const { catalogue } = useSession();
   const shop = catalogue?.shop;
@@ -144,7 +146,7 @@ export function Receipt({
         <div className="receipt-actions no-print">
           <button onClick={() => void print(!autoPrint)}>{autoPrint ? 'Print again' : 'Reprint'}</button>
           <button className="primary" onClick={onClose} autoFocus>
-            New bill
+            {doneLabel}
           </button>
         </div>
         <button className="quiet no-print printer-link" onClick={() => setSettingsOpen(true)}>

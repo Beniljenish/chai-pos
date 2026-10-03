@@ -7,6 +7,8 @@ import { AccountButton, SetPasswordScreen } from './PasswordForm';
 import { ManageScreen } from './ManageScreen';
 import { DayEndScreen } from './DayEndScreen';
 import { useSession } from './session';
+import { TablesScreen } from './TablesScreen';
+import { hasTables } from '../lib/table';
 
 
 function SyncBadge() {
@@ -57,9 +59,10 @@ export function App() {
 
 function Shell() {
   const { user, device, catalogue, sync, notice, logout } = useSession();
-  const [tab, setTab] = useState<'bill' | 'today' | 'stock'>('bill');
+  const [tab, setTab] = useState<'bill' | 'tables' | 'today' | 'stock'>('bill');
 
   const isOwner = user?.role === 'owner';
+  const tables = hasTables(catalogue);
 
   return (
     <div className="app">
@@ -71,9 +74,15 @@ function Shell() {
           </span>
         </div>
         <nav className="tabs" aria-label="Screens">
-          <button aria-pressed={tab === 'bill'} onClick={() => setTab('bill')}>
-            New bill
+          <button aria-pressed={tab === 'bill'} onClick={() => setTab('bill')} aria-label="New bill">
+            <span className="long">New bill</span>
+            <span className="short">Bill</span>
           </button>
+          {tables && (
+            <button aria-pressed={tab === 'tables'} onClick={() => setTab('tables')}>
+              Tables
+            </button>
+          )}
           <button aria-pressed={tab === 'today'} onClick={() => setTab('today')}>
             Today
           </button>
@@ -94,6 +103,8 @@ function Shell() {
       )}
       {tab === 'bill' ? (
         <BillingScreen />
+      ) : tab === 'tables' && tables ? (
+        <TablesScreen />
       ) : tab === 'today' ? (
         <BillsScreen />
       ) : isOwner ? (

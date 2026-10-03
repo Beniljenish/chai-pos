@@ -2,10 +2,11 @@
  * Owner: the dining floor. Areas (Hall, AC room, Outdoor) and their tables.
  * Bulk add makes setting up a 20-table restaurant a minute's work.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { nextNames } from '../lib/floor';
 import { api } from './apiClient';
 import { explainError } from './errors';
+import { Sheet } from './Sheet';
 import { useSession } from './session';
 
 interface Table {
@@ -21,29 +22,6 @@ interface Area {
   sort: number;
   is_active: boolean;
   tables: Table[];
-}
-
-function Sheet({ title, onClose, children }: { title: string; onClose(): void; children: ReactNode }) {
-  const dialog = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={dialog} onClick={(e) => e.stopPropagation()}>
-        <header className="sheet-head">
-          <h2>{title}</h2>
-          <button className="quiet" onClick={onClose}>
-            Close
-          </button>
-        </header>
-        {children}
-      </div>
-    </div>
-  );
 }
 
 export function FloorSetup() {

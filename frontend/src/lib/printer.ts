@@ -19,9 +19,11 @@ export interface PrinterSettings {
   kind: PrinterKind;
   width: PaperWidth;
   autoPrint: boolean; // print as soon as a bill is saved
+  /** Table service: print a kitchen ticket (KOT) for every round sent. Off when the kitchen has a screen. */
+  printKot: boolean;
 }
 
-export const DEFAULT_PRINTER: PrinterSettings = { kind: 'browser', width: 32, autoPrint: true };
+export const DEFAULT_PRINTER: PrinterSettings = { kind: 'browser', width: 32, autoPrint: true, printKot: true };
 
 export async function loadPrinter(db: PosDB): Promise<PrinterSettings> {
   return { ...DEFAULT_PRINTER, ...((await db.getMeta<Partial<PrinterSettings>>('printer')) ?? {}) };
