@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { formatRate, formatRupees } from '../lib/gst';
 import type { MenuItem, Modifier } from '../lib/types';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { Sheet } from './Sheet';
 import { explainError } from './errors';
 import { useSession } from './session';
@@ -46,7 +47,8 @@ export function MenuPrices() {
   return (
     <section aria-labelledby="menu-title">
       <h2 id="menu-title">Menu prices &amp; GST</h2>
-      {error && <p className="error">{error}</p>}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
+      {items === null && !error && <Loading />}
       <ul className="sop-list">
         {(items ?? []).map((m) => (
           <li key={m.id}>

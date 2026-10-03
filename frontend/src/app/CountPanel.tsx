@@ -7,6 +7,7 @@ import { mustCount } from '../lib/dayend';
 import { formatDelta, formatQty, packsPayload, packsToBase } from '../lib/qty';
 import type { CountSheet, DayStatus, Ingredient, SheetItem } from '../lib/types';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { PackEntry } from './PackEntry';
 import { useSession } from './session';
@@ -65,8 +66,8 @@ export function CountPanel({
   }, [load, refreshKey]);
 
   const pending = sync?.pending ?? 0;
-  if (error && !sheet) return <p className="error">{error}</p>;
-  if (!sheet) return <p className="muted">Loading…</p>;
+  if (error && !sheet) return <LoadError error={error} onRetry={() => void load()} />;
+  if (!sheet) return <Loading />;
 
   if (sheet.status === 'approved')
     return (

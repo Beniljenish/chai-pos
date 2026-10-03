@@ -101,4 +101,13 @@ test('offline billing, end to end', async ({ page, context }) => {
   await shot(page, '08-phone-bar');
   await page.locator('.till-handle').click();
   await shot(page, '09-phone-till-open');
+
+  // ---- The usual sale on a phone: tap the tea, then Save on the bar ----
+  await page.locator('.till-handle').click(); // closed again
+  await page.getByRole('button', { name: 'Save · Cash' }).click();
+  await expect(page.getByRole('dialog')).toContainText('₹20');
+  await newBillOnReceipt(page).click();
+  await expect(page.getByRole('button', { name: /^Save · / })).toHaveCount(0); // empty bill: no button
+  await expect(page.getByText('Sent', { exact: true })).toBeVisible({ timeout: 15_000 });
+  expect(await serverBillCount()).toBe(before + 5);
 });

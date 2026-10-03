@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ago } from '../lib/health';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { useSession } from './session';
 
@@ -76,11 +77,8 @@ export function TabletsScreen() {
         Each tablet reports what it still holds whenever it has internet. A bill printed on a tablet that never reached
         the server, and is no longer on the tablet, shows here as missing.
       </p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
+      {tablets === null && !error && <Loading />}
       {tablets && (
         <p className={problems ? 'warn' : 'ok'} role="status">
           {problems

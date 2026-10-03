@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { firstPassword, formatPhone } from '../lib/staff';
 import type { StaffMember } from '../lib/types';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { PasswordForm } from './PasswordForm';
 import { Sheet } from './Sheet';
@@ -63,13 +64,9 @@ export function StaffScreen() {
         Everyone logs in with their own mobile number and password. Bills, voids and counts are recorded under the
         person who did them.
       </p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
       {staff === null ? (
-        !error && <p className="muted">Loading…</p>
+        !error && <Loading />
       ) : (
         <>
           <ul className="sop-list staff-list">{active.map(row)}</ul>

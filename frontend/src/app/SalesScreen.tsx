@@ -18,6 +18,7 @@ import {
 } from '../lib/sales';
 import type { SalesReport, ServerBill } from '../lib/types';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { Sheet } from './Sheet';
 import { ServiceReport } from './ServiceReport';
 import { CashDrawer } from './CashDrawer';
@@ -77,13 +78,9 @@ export function SalesScreen() {
           </button>
         </div>
       </header>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
       {!report ? (
-        !error && <p className="muted">Loading…</p>
+        !error && <Loading />
       ) : (
         <>
           <div className="sales-total">
