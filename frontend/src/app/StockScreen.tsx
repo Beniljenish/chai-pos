@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { formatQty } from '../lib/qty';
 import type { Ingredient, StockRow } from '../lib/types';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { ItemSheet } from './ItemSheet';
 import { PrepPanel } from './PrepPanel';
@@ -47,11 +48,7 @@ export function StockScreen() {
           Refresh
         </button>
       </header>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
       {notCounted > 0 && (
         <p className="warn">
           {notCounted} item{notCounted === 1 ? ' has' : 's have'} no opening count yet. Count what is on the shelf
@@ -60,7 +57,7 @@ export function StockScreen() {
       )}
 
       {rows === null ? (
-        <p className="muted">Loading…</p>
+        !error && <Loading />
       ) : (
         <ul className="stock-list">
           {rows.map((r) => (

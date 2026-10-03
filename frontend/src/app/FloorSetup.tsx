@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { nextNames } from '../lib/floor';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { Sheet } from './Sheet';
 import { useSession } from './session';
@@ -61,11 +62,8 @@ export function FloorSetup() {
         Areas and tables for table service. Tables appear on every tablet&apos;s Tables screen; switching one off hides it
         without losing its history.
       </p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
+      {areas === null && !error && <Loading />}
       {areas?.length === 0 && (
         <div className="empty-card">
           <p>

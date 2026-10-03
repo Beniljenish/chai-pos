@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { formatQty, type BaseUnit } from '../lib/qty';
 import type { Ingredient, Recipe as PrepRecipe } from '../lib/types';
 import { api } from './apiClient';
+import { Loading } from './Status';
 import { explainError } from './errors';
 
 interface PrepItem {
@@ -57,7 +58,7 @@ export function PrepPanel({ onLogged }: { onLogged?: () => void }) {
     }
   }
 
-  if (items === null) return <p className="muted">Loading…</p>;
+  if (items === null) return <Loading />;
   if (items.length === 0 && !message) return null;
 
   return (

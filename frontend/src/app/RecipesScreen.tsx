@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { formatQty, type BaseUnit } from '../lib/qty';
 import type { Catalogue, Ingredient, Recipe, RecipeLine } from '../lib/types';
 import { api } from './apiClient';
+import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { IngredientsPanel } from './IngredientsPanel';
 import { MenuItemEditor } from './MenuPrices';
@@ -61,13 +62,9 @@ export function RecipesScreen() {
         The SOP for every drink: what one serving takes out of stock. Changing a recipe makes a new version; old bills
         keep theirs.
       </p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <LoadError error={error} onRetry={() => void load()} />}
       {menu === null ? (
-        <p className="muted">Loading…</p>
+        !error && <Loading />
       ) : (
         <>
           {categories.map((c) => (
