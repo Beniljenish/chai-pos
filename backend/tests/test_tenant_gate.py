@@ -57,6 +57,10 @@ ID_ROUTES = {
     "/api/v1/areas/{area_id}": ("area", {"PATCH": {"name": "hijacked"}}),
     "/api/v1/tables/{table_id}": ("table", {"PATCH": {"name": "hijacked"}}),
     "/api/v1/orders/{order_id}": ("order", {"GET": None}),
+    "/api/v1/suppliers/{supplier_id}": ("supplier", {"PATCH": {"name": "hijacked"}}),
+    "/api/v1/purchase-orders/{order_id}": ("po", {"GET": None}),
+    "/api/v1/purchase-orders/{order_id}/receive": ("po", {"POST": {"lines": []}}),
+    "/api/v1/purchase-orders/{order_id}/cancel": ("po", {"POST": None}),
     "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
     "/api/v1/devices/{device_id}/report": (
@@ -78,7 +82,7 @@ DATE_ROUTES = {
 
 
 def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
-    if key in ("bill", "area", "table", "order"):
+    if key in ("bill", "area", "table", "order", "supplier", "po"):
         return getattr(cat, f"{key}_id")
     if key.startswith("cat."):
         return getattr(cat, key[4:])["id"]
@@ -101,6 +105,18 @@ def _with_bill(client, shop) -> Catalogue:
     cat.area_id = client.post("/api/v1/areas", json={"name": "Hall"}, headers=h).json()["id"]
     cat.table_id = client.post(
         "/api/v1/tables", json={"area_id": cat.area_id, "name": "T1"}, headers=h
+    ).json()["id"]
+    # Purchasing: a supplier and an open purchase order (shop B's must stay open).
+    cat.supplier_id = client.post(
+        "/api/v1/suppliers", json={"name": "Milk agent"}, headers=h
+    ).json()["id"]
+    cat.po_id = client.post(
+        "/api/v1/purchase-orders",
+        json={
+            "supplier_id": cat.supplier_id,
+            "lines": [{"ingredient_id": cat.milk["id"], "qty": "1000"}],
+        },
+        headers=h,
     ).json()["id"]
     cat.order_id = str(uuid.uuid4())
     r = client.post(
