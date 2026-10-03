@@ -1,4 +1,5 @@
-"""Phase 2: bills. A bill is written once, never edited (voids come in Phase 3).
+"""Bills. A bill is written once, never edited; a void is a separate record (BillVoid)
+and the only change to the bill row is its status flag.
 
 Two sets of totals are stored:
 - the PRINTED totals (what the device calculated and handed to the customer).
@@ -29,7 +30,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TenantScoped
+from app.db.base import Base, IdMixin, TenantScoped
 from app.models import GstType
 
 
@@ -41,7 +42,15 @@ class PaymentMode(enum.StrEnum):
 
 class BillStatus(enum.StrEnum):
     completed = "completed"
-    void = "void"  # Phase 3
+    void = "void"  # set only together with a BillVoid row
+
+
+class VoidReason(enum.StrEnum):
+    wrong_item = "wrong_item"  # tapped the wrong drink; nothing was made
+    duplicate = "duplicate"  # same order billed twice
+    payment_failed = "payment_failed"  # UPI did not go through, customer left
+    customer_cancelled = "customer_cancelled"
+    other = "other"
 
 
 class Bill(TenantScoped, Base):
@@ -96,6 +105,7 @@ class Bill(TenantScoped, Base):
     lines: Mapped[list["BillLine"]] = relationship(
         back_populates="bill", order_by="BillLine.position", cascade="all, delete-orphan"
     )
+    void: Mapped["BillVoid | None"] = relationship(uselist=False, viewonly=True)
 
 
 class BillLine(TenantScoped, Base):
@@ -150,3 +160,29 @@ class BillLineModifier(TenantScoped, Base):
     price_delta_paise: Mapped[int] = mapped_column(Integer)
     scale_factor: Mapped[Decimal] = mapped_column(Numeric(6, 3))
     lines_snapshot: Mapped[list] = mapped_column(JSONB)  # [{"ingredient_id","qty_delta"}]
+
+
+class BillVoid(IdMixin, TenantScoped, Base):
+    """The owner cancelled a bill. The invoice number stays used (GST: no gaps in the
+    series); the bill drops out of sales; its stock comes back unless the drink
+    was already made. One per bill, never removed."""
+
+    __tablename__ = "bill_voids"
+    __table_args__ = (UniqueConstraint("bill_id", name="uq_bill_voids_bill"),)
+
+    bill_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("bills.id", ondelete="RESTRICT")
+    )
+    reason: Mapped[VoidReason] = mapped_column(Enum(VoidReason, name="void_reason"))
+    note: Mapped[str] = mapped_column(String(200), default="")
+    stock_returned: Mapped[bool] = mapped_column(Boolean)
+    voided_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    voided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", viewonly=True)
+
+    @property
+    def voided_by_name(self) -> str:
+        return self.user.name if self.user else ""

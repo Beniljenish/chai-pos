@@ -24,7 +24,17 @@ function istDateTime(iso: string) {
   }).format(new Date(iso));
 }
 
-export function Receipt({ bill, onClose, autoPrint = false }: { bill: LocalBill; onClose(): void; autoPrint?: boolean }) {
+export function Receipt({
+  bill,
+  onClose,
+  autoPrint = false,
+  voided = false,
+}: {
+  bill: LocalBill;
+  onClose(): void;
+  autoPrint?: boolean;
+  voided?: boolean;
+}) {
   const { catalogue } = useSession();
   const shop = catalogue?.shop;
   const p = bill.payload;
@@ -38,6 +48,7 @@ export function Receipt({ bill, onClose, autoPrint = false }: { bill: LocalBill;
     <div className="overlay" role="dialog" aria-modal="true" aria-label={`Bill ${bill.invoiceNo}`}>
       <div className="receipt-wrap">
         <article className="receipt">
+          {voided && <p className="void-stamp">VOIDED: not a valid bill</p>}
           <header>
             <strong className="shop-name">{shop?.name}</strong>
             {shop?.address && <span>{shop.address}</span>}

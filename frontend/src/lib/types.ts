@@ -216,3 +216,64 @@ export interface DayReport {
   late_bills: number;
   late_bills_explained_paise: number;
 }
+
+/** A bill as the server holds it (GET /bills, /bills/{id}). */
+export interface ServerBill {
+  id: string;
+  invoice_no: string;
+  device_id: string;
+  cashier_id: string;
+  sold_at: string;
+  business_date: string;
+  payment_mode: 'cash' | 'upi' | 'card';
+  status: 'completed' | 'void';
+  taxable_paise: number;
+  cgst_paise: number;
+  sgst_paise: number;
+  round_off_paise: number;
+  total_paise: number;
+  totals_mismatch: boolean;
+  lines: {
+    position: number;
+    name_snapshot: string;
+    unit_price_paise: number;
+    qty: number;
+    gst_rate_bp: number;
+    total_paise: number;
+    modifiers: { name_snapshot: string; price_delta_paise: number }[];
+  }[];
+  void: {
+    reason: string;
+    note: string;
+    stock_returned: boolean;
+    voided_by_name: string;
+    voided_at: string;
+  } | null;
+}
+
+export interface SalesReport {
+  business_date: string;
+  day_status: 'counting' | 'submitted' | 'approved' | null;
+  bills: number;
+  total_paise: number;
+  taxable_paise: number;
+  cgst_paise: number;
+  sgst_paise: number;
+  round_off_paise: number;
+  by_mode: { mode: string; bills: number; total_paise: number }[];
+  by_hour: { hour: number; bills: number; total_paise: number }[];
+  by_cashier: { name: string; bills: number; total_paise: number }[];
+  items: { name: string; qty: number; total_paise: number }[];
+  gst_by_rate: { rate_bp: number; taxable_paise: number; cgst_paise: number; sgst_paise: number }[];
+  voids: {
+    bill_id: string;
+    invoice_no: string;
+    total_paise: number;
+    reason: string;
+    note: string;
+    stock_returned: boolean;
+    voided_by_name: string;
+    voided_at: string;
+  }[];
+  mismatches: { bill_id: string; invoice_no: string; total_paise: number; server_total_paise: number }[];
+}

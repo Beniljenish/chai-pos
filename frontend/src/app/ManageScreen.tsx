@@ -2,11 +2,13 @@
 import { useState } from 'react';
 import { DayEndScreen } from './DayEndScreen';
 import { RecipesScreen } from './RecipesScreen';
+import { SalesScreen } from './SalesScreen';
 import { ShopScreen } from './ShopScreen';
 import { StockScreen } from './StockScreen';
 
-type Section = 'stock' | 'dayend' | 'recipes' | 'shop';
+type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop';
 const SECTIONS: { id: Section; label: string }[] = [
+  { id: 'sales', label: 'Sales' },
   { id: 'stock', label: 'Stock' },
   { id: 'dayend', label: 'Day end' },
   { id: 'recipes', label: 'Recipes' },
@@ -14,7 +16,7 @@ const SECTIONS: { id: Section; label: string }[] = [
 ];
 
 export function ManageScreen() {
-  const [section, setSection] = useState<Section>('stock');
+  const [section, setSection] = useState<Section>('sales');
   return (
     <main className="manage">
       <nav className="subnav" aria-label="Manage">
@@ -24,7 +26,9 @@ export function ManageScreen() {
           </button>
         ))}
       </nav>
-      {section === 'stock' ? (
+      {section === 'sales' ? (
+        <SalesScreen />
+      ) : section === 'stock' ? (
         <StockScreen />
       ) : section === 'dayend' ? (
         <DayEndScreen />

@@ -6,11 +6,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.common import get_or_404
-from app.api.deps import Caller, get_caller
+from app.api.deps import Caller, get_caller, require_owner
 from app.core.time import business_date
-from app.models import Bill, BillLine, Device, Role, Shop
-from app.schemas_billing import BillOut, SyncRequest, SyncResponse, SyncResultOut
-from app.services import billing, email
+from app.models import Bill, BillLine, BillVoid, Device, Role, Shop
+from app.schemas_billing import BillOut, SyncRequest, SyncResponse, SyncResultOut, VoidIn
+from app.services import billing, email, voids
+from app.services.sales import sales_report
 
 router = APIRouter(tags=["bills"])
 
@@ -62,7 +63,10 @@ def device_sync_state(device_id: uuid.UUID, caller: Caller = Depends(get_caller)
 
 
 def _bill_query():
-    return select(Bill).options(selectinload(Bill.lines).selectinload(BillLine.modifiers))
+    return select(Bill).options(
+        selectinload(Bill.lines).selectinload(BillLine.modifiers),
+        selectinload(Bill.void).selectinload(BillVoid.user),
+    )
 
 
 @router.get("/bills", response_model=list[BillOut])
@@ -86,3 +90,32 @@ def get_bill(bill_id: uuid.UUID, caller: Caller = Depends(get_caller)):
     if bill is None:
         get_or_404(caller.db, Bill, bill_id)  # raises the standard 404
     return bill
+
+
+@router.post("/bills/{bill_id}/void", response_model=BillOut)
+def void_bill(bill_id: uuid.UUID, body: VoidIn, caller: Caller = Depends(require_owner)):
+    """Owner only. Needs internet: the server must check the day is still open."""
+    get_or_404(caller.db, Bill, bill_id)
+    try:
+        voids.void_bill(
+            caller.db,
+            bill_id,
+            reason=body.reason,
+            note=body.note,
+            drink_was_made=body.drink_was_made,
+            user_id=caller.user.id,
+        )
+    except voids.VoidError as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    caller.db.commit()
+    caller.db.expire_all()
+    return caller.db.scalar(_bill_query().where(Bill.id == bill_id))
+
+
+@router.get("/reports/sales", tags=["reports"])
+def sales(
+    day: date | None = Query(default=None, alias="business_date"),
+    caller: Caller = Depends(require_owner),
+) -> dict:
+    return sales_report(caller.db, day or business_date())

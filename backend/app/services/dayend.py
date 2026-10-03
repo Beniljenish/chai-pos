@@ -151,7 +151,7 @@ class Movement:
     prep_out: Decimal = ZERO  # positive = used in batches
     sold: Decimal = ZERO  # positive = used by sales
     wasted: Decimal = ZERO  # positive
-    other: Decimal = ZERO  # voids, late-bill corrections and similar on the day
+    other: Decimal = ZERO  # late-bill corrections and similar on the day
 
     @property
     def expected(self) -> Decimal:
@@ -210,8 +210,8 @@ def movements(
             m.prep_in += total
         elif reason == LedgerReason.prep_out:
             m.prep_out -= total
-        elif reason == LedgerReason.sale:
-            m.sold -= total
+        elif reason in (LedgerReason.sale, LedgerReason.void):
+            m.sold -= total  # a voided bill's returned stock was never sold
         elif reason == LedgerReason.wastage:
             m.wasted -= total
         else:
@@ -406,6 +406,9 @@ def report_lines(db: Session, dc: DayCount) -> list[ReportLine]:
 
 
 def approve(db: Session, bdate: date, user_id: uuid.UUID) -> DayCount:
+    from app.services.voids import lock_day  # local: voids imports dayend models
+
+    lock_day(db, bdate)  # a void of this day's bill finishes first, or is refused after
     dc = get_or_create_day(db, bdate)
     if dc.status == DayCountStatus.approved:
         raise DayLocked("This day is already closed")

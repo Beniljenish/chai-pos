@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.models import (
     Bill,
     BillLine,
+    BillStatus,
     DayCount,
     Device,
     EmailKind,
@@ -176,14 +177,16 @@ def enqueue_day_end(db: Session, shop: Shop, dc: DayCount) -> None:
 
 # ---------------------------------------------------------------- daily summary
 def daily_figures(db: Session, d: date) -> dict:
-    bills = db.scalars(select(Bill).where(Bill.business_date == d)).all()
+    every = db.scalars(select(Bill).where(Bill.business_date == d)).all()
+    bills = [b for b in every if b.status != BillStatus.void]
+    voided = [b for b in every if b.status == BillStatus.void]
     by_mode: dict[str, int] = defaultdict(int)
     for b in bills:
         by_mode[b.payment_mode.value] += b.total_paise
     top = db.execute(
         select(BillLine.name_snapshot, func.sum(BillLine.qty), func.sum(BillLine.total_paise))
         .join(Bill, Bill.id == BillLine.bill_id)
-        .where(Bill.business_date == d)
+        .where(Bill.business_date == d, Bill.status != BillStatus.void)
         .group_by(BillLine.name_snapshot)
         .order_by(func.sum(BillLine.total_paise).desc())
         .limit(10)
@@ -200,6 +203,8 @@ def daily_figures(db: Session, d: date) -> dict:
         "gst": sum(b.cgst_paise + b.sgst_paise for b in bills),
         "by_mode": dict(by_mode),
         "mismatch": sum(1 for b in bills if b.totals_mismatch),
+        "voids": len(voided),
+        "voided_total": sum(b.total_paise for b in voided),
         "top": [(n, int(q), int(t)) for n, q, t in top],
         "wasted": int(wasted or 0),
         "day_status": day.status.value if day else None,
@@ -233,8 +238,14 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         )
         + f"<p>{escape(status)}</p>"
         + (
+            f"<p>{f['voids']} voided bill(s) worth {rupees(f['voided_total'])}, "
+            "not included above. Reasons are in the app under Manage → Sales.</p>"
+            if f["voids"]
+            else ""
+        )
+        + (
             f"<p style='color:#b3261e'>{f['mismatch']} bill(s) where the tablet's total "
-            "differed from the server's: check them under Today.</p>"
+            "differed from the server's: check them under Manage → Sales.</p>"
             if f["mismatch"]
             else ""
         )
@@ -243,6 +254,7 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         f"{subject}\n"
         + "\n".join(f"{a}: {b}" for a, b in modes)
         + f"\nGST {rupees(f['gst'])}\n{status}"
+        + (f"\nVoided: {f['voids']} bill(s), {rupees(f['voided_total'])}" if f["voids"] else "")
     )
     enqueue(
         db, shop, EmailKind.daily, f"daily:{d.isoformat()}", subject, _page(subject, body), text
@@ -269,7 +281,7 @@ def enqueue_weekly(db: Session, shop: Shop, start: date, end: date) -> None:
         select(Bill)
         .where(Bill.business_date.between(start, end))
         .order_by(Bill.sold_at)
-        .options(selectinload(Bill.lines))
+        .options(selectinload(Bill.lines), selectinload(Bill.void))
     ).all()
 
     def r(p: int) -> str:
@@ -290,6 +302,8 @@ def enqueue_weekly(db: Session, shop: Shop, start: date, end: date) -> None:
                 "round_off",
                 "total",
                 "totals_mismatch",
+                "status",
+                "void_reason",
             ],
             [
                 [
@@ -305,6 +319,8 @@ def enqueue_weekly(db: Session, shop: Shop, start: date, end: date) -> None:
                     r(b.round_off_paise),
                     r(b.total_paise),
                     b.totals_mismatch,
+                    b.status.value,
+                    b.void.reason.value if b.void else "",
                 ]
                 for b in bills
             ],

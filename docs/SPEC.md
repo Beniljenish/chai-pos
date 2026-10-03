@@ -12,7 +12,7 @@ It stays the single source of truth; this file only tracks the phase gates.
 | 0 | Repo, Docker, CI, auth + roles, shops/users/devices, tenant layer | CI green; cross-shop data-leak test passes | Done |
 | 1 | Ingredients, pack units, prep/yield recipes, modifiers, stock-in, ledger | Stock on hand = ledger sum; old bills ignore recipe edits | Done |
 | 2 | `/sync/bills` idempotent, GST maths in paise, PWA billing + Dexie outbox | 20 bills offline then online -> 20 rows, 0 duplicates | Done (2a backend, 2b app) |
-| 3 | Blind counts, wastage codes, adherence %, shifts + cash, voids, reports | Variance matches a hand-worked sample day to the paise | Gate passes; shifts, voids, reports to do |
+| 3 | Blind counts, wastage codes, adherence %, shifts + cash, voids, reports | Variance matches a hand-worked sample day to the paise | Gate passes; voids and daily sales report done; shifts + cash to do |
 | 4 | Deploy, backups, printing, 1-week recipe calibration in a real shop | 7 days live, no lost bills | |
 
 ## Placeholder data

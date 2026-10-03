@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { businessDate } from '../lib/billing';
 import { db, type LocalBill } from '../lib/db';
 import { formatRupees } from '../lib/gst';
+import type { ServerBill } from '../lib/types';
+import { api } from './apiClient';
 import { Receipt } from './Receipt';
 import { useSession } from './session';
 
@@ -26,6 +28,9 @@ export function BillsScreen() {
   const { sync } = useSession();
   const [bills, setBills] = useState<LocalBill[]>([]);
   const [open, setOpen] = useState<LocalBill | null>(null);
+  // Voids happen on the server (owner only). Shown when online; offline, the list
+  // is what this tablet printed.
+  const [voided, setVoided] = useState<Set<string>>(new Set());
 
   // Reload whenever the sync state changes (a bill was sent or rejected).
   useEffect(() => {
@@ -35,17 +40,23 @@ export function BillsScreen() {
       .reverse()
       .sortBy('seq')
       .then(setBills);
+    api
+      .get<ServerBill[]>('/bills')
+      .then((server) => setVoided(new Set(server.filter((b) => b.status === 'void').map((b) => b.id))))
+      .catch(() => {}); // offline or signed out: keep what we knew
   }, [sync]);
 
-  const total = bills.reduce((a, b) => a + b.totalPaise, 0);
+  const live = bills.filter((b) => !voided.has(b.id));
+  const total = live.reduce((a, b) => a + b.totalPaise, 0);
 
   return (
     <main className="bills">
       <header className="bills-head">
         <h1>Today on this tablet</h1>
         <p>
-          <strong className="num">{formatRupees(total)}</strong> from {bills.length} bill
-          {bills.length === 1 ? '' : 's'}
+          <strong className="num">{formatRupees(total)}</strong> from {live.length} bill
+          {live.length === 1 ? '' : 's'}
+          {bills.length > live.length && <span className="muted"> ({bills.length - live.length} voided)</span>}
         </p>
       </header>
       {bills.length === 0 ? (
@@ -57,17 +68,21 @@ export function BillsScreen() {
               <button onClick={() => setOpen(b)}>
                 <span className="num">{b.invoiceNo}</span>
                 <span className="muted">{timeIST(b.soldAt)}</span>
-                <span className="num right">{formatRupees(b.totalPaise)}</span>
-                <span className={`status ${b.status}`}>
-                  {b.status === 'synced' ? 'Sent' : b.status === 'pending' ? 'Waiting' : 'Problem'}
-                </span>
+                <span className={`num right ${voided.has(b.id) ? 'struck' : ''}`}>{formatRupees(b.totalPaise)}</span>
+                {voided.has(b.id) ? (
+                  <span className="status voided">Voided</span>
+                ) : (
+                  <span className={`status ${b.status}`}>
+                    {b.status === 'synced' ? 'Sent' : b.status === 'pending' ? 'Waiting' : 'Problem'}
+                  </span>
+                )}
               </button>
               {b.status === 'rejected' && <p className="error">{explain(b.reason)}</p>}
             </li>
           ))}
         </ul>
       )}
-      {open && <Receipt bill={open} onClose={() => setOpen(null)} />}
+      {open && <Receipt bill={open} voided={voided.has(open.id)} onClose={() => setOpen(null)} />}
     </main>
   );
 }

@@ -53,6 +53,7 @@ ID_ROUTES = {
     ),
     "/api/v1/stock/{ingredient_id}/ledger": ("cat.milk", {"GET": None}),
     "/api/v1/bills/{bill_id}": ("bill", {"GET": None}),
+    "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
 }
 
