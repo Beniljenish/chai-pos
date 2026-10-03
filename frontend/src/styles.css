@@ -1454,3 +1454,91 @@ button.account {
 .password-form .hint {
   margin: calc(-1 * var(--s2)) 0 0;
 }
+
+/* ---------- shifts and the cash drawer ---------- */
+.shift-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--s2) var(--s4);
+  background: var(--turmeric-soft);
+  font-size: 0.95rem;
+}
+.shift-panel {
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  padding: var(--s3) var(--s4);
+  margin: var(--s3) 0 var(--s4);
+}
+.shift-panel p {
+  margin: 0 0 var(--s2);
+}
+.shift-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+.shift-actions .muted {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s2) 0;
+}
+.note-count {
+  list-style: none;
+  margin: var(--s2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.note-count li {
+  display: grid;
+  grid-template-columns: 1fr 5.5rem 5.5rem;
+  gap: var(--s2);
+  align-items: center;
+}
+.note-count input {
+  text-align: right;
+}
+.note-count .num {
+  text-align: right;
+}
+.count-total {
+  font-size: 1.2rem;
+  margin: var(--s3) 0;
+}
+.shift-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s3);
+}
+.shift-list > li {
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  padding: var(--s3);
+}
+.shift-list .sales-table {
+  background: var(--steel);
+}
+.shift-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+}
+.shift-list p {
+  margin: var(--s1) 0 var(--s2);
+}
+.small-print {
+  font-size: 0.9rem;
+}
+.flag.ok {
+  background: #dff3e8;
+  color: var(--leaf);
+}

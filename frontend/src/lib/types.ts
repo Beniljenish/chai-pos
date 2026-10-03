@@ -33,7 +33,15 @@ export interface Modifier {
 }
 
 export interface Catalogue {
-  shop: { name: string; gst_type: GstType; gstin: string | null; state_code: string; address: string };
+  shop: {
+    name: string;
+    gst_type: GstType;
+    gstin: string | null;
+    state_code: string;
+    address: string;
+    /** Missing in a catalogue cached before shifts existed: treat as on. */
+    cash_shifts?: boolean;
+  };
   menu_items: MenuItem[];
   modifiers: Modifier[];
 }
@@ -84,6 +92,7 @@ export interface SyncBill {
   id: string;
   /** Who rang it up (the bill may sync after someone else logs in). */
   cashier_id?: string;
+  shift_id?: string;
   local_seq: number;
   invoice_no: string;
   sold_at: string;
@@ -288,4 +297,30 @@ export interface SalesReport {
     voided_at: string;
   }[];
   mismatches: { bill_id: string; invoice_no: string; total_paise: number; server_total_paise: number }[];
+}
+
+export interface ShiftReport {
+  business_date: string;
+  shifts: {
+    id: string;
+    device: string;
+    opened_by_name: string;
+    opened_at: string;
+    closed_by_name: string | null;
+    closed_at: string | null;
+    opening_float_paise: number;
+    bills: number;
+    cash_paise: number;
+    upi_paise: number;
+    card_paise: number;
+    voided_cash_paise: number;
+    paid_in_paise: number;
+    paid_out_paise: number;
+    movements: { kind: 'pay_in' | 'pay_out'; amount_paise: number; reason: string; by_name: string; at: string }[];
+    expected_cash_paise: number;
+    counted_cash_paise: number | null;
+    difference_paise: number | null;
+    close_note: string;
+  }[];
+  cash_outside_shifts: { bills: number; total_paise: number };
 }

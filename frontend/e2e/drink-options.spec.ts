@@ -4,6 +4,7 @@
  * Large and check the stock went down by the scaled recipe.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -76,7 +77,7 @@ test('new drink with its recipe and options, sold Large', async ({ page }) => {
   await expect(line.getByRole('button', { name: 'Extra sugar +₹2' })).toBeVisible();
   await line.getByRole('button', { name: 'Large +₹10' }).click();
   await expect(line).toContainText('₹35');
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page);
   await page.getByRole('dialog').getByRole('button', { name: 'New bill', exact: true }).click();
   await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
 

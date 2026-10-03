@@ -176,6 +176,19 @@ def _after_integrity_error(ctx: SyncContext, bill_id, digest, err: IntegrityErro
     return Result(bill_id, Outcome.rejected, reason="id_conflict")
 
 
+def _shift_for(ctx: SyncContext, b: dict) -> uuid.UUID | None:
+    """The bill's drawer shift, if it is a shift of this tablet. Shifts are sent
+    before bills, so it is normally here; if not (it was refused), the bill is
+    still accepted and shows as cash outside any shift."""
+    from app.models import Shift  # local: models import order
+
+    sid = b.get("shift_id")
+    if sid is None:
+        return None
+    s = ctx.db.scalar(select(Shift).where(Shift.id == sid))
+    return sid if s is not None and s.device_id == ctx.device.id else None
+
+
 def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
     sold_at: datetime = b["sold_at"]
     if sold_at > ctx.now + MAX_CLOCK_AHEAD:
@@ -237,6 +250,7 @@ def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
         id=b["id"],
         device_id=ctx.device.id,
         cashier_id=ctx.cashier_for(b),
+        shift_id=_shift_for(ctx, b),
         fy=fy,
         local_seq=b["local_seq"],
         invoice_no=expected_no,

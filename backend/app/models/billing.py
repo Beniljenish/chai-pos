@@ -81,6 +81,10 @@ class Bill(TenantScoped, Base):
     )
     business_date: Mapped[date] = mapped_column(Date)
     payment_mode: Mapped[PaymentMode] = mapped_column(Enum(PaymentMode, name="payment_mode"))
+    # The drawer shift it was rung up in (NULL: older app, or shifts switched off).
+    shift_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("shifts.id", ondelete="RESTRICT"), index=True
+    )
     status: Mapped[BillStatus] = mapped_column(
         Enum(BillStatus, name="bill_status"), default=BillStatus.completed
     )

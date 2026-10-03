@@ -5,6 +5,7 @@ import { formatRupees } from '../lib/gst';
 import type { ServerBill } from '../lib/types';
 import { api } from './apiClient';
 import { Receipt } from './Receipt';
+import { ShiftPanel } from './ShiftUI';
 import { useSession } from './session';
 
 const REASONS: Record<string, string> = {
@@ -59,6 +60,7 @@ export function BillsScreen() {
           {bills.length > live.length && <span className="muted"> ({bills.length - live.length} voided)</span>}
         </p>
       </header>
+      <ShiftPanel />
       {bills.length === 0 ? (
         <p className="empty">No bills yet today.</p>
       ) : (

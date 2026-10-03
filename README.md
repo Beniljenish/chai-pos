@@ -396,3 +396,25 @@ Tap a bill to see it and, as owner, void it. Tablets show voided bills on their 
 - **The tablet is still trusted for this.** The server cannot check who held the tablet offline. A cashier on a tampered tablet could credit a sale to a colleague, but not to anyone outside the shop.
 - **Whoever logs in starts on New bill,** not on the screen the previous person left open.
 - **Not done yet:** a quick PIN switch between cashiers on one tablet, and owner-defined roles (for example a manager who can do counts but not change prices).
+
+## Phase 3h: shifts and the cash drawer
+
+**On each tablet:**
+- The first bill of a shift asks for the cash in the drawer. That amount is the opening float, pre-filled with the last count.
+- **Today → Cash drawer** records money paid out (milkman, owner took cash) or paid in.
+- **End shift** is a blind count by notes and coins.
+
+**For the owner:** **Manage → Sales → Cash drawer** shows each shift:
+- the float, cash sales and paid in/out
+- what should be in the drawer, what was counted, and whether it matched or was over or short
+
+The daily email lists one line per shift. **Shop & GST → Cash drawer** switches shifts off for a shop with no counter cash.
+
+### Decisions and trade-offs
+- **A shift belongs to a tablet,** because each tablet has its own drawer. Several people may bill into one shift (the owner helping at rush hour). Each bill still records who rang it up. The drawer's accountability sits with whoever opened the shift and whoever counted it. When someone else's shift is open, the bill screen says so, and **End shift** records the count under the person counting.
+- **Shifts are made on the tablet, offline if need be,** and sent through their own outbox before the bills. They are idempotent by an id made on the tablet, like bills. Bills carry `shift_id`. The drawer is therefore checked against exactly the bills of that shift, not against a time window, which a wrong tablet clock would break. A bill whose shift was refused is still accepted and shows as "cash outside any shift".
+- **The count is blind.** The person counting sees the total they counted, never the expected amount, so the count cannot be "made to match". This is the same principle as the stock count.
+- **Expected = float + cash bills + paid in − paid out.** Voided cash bills are left out and listed beside it. Whether that money went back to the customer is something only the owner can judge.
+- **Shifts block nothing.** A bill with no open shift asks for the float once and then saves. An unended shift shows as "Not ended" for the owner; the app never prevents billing because of it.
+- **A cleared tablet picks up its open shift from the server** (`sync-state`), so it does not start a second shift over the first. It never re-opens a shift that it ended but hasn't yet sent.
+- **Not done yet:** owner approval of a shortage, and a cash handover between two named people where the second confirms the first's count.

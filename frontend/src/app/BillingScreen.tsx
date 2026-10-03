@@ -5,6 +5,8 @@ import { db } from '../lib/db';
 import { formatRupees, GstError } from '../lib/gst';
 import { formatPriceDelta } from '../lib/options';
 import { Receipt } from './Receipt';
+import { shiftsOn } from '../lib/shift';
+import { StartShiftSheet } from './ShiftUI';
 import { useSession } from './session';
 
 interface Line extends CartLine {
@@ -18,7 +20,8 @@ const PAYMENT_MODES: { mode: PaymentMode; label: string }[] = [
 ];
 
 export function BillingScreen() {
-  const { catalogue, device, worker, user } = useSession();
+  const { catalogue, device, worker, user, shift } = useSession();
+  const [askShift, setAskShift] = useState(false);
   const [cart, setCart] = useState<Line[]>([]);
   const [category, setCategory] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentMode>('cash');
@@ -80,8 +83,10 @@ export function BillingScreen() {
     );
   }
 
-  async function save() {
+  async function save(shiftId = shift?.id) {
     if (!device || !catalogue || cart.length === 0) return;
+    // The drawer must have a shift, so this cash is counted against something.
+    if (shiftsOn(catalogue.shop.cash_shifts) && !shiftId) return setAskShift(true);
     setSaving(true);
     setError(null);
     try {
@@ -93,6 +98,7 @@ export function BillingScreen() {
         cart: cart.map(({ menuItemId, qty, modifierIds }) => ({ menuItemId, qty, modifierIds })),
         paymentMode: payment,
         cashierId: user?.id,
+        shiftId: shiftsOn(catalogue.shop.cash_shifts) ? shiftId : undefined,
       });
       setSaved(bill);
       setCart([]);
@@ -110,6 +116,11 @@ export function BillingScreen() {
 
   return (
     <div className="billing">
+      {shift && user && shift.openedById !== user.id && shiftsOn(catalogue?.shop.cash_shifts) && (
+        <p className="shift-note" role="note">
+          Billing into {shift.openedByName}&apos;s shift. Taking over the drawer? End it under Today first.
+        </p>
+      )}
       <section className="menu" aria-label="Menu">
         {categories.length > 1 && (
           <nav className="categories" aria-label="Categories">
@@ -203,7 +214,7 @@ export function BillingScreen() {
               ))}
             </div>
             {error && <p className="error" role="alert">{error}</p>}
-            <button className="primary save" onClick={save} disabled={saving || cart.length === 0}>
+            <button className="primary save" onClick={() => void save()} disabled={saving || cart.length === 0}>
               {saving ? 'Saving…' : 'Save and print'}
             </button>
           </div>
@@ -211,6 +222,15 @@ export function BillingScreen() {
       </aside>
 
       {saved && <Receipt bill={saved} onClose={() => setSaved(null)} autoPrint />}
+      {askShift && (
+        <StartShiftSheet
+          onClose={() => setAskShift(false)}
+          onStarted={(s) => {
+            setAskShift(false);
+            void save(s.id); // the bill that asked for the shift goes into it
+          }}
+        />
+      )}
     </div>
   );
 }

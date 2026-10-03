@@ -203,12 +203,33 @@ def daily_figures(db: Session, d: date) -> dict:
         "gst": sum(b.cgst_paise + b.sgst_paise for b in bills),
         "by_mode": dict(by_mode),
         "mismatch": sum(1 for b in bills if b.totals_mismatch),
+        "shifts": _shift_lines(db, d),
         "voids": len(voided),
         "voided_total": sum(b.total_paise for b in voided),
         "top": [(n, int(q), int(t)) for n, q, t in top],
         "wasted": int(wasted or 0),
         "day_status": day.status.value if day else None,
     }
+
+
+def _shift_lines(db: Session, d: date) -> list[str]:
+    """One line per drawer shift: who, and whether the cash matched."""
+    from app.services.shifts import shift_report  # local: shifts imports models only
+
+    out = []
+    for s in shift_report(db, d)["shifts"]:
+        who = s["opened_by_name"]
+        diff = s["difference_paise"]
+        if diff is None:
+            out.append(f"{who}: shift not ended (cash not counted)")
+        elif diff == 0:
+            out.append(f"{who}: cash matched ({rupees(s['counted_cash_paise'])})")
+        else:
+            word = "over" if diff > 0 else "short"
+            out.append(
+                f"{who}: {rupees(abs(diff))} {word} (counted {rupees(s['counted_cash_paise'])})"
+            )
+    return out
 
 
 def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
@@ -238,6 +259,13 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         )
         + f"<p>{escape(status)}</p>"
         + (
+            "<h3 style='font-size:15px'>Cash drawer</h3><p>"
+            + "<br>".join(escape(x) for x in f["shifts"])
+            + "</p>"
+            if f["shifts"]
+            else ""
+        )
+        + (
             f"<p>{f['voids']} voided bill(s) worth {rupees(f['voided_total'])}, "
             "not included above. Reasons are in the app under Manage → Sales.</p>"
             if f["voids"]
@@ -255,6 +283,7 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         + "\n".join(f"{a}: {b}" for a, b in modes)
         + f"\nGST {rupees(f['gst'])}\n{status}"
         + (f"\nVoided: {f['voids']} bill(s), {rupees(f['voided_total'])}" if f["voids"] else "")
+        + "".join(f"\nCash: {x}" for x in f["shifts"])
     )
     enqueue(
         db, shop, EmailKind.daily, f"daily:{d.isoformat()}", subject, _page(subject, body), text

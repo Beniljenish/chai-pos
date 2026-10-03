@@ -4,6 +4,7 @@
  * the GSTIN and the CGST/SGST rates.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -70,7 +71,7 @@ test('owner GST: mistyped GSTIN refused, regular GST prints a tax invoice', asyn
   await tab(page, 'New bill').click();
   await page.locator('.tile', { hasText: 'Masala tea' }).click();
   await page.locator('.till-handle').click();
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page);
   const receipt = page.locator('.receipt');
   await expect(receipt).toContainText('Tax invoice');
   await expect(receipt).toContainText(`GSTIN ${GSTIN}`);

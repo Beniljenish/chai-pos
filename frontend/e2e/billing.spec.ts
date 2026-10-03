@@ -5,6 +5,7 @@
  * Screenshots go to e2e-screenshots/ (uploaded by CI) for visual review.
  */
 import { expect, request, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -62,7 +63,7 @@ test('offline billing, end to end', async ({ page, context }) => {
   // 2 x Rs 20 + (Rs 60 + Rs 10) = Rs 110
   await expect(page.locator('.total strong')).toHaveText('₹110');
   await shot(page, '04-billing-cart');
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page);
   await expect(page.getByRole('dialog')).toContainText('₹110');
   await shot(page, '05-receipt');
   await newBillOnReceipt(page).click();
@@ -73,7 +74,7 @@ test('offline billing, end to end', async ({ page, context }) => {
   for (let i = 0; i < 3; i++) {
     await category(page, 'Tea').click();
     await sell(page, 'Masala tea');
-    await page.getByRole('button', { name: 'Save and print' }).click();
+    await saveAndPrint(page);
     await newBillOnReceipt(page).click();
   }
   await expect(page.getByText('3 waiting to send')).toBeVisible({ timeout: 15_000 });

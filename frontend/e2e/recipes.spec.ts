@@ -3,6 +3,7 @@
  * check the sale deducted by the NEW version. Plus packaging and new ingredients.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -67,7 +68,7 @@ test('owner recipes: new version is what the next sale deducts', async ({ page }
   await tab(page, 'New bill').click();
   await page.locator('.tile', { hasText: 'Masala tea' }).click();
   await page.locator('.till-handle').click();
-  await page.getByRole('button', { name: 'Save and print' }).click();
+  await saveAndPrint(page);
   await page.getByRole('dialog').getByRole('button', { name: 'New bill', exact: true }).click();
   await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
 
