@@ -18,8 +18,11 @@ const env = (): PrintEnv & { [k: string]: ReturnType<typeof vi.fn> } => ({
 describe('printer setting', () => {
   it('defaults to the browser, 58 mm, auto-print; a saved choice is kept', async () => {
     expect(await loadPrinter(db)).toEqual(DEFAULT_PRINTER);
-    await savePrinter(db, { kind: 'rawbt', width: 48, autoPrint: false });
-    expect(await loadPrinter(db)).toEqual({ kind: 'rawbt', width: 48, autoPrint: false });
+    await savePrinter(db, { kind: 'rawbt', width: 48, autoPrint: false, printKot: false });
+    expect(await loadPrinter(db)).toEqual({ kind: 'rawbt', width: 48, autoPrint: false, printKot: false });
+    // A tablet set up before table service keeps its choices and prints KOTs.
+    await db.setMeta('printer', { kind: 'rawbt', width: 48, autoPrint: false });
+    expect(await loadPrinter(db)).toEqual({ kind: 'rawbt', width: 48, autoPrint: false, printKot: true });
   });
 });
 

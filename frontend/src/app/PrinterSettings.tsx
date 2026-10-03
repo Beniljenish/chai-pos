@@ -132,6 +132,10 @@ export function PrinterSheet({ onClose }: { onClose(): void }) {
               <input type="checkbox" checked={s.autoPrint} onChange={(e) => void change({ autoPrint: e.target.checked })} />
               Print every bill as soon as it is saved
             </label>
+            <label className="check">
+              <input type="checkbox" checked={s.printKot} onChange={(e) => void change({ printKot: e.target.checked })} />
+              Print a kitchen ticket (KOT) for every round sent from Tables
+            </label>
             {message && (
               <p className={message.ok ? 'ok' : 'error'} role={message.ok ? 'status' : 'alert'}>
                 {message.text}

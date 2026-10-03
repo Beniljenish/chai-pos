@@ -14,7 +14,7 @@
  */
 import { formatRate, taxByRate } from './gst';
 import type { LocalBill } from './db';
-import type { Catalogue } from './types';
+import type { Catalogue, SyncBillLine } from './types';
 
 export type PaperWidth = 32 | 48;
 
@@ -134,6 +134,96 @@ export function receiptRows(
   line(leftRight('Paid by', PAYMENT[p.payment_mode], width));
   rule();
   line('Thank you', { align: 'center' });
+  return rows.map((r) => ({ ...r, text: ascii(r.text) }));
+}
+
+// ---------------------------------------------------------------- table service
+export interface KotTicket {
+  /** "KOT" for a new round; "CANCEL" tells the kitchen to stop making something. */
+  kind: 'KOT' | 'CANCEL';
+  kotNo: string;
+  /** "T4", "Takeaway: Priya". */
+  label: string;
+  at: string;
+  byName: string;
+  covers?: number;
+  lines: { name: string; qty: number; modifiers?: { name: string }[]; note?: string }[];
+  reason?: string;
+}
+
+/** The kitchen ticket: no prices, big table name, quantity first. */
+export function kotRows(t: KotTicket, width: PaperWidth): Row[] {
+  const rows: Row[] = [];
+  const line = (text: string, extra: Partial<Row> = {}) => rows.push({ text, ...extra });
+  const half = width / 2;
+  line(t.kind === 'CANCEL' ? `CANCEL ${t.kotNo}` : `KOT ${t.kotNo}`, { align: 'center', big: true, bold: true });
+  for (const s of wrap(t.label, half)) line(s, { align: 'center', big: true });
+  line('-'.repeat(width));
+  line(leftRight(istDateTime(t.at), t.byName, width));
+  if (t.covers) line(`Guests: ${t.covers}`);
+  line('-'.repeat(width));
+  for (const l of t.lines) {
+    const qty = `${t.kind === 'CANCEL' ? '-' : ''}${l.qty}`.padEnd(4);
+    const [first, ...rest] = wrap(l.name, width - 4);
+    line(qty + first, { bold: true });
+    for (const r of rest) line('    ' + r, { bold: true });
+    if (l.modifiers?.length) for (const r of wrap('+ ' + l.modifiers.map((m) => m.name).join(', '), width - 4)) line('    ' + r);
+    if (l.note) for (const r of wrap('* ' + l.note, width - 4)) line('    ' + r);
+  }
+  if (t.reason) {
+    line('-'.repeat(width));
+    for (const r of wrap(`Reason: ${t.reason}`, width)) line(r);
+  }
+  return rows.map((r) => ({ ...r, text: ascii(r.text) }));
+}
+
+export interface BillSummary {
+  label: string;
+  covers: number;
+  at: string;
+  /** Printed more than once: the copy says so, so a second paper bill is not mistaken for a new order. */
+  copy: number;
+  gstType: Catalogue['shop']['gst_type'];
+  lines: SyncBillLine[];
+  totals: { taxable: number; cgst: number; sgst: number; roundOff: number; total: number };
+}
+
+/**
+ * The bill brought to the table before payment. It has no invoice number: the
+ * tax invoice is made when the table pays (invoice numbers must have no gaps, and
+ * a table that adds a dessert after seeing the bill would otherwise burn one).
+ */
+export function billSummaryRows(b: BillSummary, shop: Catalogue['shop'], width: PaperWidth): Row[] {
+  const rows: Row[] = [];
+  const line = (text: string, extra: Partial<Row> = {}) => rows.push({ text, ...extra });
+  const rule = () => line('-'.repeat(width));
+  const half = width / 2;
+  for (const t of wrap(shop.name, half)) line(t, { align: 'center', big: true });
+  if (shop.address) for (const t of wrap(shop.address, width)) line(t, { align: 'center' });
+  line('BILL', { align: 'center', bold: true });
+  if (b.copy > 1) line(`(Copy ${b.copy})`, { align: 'center' });
+  rule();
+  line(leftRight(b.label, b.covers ? `Guests ${b.covers}` : '', width));
+  line(leftRight('Date', istDateTime(b.at), width));
+  rule();
+  for (const l of b.lines) {
+    const mods = l.modifiers.length ? ` (${l.modifiers.map((m) => m.name).join(', ')})` : '';
+    for (const t of wrap(l.name + mods, width)) line(t);
+    const each = l.unit_price_paise + l.modifiers.reduce((a, m) => a + m.price_delta_paise, 0);
+    line(leftRight(`  ${l.qty} x ${rs(each)}`, rs(l.totals.total), width));
+  }
+  rule();
+  if (b.gstType === 'regular' && b.totals.cgst > 0) {
+    line(leftRight('Taxable value', rs(b.totals.taxable), width));
+    for (const g of taxByRate(b.lines)) {
+      line(leftRight(`CGST @${formatRate(g.rateBp / 2)}`, rs(g.cgst), width));
+      line(leftRight(`SGST @${formatRate(g.rateBp / 2)}`, rs(g.sgst), width));
+    }
+  }
+  if (b.totals.roundOff !== 0) line(leftRight('Round off', rs(b.totals.roundOff), width));
+  line(leftRight('TOTAL', rs(b.totals.total), half), { big: true, bold: true });
+  rule();
+  for (const t of wrap('Please pay at the counter. Your receipt is printed on payment.', width)) line(t, { align: 'center' });
   return rows.map((r) => ({ ...r, text: ascii(r.text) }));
 }
 

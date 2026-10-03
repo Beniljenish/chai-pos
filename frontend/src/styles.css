@@ -607,6 +607,283 @@ button.save {
 }
 
 /* Print only the receipt, sized for a 58 mm thermal roll. */
+/* ---------- table service: the floor ---------- */
+.tabs .short {
+  display: none;
+}
+@media (max-width: 600px) {
+  .tabs .long {
+    display: none;
+  }
+  .tabs .short {
+    display: inline;
+  }
+}
+.floor {
+  padding: var(--s4);
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+.floor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+.floor-head h1 {
+  margin: 0;
+}
+.floor-actions {
+  display: flex;
+  gap: var(--s2);
+}
+.floor-notice {
+  margin: var(--s3) 0 0;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius-control);
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 700;
+}
+.floor-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  margin: var(--s3) 0;
+}
+.floor-legend .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1.5px solid var(--steel-deep);
+  background: var(--paper);
+  margin-left: var(--s2);
+}
+.floor-legend .dot:first-child {
+  margin-left: 0;
+}
+.floor-legend .dot.running {
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+.floor-legend .dot.billed {
+  background: var(--turmeric);
+  border-color: var(--turmeric);
+}
+.floor-area h2 {
+  font-size: 1.1rem;
+  margin: var(--s5) 0 var(--s3);
+}
+.floor-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--s3);
+}
+.table-tile {
+  position: relative;
+  width: 100%;
+  min-height: 104px;
+  padding: var(--s3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  text-align: left;
+  border-radius: var(--radius-panel);
+  border: 1.5px dashed var(--steel-deep);
+  background: var(--paper);
+}
+.table-name {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+.table-amount {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.table-sub {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.table-tile.running {
+  border: 1.5px solid var(--leaf);
+  background: var(--leaf);
+  color: var(--paper);
+}
+.table-tile.billed {
+  border: 1.5px solid var(--turmeric);
+  background: var(--turmeric-soft);
+}
+.table-tile.running .table-sub {
+  color: #d5e8df;
+}
+.table-tile.running:active {
+  background: var(--leaf-press);
+}
+.table-tile .tile-count {
+  background: var(--chilli);
+}
+.order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.order-list button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--s3);
+  align-items: center;
+  text-align: left;
+}
+.order-list button.billed {
+  background: var(--turmeric-soft);
+  border-color: var(--turmeric);
+}
+
+/* ---------- table service: one order ---------- */
+.order-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s4);
+}
+.order-head .back {
+  flex: none;
+  padding: 0 var(--s2);
+}
+.order-title {
+  flex: 1;
+  display: grid;
+  line-height: 1.2;
+  min-width: 0;
+}
+.order-title h1 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.till-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a8b3bc;
+  margin: var(--s4) 0 0;
+}
+.till-warn {
+  margin: var(--s2) 0 0;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius-control);
+  background: var(--turmeric);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.line-note {
+  margin-top: var(--s2);
+  width: 100%;
+  background: transparent;
+  color: var(--paper);
+  border-color: #3e4a55;
+}
+.line-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+  color: #a8b3bc;
+  font-size: 0.9rem;
+}
+.till .line-meta button.quiet {
+  min-height: 40px;
+  padding: 0 var(--s3);
+}
+.lines.ordered .line-top {
+  margin-bottom: var(--s1);
+}
+.lines.ordered li.gone .line-name {
+  text-decoration: line-through;
+  color: #7d8892;
+}
+button.kot {
+  margin-top: var(--s3);
+}
+.order-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+}
+.order-actions button {
+  min-height: 60px;
+  font-size: 1.1rem;
+}
+.order-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+.till .order-more button {
+  min-height: 44px;
+  padding: 0 var(--s2);
+  border: none;
+  text-decoration: underline;
+}
+.settle-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: var(--s4) 0;
+}
+.settle-total strong {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+.field-label {
+  font-weight: 700;
+  margin: var(--s3) 0 0;
+}
+@media (min-width: 820px) {
+  .order-screen .order-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .order-screen .lines {
+    flex: none;
+    overflow: visible;
+  }
+}
+
+/* A ticket on screen, character for character as it prints. */
+.ticket {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: pre;
+  overflow-x: auto;
+}
+.ticket .center {
+  text-align: center;
+}
+.ticket .bold {
+  font-weight: 700;
+}
+.ticket .big {
+  font-size: 26px;
+  line-height: 1.2;
+}
+
 @media print {
   @page {
     size: 58mm auto;
