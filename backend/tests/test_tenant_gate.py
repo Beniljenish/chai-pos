@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from tests.conftest import Catalogue, ShopFixture, build_catalogue
+from tests.conftest import Catalogue, FakeDevice, ShopFixture, build_catalogue
 
 ANY_ID = str(uuid.uuid4())  # bodies must be schema-valid so a 404 can only come from the lookup
 
@@ -46,10 +46,13 @@ ID_ROUTES = {
         {"GET": None, "PATCH": {"name": "hijacked"}},
     ),
     "/api/v1/stock/{ingredient_id}/ledger": ("cat.milk", {"GET": None}),
+    "/api/v1/bills/{bill_id}": ("bill", {"GET": None}),
 }
 
 
 def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
+    if key == "bill":
+        return cat.bill_id
     if key.startswith("cat."):
         return getattr(cat, key[4:])["id"]
     return str(getattr(shop, key).id)
@@ -60,9 +63,18 @@ def _url(template: str, obj_id: str) -> str:
     return template[:start] + obj_id + template[end + 1 :]
 
 
+def _with_bill(client, shop) -> Catalogue:
+    cat = build_catalogue(client, shop)
+    device = FakeDevice(client, shop)
+    bill = device.bill([("Masala tea", 1, [])])
+    assert device.sync([bill]).json()["results"][0]["status"] == "accepted"
+    cat.bill_id = bill["id"]
+    return cat
+
+
 @pytest.fixture
 def two_shops(client, shop_a, shop_b):
-    return shop_a, shop_b, build_catalogue(client, shop_a), build_catalogue(client, shop_b)
+    return shop_a, shop_b, _with_bill(client, shop_a), _with_bill(client, shop_b)
 
 
 def test_every_id_route_is_covered():

@@ -83,6 +83,13 @@ class RefreshToken(IdMixin, TenantScoped, Base):
 
 
 # Phase 1 tables live in their own module; re-exported so `from app.models import X` works.
+from app.models.billing import (  # noqa: E402
+    Bill,
+    BillLine,
+    BillLineModifier,
+    BillStatus,
+    PaymentMode,
+)
 from app.models.catalogue import (  # noqa: E402
     BaseUnit,
     Ingredient,
@@ -101,6 +108,11 @@ from app.models.catalogue import (  # noqa: E402
 )
 
 __all__ = [
+    "Bill",
+    "BillLine",
+    "BillLineModifier",
+    "BillStatus",
+    "PaymentMode",
     "BaseUnit",
     "Device",
     "GstType",

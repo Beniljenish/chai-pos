@@ -143,3 +143,50 @@ Supabase dashboard's Connect button, with the `postgresql+psycopg://` prefix. Th
 transaction pooler (6543) breaks psycopg's prepared statements unless
 `prepare_threshold=None` is set. The password goes only into the host's env
 settings, never into the repo.
+
+## Phase 2a: GST and bill sync
+
+```
+app/services/gst.py       pure GST maths (paise, ROUND_HALF_UP); TypeScript twin in 2b
+shared/gst_cases.json     test vectors BOTH implementations must pass
+app/services/billing.py   idempotent bill ingest, invoice numbers, stock deduction
+app/models/billing.py     bills, bill_lines, bill_line_modifiers
+```
+
+### Decisions and trade-offs
+
+**One door for bills: `POST /sync/bills`.** Online and offline sales use the same
+path, so the offline path is exercised on every sale, not just during outages.
+
+**Idempotent by device-generated id.** Same id + same content (sha256) = harmless
+`duplicate`. Same id + different content = `rejected` (bug or tampering). Each
+bill saves in its own savepoint, so one bad bill never blocks a batch.
+
+**Accept-and-flag totals.** The printed invoice is the legal record, so the books
+store the printed totals. The server recalculates with `gst.py` and stores that
+in `server_totals`; any difference sets `totals_mismatch` for the owner to review
+(`GET /bills?mismatch_only=true`). Rejecting would lose a real sale and leave a gap
+in the invoice series; silently overwriting would make books disagree with the
+customer's invoice.
+
+**Invoice numbers `C1/26-27/000123`.** Per device, per financial year (Apr-Mar),
+15 characters (GST limit 16). Two offline devices can never collide. The server
+checks the number matches the device code, FY and sequence, and the database
+enforces uniqueness.
+
+**Business date is shop-local (IST).** A sale at 00:10 IST belongs to that day,
+even though it is still the previous day in UTC. Bills more than 10 minutes in the
+device's future, or older than 30 days, are rejected.
+
+**Stock uses the recipe version the device sold under**, scaled by modifiers
+(`Large` = x1.5) plus modifier deltas, and never below zero per ingredient.
+One ledger row per ingredient per bill, so Phase 3 voids can reverse a bill exactly.
+
+### Gate tests
+- `test_phase2a_gate.py`: 20 bills, shuffled, random batches, every batch sent
+  twice, plus a full resend and a same-id-different-content bill: exactly 20 bills,
+  invoice numbers 1..20 with no gaps, stock deducted exactly once.
+- `test_gst.py`: shared vectors + 5,000 random bills against invariants.
+- Verified by sabotage: banker's rounding, skipped inclusive adjustment, reused id
+  treated as duplicate, double stock deduction, ignored modifier scale, negative
+  consumption, missing rollback after a DB conflict. All caught.
