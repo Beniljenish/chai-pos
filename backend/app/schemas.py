@@ -4,10 +4,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.gstin import GstinError, normalise_gstin
 from app.models import GstType, Role
 
 _PHONE = re.compile(r"^[6-9]\d{9}$")  # Indian mobile, 10 digits
-_GSTIN = re.compile(r"^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 
 
 def _normalise_phone(v: str) -> str:
@@ -64,10 +64,10 @@ class ShopUpdate(BaseModel):
     def valid_gstin(cls, v: str | None) -> str | None:
         if v is None:
             return v
-        v = v.strip().upper()
-        if not _GSTIN.match(v):
-            raise ValueError("Invalid GSTIN format")
-        return v
+        try:
+            return normalise_gstin(v)
+        except GstinError as e:
+            raise ValueError(str(e)) from None
 
 
 # --- users ---

@@ -11,9 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from app.api.common import unprocessable
 from app.api.deps import Caller, get_caller, require_owner
 from app.core.security import hash_password
-from app.models import Device, Shop, User
+from app.models import Device, GstType, Shop, User
 from app.schemas import (
     DeviceCreate,
     DeviceOut,
@@ -48,8 +49,24 @@ def get_shop(caller: Caller = Depends(get_caller)):
 @router.patch("/shop", response_model=ShopOut, tags=["shop"])
 def update_shop(body: ShopUpdate, caller: Caller = Depends(require_owner)):
     shop = _current_shop(caller)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(shop, field, value)
+    # Checked on the result, not the request: a PATCH that only flips gst_type
+    # must still have a GSTIN on file. Only when GST settings are being changed,
+    # so a shop saved before this rule can still be renamed.
+    touches_gst = "gst_type" in changes or "gstin" in changes
+    registered = shop.gst_type in (GstType.regular, GstType.composition)
+    if touches_gst and registered and not shop.gstin:
+        caller.db.rollback()
+        raise unprocessable(
+            "A registered shop (regular or composition) must have a GSTIN: "
+            "it is printed on every bill"
+        )
+    if shop.gstin:
+        # The GSTIN's first two digits ARE the state of registration, and the
+        # state decides CGST+SGST, so they can never disagree.
+        shop.state_code = shop.gstin[:2]
     caller.db.commit()
     return shop
 

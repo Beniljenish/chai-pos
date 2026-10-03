@@ -6,13 +6,30 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from app.models import BaseUnit, IngredientKind, LedgerReason
 
 Qty = Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=3)]
 SignedQty = Annotated[Decimal, Field(max_digits=14, decimal_places=3)]
 Name = Annotated[str, Field(min_length=1, max_length=80)]
+
+
+# GST slabs since GST 2.0 (22 Sept 2025), in basis points: 0, 5, 18 and 40%.
+# Restaurant and cafe service is 5% (no input tax credit). Anything else is
+# almost certainly a typo (50 for 500), and a wrong rate prints on every bill.
+GST_SLABS_BP = (0, 500, 1800, 4000)
+
+
+def _gst_slab(v: int) -> int:
+    if v not in GST_SLABS_BP:
+        raise ValueError(
+            "GST rate must be 0%, 5%, 18% or 40% (sent in basis points: 0, 500, 1800, 4000)"
+        )
+    return v
+
+
+GstRate = Annotated[int, AfterValidator(_gst_slab)]
 Scale = Annotated[Decimal, Field(gt=0, le=10, max_digits=6, decimal_places=3)]
 
 
@@ -71,7 +88,7 @@ class MenuItemCreate(BaseModel):
     name: Name
     category: Annotated[str, Field(min_length=1, max_length=40)] = "Tea"
     price_paise: Annotated[int, Field(ge=0, le=10_000_00)]
-    gst_rate_bp: Annotated[int, Field(ge=0, le=2800)] = 500
+    gst_rate_bp: GstRate = 500  # restaurant service: 5% without ITC
     tax_inclusive: bool = True
     hsn_sac: Annotated[str, Field(pattern=r"^\d{4,8}$")] = "996331"
 
@@ -80,7 +97,7 @@ class MenuItemUpdate(BaseModel):
     name: Name | None = None
     category: Annotated[str, Field(min_length=1, max_length=40)] | None = None
     price_paise: Annotated[int, Field(ge=0, le=10_000_00)] | None = None
-    gst_rate_bp: Annotated[int, Field(ge=0, le=2800)] | None = None
+    gst_rate_bp: GstRate | None = None
     tax_inclusive: bool | None = None
     is_active: bool | None = None
 
@@ -135,6 +152,7 @@ class RecipeOut(BaseModel):
     effective_from: datetime
     yield_qty: Decimal | None
     yield_inputs: dict | None
+    created_by_name: str | None = None  # filled in version history only
     lines: list[RecipeLineOut]
 
 

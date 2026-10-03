@@ -139,8 +139,9 @@ def test_validation_rejects_bad_phone_and_gstin(client, shop_a):
     assert r.status_code == 422
     r = client.patch("/api/v1/shop", json={"gstin": "NOTAGSTIN"}, headers=shop_a.owner_h)
     assert r.status_code == 422
-    ok = client.patch("/api/v1/shop", json={"gstin": "33abcde1234f1z5"}, headers=shop_a.owner_h)
-    assert ok.status_code == 200 and ok.json()["gstin"] == "33ABCDE1234F1Z5"
+    # Lower case is tidied; the last character is a real check digit (Z7, not Z5).
+    ok = client.patch("/api/v1/shop", json={"gstin": "33abcde1234f1z7"}, headers=shop_a.owner_h)
+    assert ok.status_code == 200 and ok.json()["gstin"] == "33ABCDE1234F1Z7"
 
 
 def test_health(client):

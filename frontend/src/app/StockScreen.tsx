@@ -40,7 +40,7 @@ export function StockScreen() {
   const openRow = rows?.find((r) => r.ingredient_id === open);
 
   return (
-    <main className="manage">
+    <section className="stock">
       <header className="manage-head">
         <h1>Stock</h1>
         <button className="quiet" onClick={() => void load()}>
@@ -94,6 +94,6 @@ export function StockScreen() {
           onChanged={() => void load()}
         />
       )}
-    </main>
+    </section>
   );
 }

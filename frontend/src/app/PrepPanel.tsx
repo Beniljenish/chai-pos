@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { formatQty, type BaseUnit } from '../lib/qty';
-import type { Ingredient, PrepRecipe } from '../lib/types';
+import type { Ingredient, Recipe as PrepRecipe } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
 

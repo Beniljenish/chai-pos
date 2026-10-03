@@ -283,3 +283,29 @@ The owner's **Stock** tab (cashiers see **Prep** instead): stock on hand, stock-
 - **Cashiers log batches but never see stock levels.** They make the decoction, so they log it (otherwise milk never goes down and decoction goes negative). Seeing expected quantities would defeat blind day-end counts.
 - **Owner screens are online-only.** They edit the shop's records; working from a stale offline copy would be worse than a clear "needs internet" message. Billing stays fully offline.
 - **Entry by pack, display in L/kg.** Staff count packets and crates; the total is previewed, and the server's conversion is the one stored.
+
+## Phase 3b: recipes (SOPs) and ingredients
+
+The owner's tab is now **Manage**, with **Stock** and **Recipes** inside it (Shop & GST joins next), so phones keep one row of tabs.
+
+- **Recipes:** every drink and batch with its current SOP; tap to edit. Saving creates a new version ("Save as version 3"), with the full history and who changed what. Fresh juice is edited as a yield ("1 kg gives 450 ml, glass 250 ml") and the fruit per glass is worked out, matching the server's formula.
+- **Ingredients:** add items (unit chosen once: every stock number is kept in it), add pack sizes (never edited, because past deliveries were counted with them), and tick "Same amount for every size" for cups, lids and straws. New "pieces" ingredients start ticked.
+
+### Decisions and trade-offs
+
+- **History is owner-only and names who changed it.** An SOP that can quietly change is not an SOP; "who set tea to 120 ml?" must have an answer.
+- **Recipe lines are listed by ingredient name.** They were ordered by internal ID, so the same SOP could read in a different order on another database.
+- **The editing tablet reloads its menu right after a save,** so its next sale uses the new version. Other tablets pick it up on their next menu refresh (the menu has an ETag, so that is one small request); bills already sold always keep the version they were sold under.
+- **Validation in plain words, before saving** ("Choose an ingredient on every row, or remove the empty row"), mirrored by the server's own checks.
+
+## Phase 3c: shop details and GST
+
+**Manage → Shop & GST**: shop name and address, GST registration (not registered / composition / regular, each saying what it will print), GSTIN with live checking, a preview of how a real menu item will print, and **menu prices**: price, category, GST rate, whether the price includes GST, on/off the menu, and new items.
+
+### Decisions and trade-offs
+
+- **The GSTIN's check digit is verified** (server and app, same test vectors). The format check alone accepted any mistyped number, which would then be printed on every tax invoice.
+- **Registered shops must have a GSTIN, and the shop's state comes from it.** The first two digits are the state of registration, and the state decides CGST+SGST, so they cannot be allowed to disagree. The rule is checked only when GST settings change, so a shop saved before the rule can still be renamed.
+- **GST rate per item is limited to the current slabs** (0, 5, 18, 40% since GST 2.0 on 22 Sept 2025). Cafe and restaurant service is 5% without input tax credit. A free number field invites 50 instead of 500.
+- **Receipt fixes:** a bill of supply (composition) now prints the GSTIN and the full required line ("…not eligible to collect tax on supplies"); a tax invoice prints CGST and SGST **with their rates**, one row per rate when a bill mixes 5% and 18% items.
+- **Known gap:** a reprinted bill uses the shop's *current* GSTIN, not the one at the time of sale. GST type is already stored per bill; storing the GSTIN too changes the sync payload, so it is a separate change.
