@@ -18,8 +18,8 @@ import { formatPriceDelta } from '../lib/options';
 import { act, liveOrders, minutesOpen, nextKotNo, openOrder, sendKot, type LiveOrder, type OpenInput, type OrderLine } from '../lib/orders';
 import { loadPrinter } from '../lib/printer';
 import { shiftsOn } from '../lib/shift';
-import { CANCEL_REASONS, floorModel, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder, type FloorTable } from '../lib/table';
-import type { Catalogue } from '../lib/types';
+import { CANCEL_REASONS, floorModel, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder, splitOrderLines, type FloorTable } from '../lib/table';
+import type { Catalogue, SyncBillLine } from '../lib/types';
 import { KitchenView } from './KitchenView';
 import { Receipt } from './Receipt';
 import { StartShiftSheet } from './ShiftUI';
@@ -289,8 +289,15 @@ type Overlay =
   | { kind: 'move' }
   | { kind: 'details' }
   | { kind: 'settle' }
+  | { kind: 'split' }
   | { kind: 'shift' }
-  | { kind: 'receipt'; bill: LocalBill };
+  | { kind: 'receipt'; bill: LocalBill; more?: LocalBill[] };
+
+/** Split bill: each part's lines and how that part pays. */
+interface SplitPart {
+  lines: SyncBillLine[];
+  payment: 'cash' | 'upi' | 'card';
+}
 
 function OrderScreen({
   catalogue,
@@ -478,6 +485,41 @@ function OrderScreen({
       await act(db, orderId, 'settle', { bill_id: bill.id }, by);
       void worker?.kick();
       setOverlay({ kind: 'receipt', bill });
+    });
+  }
+
+  // Split bill: every part's invoice is made at once (not one now, one later), so
+  // a table is never left half-paid with the plan only in someone's head.
+  const [pendingSplit, setPendingSplit] = useState<SplitPart[] | null>(null);
+  async function settleSplit(parts: SplitPart[], shiftId = shift?.id) {
+    if (!device || !orderId) return;
+    const needShift = shiftsOn(catalogue.shop.cash_shifts);
+    if (needShift && !shiftId) {
+      setPendingSplit(parts);
+      return setOverlay({ kind: 'shift' });
+    }
+    setPendingSplit(null);
+    await run(async () => {
+      const bills: LocalBill[] = [];
+      for (const [i, part] of parts.entries()) {
+        const bill = await saveBill({
+          db,
+          deviceId: device.id,
+          deviceCode: device.code,
+          catalogue,
+          cart: [],
+          lines: part.lines,
+          orderId,
+          orderPart: i + 1,
+          paymentMode: part.payment,
+          cashierId: user?.id,
+          shiftId: needShift ? shiftId : undefined,
+        });
+        await act(db, orderId, 'settle', { bill_id: bill.id, part: i + 1, parts: parts.length }, by);
+        bills.push(bill);
+      }
+      void worker?.kick();
+      setOverlay({ kind: 'receipt', bill: bills[0], more: bills.slice(1) });
     });
   }
 
@@ -851,15 +893,28 @@ function OrderScreen({
             <button className="primary save" disabled={busy} onClick={() => void settle()}>
               {busy ? 'Saving…' : 'Settle and print receipt'}
             </button>
+            {priced.lines.reduce((a, l) => a + l.qty, 0) > 1 && (
+              <button onClick={() => setOverlay({ kind: 'split' })}>Split bill</button>
+            )}
           </div>
         </Sheet>
+      )}
+      {overlay?.kind === 'split' && priced?.totals && (
+        <SplitBillSheet
+          lines={priced.lines}
+          gstType={catalogue.shop.gst_type}
+          busy={busy}
+          onClose={() => setOverlay({ kind: 'settle' })}
+          onSettle={(parts) => void settleSplit(parts)}
+        />
       )}
       {overlay?.kind === 'shift' && (
         <StartShiftSheet
           onClose={() => setOverlay(null)}
           onStarted={(s) => {
             setOverlay(null);
-            void settle(s.id);
+            if (pendingSplit) void settleSplit(pendingSplit, s.id);
+            else void settle(s.id);
           }}
         />
       )}
@@ -869,8 +924,11 @@ function OrderScreen({
           autoPrint
           doneLabel="Back to tables"
           onClose={() => {
+            // A split bill prints one receipt per part, one after the other.
+            const [next, ...rest] = overlay.more ?? [];
+            if (next) return setOverlay({ kind: 'receipt', bill: next, more: rest });
             setOverlay(null);
-            onBack(`${label} settled: ${overlay.bill.invoiceNo}`);
+            onBack(`${label} settled: ${overlay.bill.invoiceNo}${overlay.more === undefined ? '' : ' (split)'}`);
           }}
         />
       )}
@@ -1098,6 +1156,115 @@ function DetailsSheet({
           Save
         </button>
         <button onClick={onClose}>Cancel</button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Split bill: put each item on a part; part 1 keeps whatever is not moved. */
+function SplitBillSheet({
+  lines,
+  gstType,
+  busy,
+  onClose,
+  onSettle,
+}: {
+  lines: SyncBillLine[];
+  gstType: Catalogue['shop']['gst_type'];
+  busy: boolean;
+  onClose(): void;
+  onSettle(parts: SplitPart[]): void;
+}) {
+  const [count, setCount] = useState(2);
+  const [current, setCurrent] = useState(1); // the part being filled (0 is part 1, the rest)
+  // moved[p][i]: how many of line i are on part p (p >= 1); part 0 has the rest.
+  const [moved, setMoved] = useState<number[][]>(() => [1, 2, 3].map(() => lines.map(() => 0)));
+  const [pay, setPay] = useState<('cash' | 'upi' | 'card')[]>(['cash', 'cash', 'cash', 'cash']);
+  const used = moved.slice(0, count - 1);
+  const allocation = [lines.map((l, i) => l.qty - used.reduce((a, p) => a + p[i], 0)), ...used];
+  let parts: ReturnType<typeof splitOrderLines> | null = null;
+  try {
+    parts = splitOrderLines(lines, allocation, gstType);
+  } catch {
+    parts = null; // an empty part: the button says so
+  }
+  const step = (i: number, d: number) =>
+    setMoved((m) => m.map((p, pi) => (pi === current - 1 ? p.map((q, qi) => (qi === i ? Math.max(0, Math.min(q + d, q + allocation[0][i])) : q)) : p)));
+
+  return (
+    <Sheet title="Split bill" onClose={onClose}>
+      <div className="chips" role="group" aria-label="How many bills">
+        {[2, 3, 4].map((n) => (
+          <button
+            key={n}
+            className="chip"
+            aria-pressed={count === n}
+            onClick={() => {
+              setCount(n);
+              setCurrent((c) => Math.min(c, n - 1));
+            }}
+          >
+            {n} bills
+          </button>
+        ))}
+      </div>
+      <div className="chips" role="group" aria-label="Filling">
+        {Array.from({ length: count - 1 }, (_, k) => k + 1).map((p) => (
+          <button key={p} className="chip" aria-pressed={current === p} onClick={() => setCurrent(p)}>
+            Bill {p + 1}
+          </button>
+        ))}
+      </div>
+      <p className="muted">Move items onto bill {current + 1}. Bill 1 keeps everything not moved.</p>
+      <ul className="split-lines">
+        {lines.map((l, i) => (
+          <li key={i}>
+            <span>
+              {l.name}
+              {l.modifiers.length ? ` (${l.modifiers.map((m) => m.name).join(', ')})` : ''}
+              <span className="muted"> · bill 1 has {allocation[0][i]}</span>
+            </span>
+            <span className="stepper">
+              <button onClick={() => step(i, -1)} aria-label={`One ${l.name} back to bill 1`}>
+                −
+              </button>
+              <span className="num">{moved[current - 1][i]}</span>
+              <button onClick={() => step(i, 1)} aria-label={`One ${l.name} to bill ${current + 1}`}>
+                +
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <ul className="split-parts">
+        {allocation.map((_, p) => (
+          <li key={p}>
+            <strong>Bill {p + 1}</strong>{' '}
+            <span className="num">{parts ? formatRupees(parts[p].totals.total) : '—'}</span>
+            <span className="chips" role="group" aria-label={`Bill ${p + 1} paid by`}>
+              {PAYMENT_MODES.map(({ mode, label: l }) => (
+                <button
+                  key={mode}
+                  className="chip"
+                  aria-pressed={pay[p] === mode}
+                  onClick={() => setPay((x) => x.map((v, k) => (k === p ? (mode as 'cash' | 'upi' | 'card') : v)))}
+                >
+                  {l}
+                </button>
+              ))}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="sheet-actions">
+        <button
+          className="primary"
+          disabled={!parts || busy}
+          onClick={() => parts && onSettle(parts.map((p, k) => ({ lines: p.lines, payment: pay[k] })))}
+        >
+          {parts ? `Settle ${count} bills and print` : 'Every bill needs an item'}
+        </button>
+        <button onClick={onClose}>Back</button>
       </div>
     </Sheet>
   );

@@ -2047,3 +2047,30 @@ button.account {
   border-radius: var(--radius-panel);
   padding: var(--s4);
 }
+
+/* ---------- Phase 6: split bill, khata ---------- */
+.split-lines,
+.split-parts {
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.split-lines li,
+.split-parts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--steel-deep);
+}
+.khata-owed {
+  font-size: 1.2rem;
+}
+.repay {
+  display: grid;
+  gap: var(--s2);
+}

@@ -46,6 +46,8 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 
 ## Waiting for Benil
 
+- **Phase 6 PR (discounts, split payment, customers and khata, split bill) has a migration (`159f8fea95a7`).** It is a parallel head from `3e72290e9f62`, like #26 and #28: apply its SQL (in the PR) in any order relative to them (the PR says which last line to use), then merge. Also ask the shop's CA whether a bill discount shared across items in proportion to their value is how they want GST worked out (README, Phase 6).
+
 - Make the repo private, and set up backups (Supabase Pro or a nightly export with its own secrets).
 - Upgrade to Vercel Pro and Supabase Pro before real sales.
 - Pilot shop details: tables and areas, kitchen setup, printer model, menu language.

@@ -50,6 +50,31 @@ export function priceOrder(state: OrderState, catalogue: Catalogue): PricedOrder
   return { lines, totals: priceLines(lines, catalogue.shop.gst_type) };
 }
 
+/**
+ * Split bill (README, Phase 6): one order into several invoices, by item.
+ * `allocation[part][line]` is how many of each line go on each part. Every item
+ * must be on exactly one part and no part may be empty; each part is priced as
+ * its own invoice (its own rounding to the rupee, so the parts can differ from
+ * the whole by a few paise each).
+ */
+export function splitOrderLines(
+  lines: SyncBillLine[],
+  allocation: number[][],
+  gstType: Catalogue['shop']['gst_type'],
+): { lines: SyncBillLine[]; totals: BillTotals }[] {
+  lines.forEach((l, i) => {
+    const given = allocation.reduce((a, part) => a + (part[i] ?? 0), 0);
+    if (given !== l.qty) throw new Error('Put every item on exactly one part');
+  });
+  return allocation.map((part) => {
+    const mine = lines
+      .map((l, i) => ({ ...l, qty: part[i] ?? 0, totals: { ...l.totals } }))
+      .filter((l) => l.qty > 0);
+    if (mine.length === 0) throw new Error('A part is empty');
+    return { lines: mine, totals: priceLines(mine, gstType) };
+  });
+}
+
 // ---------------------------------------------------------------- the floor
 export type TableStatus = 'free' | 'running' | 'billed';
 
