@@ -41,6 +41,8 @@ export interface Catalogue {
     address: string;
     /** Missing in a catalogue cached before shifts existed: treat as on. */
     cash_shifts?: boolean;
+    /** Razorpay keys are set on the server (README, Phase 8a). */
+    online_payments?: boolean;
   };
   menu_items: MenuItem[];
   modifiers: Modifier[];
@@ -308,6 +310,19 @@ export interface SalesReport {
     voided_at: string;
   }[];
   mismatches: { bill_id: string; invoice_no: string; total_paise: number; server_total_paise: number }[];
+  online_payments?: OnlinePaymentRow[];
+}
+
+export interface OnlinePaymentRow {
+  bill_id: string;
+  invoice_no: string;
+  method: 'upi' | 'card';
+  status: 'created' | 'paid' | 'failed';
+  amount_paise: number;
+  paid_paise: number | null;
+  provider_payment_id: string | null;
+  error: string;
+  problem: 'not_paid' | 'amount_mismatch' | 'refund_due' | null;
 }
 
 export interface ShiftReport {

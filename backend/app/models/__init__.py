@@ -217,3 +217,7 @@ __all__ += [
 from app.models.messages import Message  # noqa: E402
 
 __all__ += ["Message"]
+
+from app.models.payments import Payment  # noqa: E402
+
+__all__ += ["Payment"]

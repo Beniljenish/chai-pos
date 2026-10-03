@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     inkbox_identity_id: str = ""
     # Where customers open receipt links (this API's public address).
     public_api_url: str = "https://chai-pos-api.vercel.app/api/v1"
+    # Razorpay (test mode first). Empty key = online payments switched off; the
+    # app then offers only plain Cash/UPI/Card. The webhook has its own secret.
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
 
     @field_validator("jwt_secret")
     @classmethod
