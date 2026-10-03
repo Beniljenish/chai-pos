@@ -85,4 +85,52 @@ describe('SyncWorker.kick', () => {
     expect(await db.pendingCount()).toBe(0);
     worker.stop();
   });
+
+  it('the badge counts a new sale at once, not when the sync running now ends', async () => {
+    const db = new PosDB(`s-${Math.random()}`);
+    await sale(db);
+    const { api } = fakeApi({ delayMs: 50 });
+    const worker = new SyncWorker(api, db, 'dev');
+    const seen: number[] = [];
+    worker.subscribe((s) => seen.push(s.pending));
+
+    const running = worker.kick();
+    await new Promise((r) => setTimeout(r, 10));
+    await sale(db); // saved while the first bill is still being sent
+    await worker.kick();
+    // Before the in-flight run finishes, the badge must not say "All bills sent".
+    expect(seen.at(-1)).toBeGreaterThan(0);
+    await running;
+    expect(seen.at(-1)).toBe(0);
+    worker.stop();
+  });
+});
+
+describe('SyncWorker.refreshCounts', () => {
+  it('an older count that answers late never overwrites a newer one', async () => {
+    // The flaky sales spec: the end of one sync read the outbox (0 waiting) just
+    // before a new bill was saved, but answered after the new bill's own count
+    // (1 waiting), so the badge said "All bills sent" with a bill still to send.
+    const db = new PosDB(`s-${Math.random()}`);
+    const worker = new SyncWorker(fakeApi().api, db, 'dev');
+    let last = -1;
+    worker.subscribe((s) => (last = s.pending));
+    const real = db.pendingCount.bind(db);
+    let slowOnce = true;
+    db.pendingCount = async () => {
+      const n = await real();
+      if (slowOnce) {
+        slowOnce = false;
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      return n;
+    };
+    const older = worker.refreshCounts(); // reads 0, answers late
+    await new Promise((r) => setTimeout(r, 5));
+    await sale(db);
+    await worker.refreshCounts(); // reads 1
+    await older;
+    expect(last).toBe(1);
+    worker.stop();
+  });
 });

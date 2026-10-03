@@ -210,7 +210,35 @@ def daily_figures(db: Session, d: date) -> dict:
         "top": [(n, int(q), int(t)) for n, q, t in top],
         "wasted": int(wasted or 0),
         "day_status": day.status.value if day else None,
+        "service": _service_lines(db, d),
     }
+
+
+def _service_lines(db: Session, d: date) -> list[str]:
+    """Table service leak signals for the email; empty for a counter-only shop."""
+    from app.services.orders import service_report  # local: orders imports models
+
+    r = service_report(db, d)
+    out = []
+    if r["changed_after_bill"]:
+        n = len(r["changed_after_bill"])
+        out.append(
+            f"{n} bill(s) changed after printing: "
+            + ", ".join(c["label"] for c in r["changed_after_bill"])
+        )
+    if r["cancellations"]:
+        out.append(
+            f"{sum(c['qty'] for c in r['cancellations'])} item(s) cancelled after sending to "
+            f"the kitchen, worth {rupees(r['cancelled_value_paise'])}"
+        )
+    if r["cancelled_orders"]:
+        out.append(f"{len(r['cancelled_orders'])} order(s) cancelled")
+    if r["still_open"]:
+        out.append(
+            f"{len(r['still_open'])} order(s) not settled: "
+            + ", ".join(o["label"] for o in r["still_open"])
+        )
+    return out
 
 
 def _shift_lines(db: Session, d: date) -> list[str]:
@@ -280,6 +308,13 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
             else ""
         )
         + (
+            "<h3 style='font-size:15px;color:#b3261e'>Table service</h3><p>"
+            + "<br>".join(escape(x) for x in f["service"])
+            + " (details under Manage → Sales)</p>"
+            if f["service"]
+            else ""
+        )
+        + (
             f"<p>{f['voids']} voided bill(s) worth {rupees(f['voided_total'])}, "
             "not included above. Reasons are in the app under Manage → Sales.</p>"
             if f["voids"]
@@ -299,6 +334,7 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         + "".join(f"\nTablet: {x}" for x in f["tablets"])
         + (f"\nVoided: {f['voids']} bill(s), {rupees(f['voided_total'])}" if f["voids"] else "")
         + "".join(f"\nCash: {x}" for x in f["shifts"])
+        + "".join(f"\nTables: {x}" for x in f["service"])
     )
     enqueue(
         db, shop, EmailKind.daily, f"daily:{d.isoformat()}", subject, _page(subject, body), text

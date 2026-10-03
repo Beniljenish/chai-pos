@@ -18,6 +18,7 @@ import {
 } from '../lib/sales';
 import type { SalesReport, ServerBill } from '../lib/types';
 import { api } from './apiClient';
+import { ServiceReport } from './ServiceReport';
 import { CashDrawer } from './CashDrawer';
 import { explainError } from './errors';
 import { useSession } from './session';
@@ -218,6 +219,8 @@ export function SalesScreen() {
               </table>
             </>
           )}
+
+          <ServiceReport day={day} />
 
           {report.voids.length > 0 && (
             <>

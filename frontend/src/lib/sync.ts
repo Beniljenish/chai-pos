@@ -142,6 +142,9 @@ export class SyncWorker {
   async kick(): Promise<void> {
     if (this.running) {
       this.again = true;
+      // A bill saved mid-sync: show it as waiting now, not when this run ends
+      // (until then the badge would still say "All bills sent").
+      await this.refreshCounts();
       return;
     }
     this.running = true;
@@ -167,6 +170,7 @@ export class SyncWorker {
   }
 
   private async runOnce() {
+    await this.refreshCounts(); // what is waiting right now, shown while it is sent
     this.set({ syncing: true });
     try {
       // Drawer operations first: a bill names its shift, which must already be there.
@@ -205,7 +209,12 @@ export class SyncWorker {
     this.timer = setTimeout(() => void this.kick(), delay);
   }
 
+  private countSeq = 0;
+
   async refreshCounts() {
+    // Reads can answer out of order (a sync ending while a sale is saved): only
+    // the most recently started read may set the badge.
+    const seq = ++this.countSeq;
     const [pending, rejected] = await Promise.all([
       this.db.pendingCount(),
       Promise.all([
@@ -214,7 +223,7 @@ export class SyncWorker {
         this.db.orderEvents.where('status').equals('rejected').count(),
       ]).then(([a, b, c]) => a + b + c),
     ]);
-    this.set({ pending, rejected });
+    if (seq === this.countSeq) this.set({ pending, rejected });
   }
 
   private set(patch: Partial<SyncState>) {
