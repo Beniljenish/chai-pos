@@ -30,10 +30,11 @@ function SyncBadge() {
       className={`sync-badge ${tone}`}
       onClick={() => void worker?.kick()}
       title={sync.lastError ?? 'Tap to send now'}
+      aria-label={sync.lastError ? `${text}. ${sync.lastError}` : text}
       aria-live="polite"
     >
       <span className="dot" aria-hidden="true" />
-      <span className="long">{text}</span>
+      <span className="long" aria-hidden="true">{text}</span>
       <span className="short" aria-hidden="true">{short}</span>
     </button>
   );
