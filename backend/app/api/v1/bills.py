@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.common import get_or_404
@@ -39,6 +39,25 @@ def sync_bills(body: SyncRequest, caller: Caller = Depends(get_caller)):
             for r in results
         ]
     )
+
+
+@router.get("/devices/{device_id}/sync-state", tags=["devices"])
+def device_sync_state(device_id: uuid.UUID, caller: Caller = Depends(get_caller)) -> dict:
+    """The highest invoice sequence the server holds for this device, per financial
+    year. A tablet whose storage was wiped resumes numbering after it instead of
+    reissuing C1/26-27/000001 (which the server would reject as a duplicate)."""
+    device = get_or_404(caller.db, Device, device_id)
+    rows = caller.db.execute(
+        select(Bill.fy, func.max(Bill.local_seq))
+        .where(Bill.device_id == device.id)
+        .group_by(Bill.fy)
+    ).all()
+    return {
+        "device_id": device.id,
+        "code": device.code,
+        "is_active": device.is_active,
+        "last_seq_by_fy": {fy: seq for fy, seq in rows},
+    }
 
 
 def _bill_query():

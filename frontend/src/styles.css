@@ -1,0 +1,622 @@
+/*
+ * Chai POS. A counter tool: legible in bright light, big targets for quick taps.
+ * Palette from the counter itself: stainless steel, slate ink, tea-leaf green
+ * for the one action that matters, turmeric for "waiting", chilli for problems.
+ */
+:root {
+  --steel: #e6eaed;
+  --steel-deep: #cfd6db;
+  --paper: #ffffff;
+  --ink: #1d2730;
+  --ink-soft: #55626d;
+  --leaf: #1f6b4f;
+  --leaf-press: #17533d;
+  --turmeric: #d9962b;
+  --turmeric-soft: #fbefd9;
+  --chilli: #b3261e;
+  --chilli-soft: #fbe3e1;
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --tap: 52px; /* minimum touch target */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--steel);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+h1 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin: 0 0 var(--s3);
+}
+p {
+  margin: 0 0 var(--s3);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.muted {
+  color: var(--ink-soft);
+}
+.right {
+  text-align: right;
+}
+
+/* ---------- controls ---------- */
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+button {
+  min-height: var(--tap);
+  padding: 0 var(--s4);
+  border: 1.5px solid var(--steel-deep);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  cursor: pointer;
+  touch-action: manipulation; /* no double-tap zoom delay */
+}
+button:active {
+  background: var(--steel);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button[aria-pressed='true'],
+button[aria-checked='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+button.primary {
+  background: var(--leaf);
+  border-color: var(--leaf);
+  color: var(--paper);
+  font-weight: 700;
+}
+button.primary:active:not(:disabled) {
+  background: var(--leaf-press);
+}
+button.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+}
+:focus-visible {
+  outline: 3px solid var(--turmeric);
+  outline-offset: 2px;
+}
+label {
+  display: grid;
+  gap: var(--s1);
+  font-weight: 700;
+  margin-bottom: var(--s4);
+}
+input {
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  border: 1.5px solid var(--steel-deep);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  font-weight: 400;
+}
+.error {
+  color: var(--chilli);
+  font-weight: 700;
+}
+.warn {
+  background: var(--turmeric-soft);
+  padding: var(--s3);
+  border-radius: var(--radius-control);
+}
+.empty {
+  color: var(--ink-soft);
+  padding: var(--s5) 0;
+}
+
+/* ---------- centred panels: login, setup ---------- */
+.centered {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--s4);
+}
+.panel {
+  width: min(420px, 100%);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  padding: var(--s6) var(--s5);
+}
+.panel button {
+  width: 100%;
+}
+.login-icon {
+  border-radius: 12px;
+  display: block;
+  margin-bottom: var(--s4);
+}
+.reuse {
+  margin-top: var(--s5);
+}
+.reuse summary {
+  cursor: pointer;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+}
+.reuse ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+
+/* ---------- app shell ---------- */
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s4);
+  background: var(--paper);
+  border-bottom: 1.5px solid var(--steel-deep);
+  flex-wrap: wrap;
+}
+.where {
+  display: grid;
+  margin-right: auto;
+  line-height: 1.25;
+}
+.where .muted {
+  font-size: 0.85rem;
+}
+.tabs {
+  display: flex;
+  gap: var(--s2);
+}
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 700;
+}
+.sync-badge .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--leaf);
+}
+.sync-badge.wait {
+  background: var(--turmeric-soft);
+  border-color: var(--turmeric);
+}
+.sync-badge.wait .dot {
+  background: var(--turmeric);
+}
+.sync-badge.bad {
+  background: var(--chilli-soft);
+  border-color: var(--chilli);
+  color: var(--chilli);
+}
+.sync-badge.bad .dot {
+  background: var(--chilli);
+}
+.banner {
+  margin: 0;
+  padding: var(--s3) var(--s4);
+  background: var(--turmeric-soft);
+  font-weight: 700;
+}
+
+.sync-badge .short {
+  display: none;
+}
+
+/* Phones: one compact row under the shop name. */
+@media (max-width: 600px) {
+  .topbar {
+    gap: var(--s2);
+    padding: var(--s2) var(--s3);
+  }
+  .where {
+    flex-basis: 100%;
+  }
+  .topbar button {
+    padding: 0 var(--s3);
+    min-height: 44px;
+  }
+  .sync-badge .long {
+    display: none;
+  }
+  .sync-badge .short {
+    display: inline;
+  }
+  .topbar .quiet {
+    margin-left: auto;
+    padding: 0 var(--s2);
+  }
+}
+
+/* ---------- billing: menu grid + till ---------- */
+.billing {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.menu {
+  padding: var(--s4);
+  padding-bottom: 96px; /* room for the phone till bar */
+}
+.categories {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  margin-bottom: var(--s4);
+}
+.categories button {
+  flex: none;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s3);
+}
+.tile {
+  position: relative;
+  min-height: 112px;
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  text-align: left;
+  border-radius: var(--radius-panel);
+  border: 1.5px solid var(--steel-deep);
+}
+.tile-name {
+  padding-right: 32px; /* room for the count badge */
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+.tile-price {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+.tile-count {
+  position: absolute;
+  top: var(--s2);
+  right: var(--s2);
+  min-width: 30px;
+  height: 30px;
+  padding: 0 var(--s2);
+  border-radius: 15px;
+  background: var(--leaf);
+  color: var(--paper);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The till: the one bold thing on screen. */
+.till {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.till-handle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  min-height: 72px;
+  background: transparent;
+  border: none;
+  color: var(--paper);
+  font-size: 1.05rem;
+}
+.till-handle strong {
+  font-size: 1.6rem;
+}
+.till-handle:active {
+  background: transparent;
+}
+.till-body {
+  display: none;
+  overflow-y: auto;
+  padding: 0 var(--s4) var(--s4);
+}
+.till.open .till-body {
+  display: block;
+}
+.till button:not(.primary):not([aria-pressed='true']):not([aria-checked='true']) {
+  background: transparent;
+  color: var(--paper);
+  border-color: #3e4a55;
+}
+.till button[aria-pressed='true'],
+.till button[aria-checked='true'] {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--paper);
+}
+.till .empty {
+  color: #a8b3bc;
+}
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lines li {
+  padding: var(--s3) 0;
+  border-bottom: 1px solid #36424d;
+}
+.line-top {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  margin-bottom: var(--s2);
+}
+.line-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.stepper button {
+  width: var(--tap);
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.stepper span {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 700;
+}
+.chip {
+  min-height: 44px;
+  font-size: 0.95rem;
+}
+.till-foot {
+  padding-top: var(--s4);
+}
+.tax-note {
+  color: #a8b3bc;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: var(--s2) 0 var(--s4);
+}
+.total strong {
+  font-size: 3rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.payment {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+.till .error {
+  color: #ff8a80;
+}
+button.save {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.2rem;
+}
+
+/* Tablets and up: the till becomes a permanent column on the right. */
+@media (min-width: 820px) {
+  .billing {
+    grid-template-columns: 1fr 380px;
+  }
+  .menu {
+    padding-bottom: var(--s4);
+  }
+  .till {
+    position: sticky;
+    top: 0;
+    height: calc(100dvh - 70px);
+    max-height: none;
+    border-radius: 0;
+  }
+  .till-handle {
+    display: none;
+  }
+  .till-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding-top: var(--s4);
+  }
+  .lines {
+    flex: 1;
+    overflow-y: auto;
+  }
+}
+
+/* ---------- today's bills ---------- */
+.bills {
+  padding: var(--s4);
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+}
+.bills-head strong {
+  font-size: 1.6rem;
+}
+.bill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.bill-list button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: var(--s3);
+  align-items: center;
+  text-align: left;
+}
+.status {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: var(--s1) var(--s2);
+  border-radius: 6px;
+}
+.status.synced {
+  color: var(--leaf);
+}
+.status.pending {
+  background: var(--turmeric-soft);
+}
+.status.rejected {
+  background: var(--chilli-soft);
+  color: var(--chilli);
+}
+
+/* ---------- receipt ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(29, 39, 48, 0.6);
+  display: grid;
+  place-items: center;
+  padding: var(--s4);
+  z-index: 10;
+  overflow-y: auto;
+}
+.receipt-wrap {
+  display: grid;
+  gap: var(--s3);
+  width: min(340px, 100%);
+}
+.receipt {
+  background: var(--paper);
+  padding: var(--s5) var(--s4);
+  font-size: 14px;
+  line-height: 1.35;
+  border-radius: 4px;
+}
+.receipt header {
+  display: grid;
+  text-align: center;
+  margin-bottom: var(--s3);
+}
+.shop-name {
+  font-size: 17px;
+}
+.doc-title {
+  margin-top: var(--s2);
+  font-weight: 700;
+}
+.receipt dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--s3);
+  margin: 0 0 var(--s3);
+}
+.receipt dd {
+  margin: 0;
+  text-align: right;
+}
+.receipt table {
+  width: 100%;
+  border-collapse: collapse;
+  border-block: 1px dashed var(--ink);
+  margin-bottom: var(--s3);
+}
+.receipt td {
+  padding: var(--s1) 0;
+  vertical-align: top;
+}
+.receipt .grand {
+  font-weight: 700;
+  font-size: 17px;
+}
+.receipt footer {
+  text-align: center;
+}
+.receipt-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+}
+
+/* Print only the receipt, sized for a 58 mm thermal roll. */
+@media print {
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .receipt,
+  .receipt * {
+    visibility: visible;
+  }
+  .receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 58mm;
+    padding: 2mm;
+    font-size: 10pt;
+  }
+  .no-print {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

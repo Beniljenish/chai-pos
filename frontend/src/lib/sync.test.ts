@@ -1,0 +1,88 @@
+import 'fake-indexeddb/auto';
+import { describe, expect, it } from 'vitest';
+import type { Api } from './api';
+import { NetworkError } from './api';
+import { saveBill } from './billing';
+import { testCatalogue } from './test-fixtures';
+import { PosDB } from './db';
+import { SyncWorker, syncOnce } from './sync';
+import type { SyncBill, SyncResult } from './types';
+
+const sale = (db: PosDB) =>
+  saveBill({
+    db, deviceId: 'dev', deviceCode: 'C1', catalogue: testCatalogue,
+    cart: [{ menuItemId: 'tea', qty: 1, modifierIds: [] }], paymentMode: 'cash',
+  });
+
+/** A fake server: accepts everything, remembers what it was sent. */
+function fakeApi(opts: { delayMs?: number; reject?: Set<string> } = {}) {
+  const received: string[][] = [];
+  const api = {
+    async post(_path: string, body: { bills: SyncBill[] }) {
+      received.push(body.bills.map((b) => b.id));
+      await new Promise((r) => setTimeout(r, opts.delayMs ?? 0));
+      const results: SyncResult[] = body.bills.map((b) => ({
+        id: b.id,
+        status: opts.reject?.has(b.id) ? 'rejected' : 'accepted',
+        invoice_no: b.invoice_no,
+        totals_mismatch: false,
+        reason: opts.reject?.has(b.id) ? 'device_clock_ahead' : null,
+      }));
+      return { results };
+    },
+  };
+  return { api: api as unknown as Api, received };
+}
+
+describe('syncOnce', () => {
+  it('sends oldest first, in batches, and empties the outbox', async () => {
+    const db = new PosDB(`s-${Math.random()}`);
+    const bills = [];
+    for (let i = 0; i < 7; i++) bills.push(await sale(db));
+    const { api, received } = fakeApi();
+    const summary = await syncOnce(api, db, 'dev', 3);
+    expect(received.map((b) => b.length)).toEqual([3, 3, 1]);
+    expect(received.flat()).toEqual(bills.map((b) => b.id));
+    expect(summary).toEqual({ sent: 7, synced: 7, rejected: 0 });
+    expect(await db.pendingCount()).toBe(0);
+  });
+
+  it('keeps rejected bills, with the reason, out of the outbox', async () => {
+    const db = new PosDB(`s-${Math.random()}`);
+    const bad = await sale(db);
+    await sale(db);
+    const { api } = fakeApi({ reject: new Set([bad.id]) });
+    await syncOnce(api, db, 'dev');
+    const stored = await db.bills.get(bad.id);
+    expect(stored?.status).toBe('rejected');
+    expect(stored?.reason).toBe('device_clock_ahead');
+    expect(await db.pendingCount()).toBe(0);
+  });
+
+  it('leaves the outbox untouched when the network fails', async () => {
+    const db = new PosDB(`s-${Math.random()}`);
+    await sale(db);
+    const api = { post: () => Promise.reject(new NetworkError('offline')) } as unknown as Api;
+    await expect(syncOnce(api, db, 'dev')).rejects.toBeInstanceOf(NetworkError);
+    expect(await db.pendingCount()).toBe(1);
+  });
+});
+
+describe('SyncWorker.kick', () => {
+  it('a sale saved DURING a sync is sent straight after, not 30 s later', async () => {
+    const db = new PosDB(`s-${Math.random()}`);
+    const first = await sale(db);
+    const { api, received } = fakeApi({ delayMs: 50 });
+    const worker = new SyncWorker(api, db, 'dev');
+
+    const running = worker.kick(); // sync of the first bill is in flight...
+    await new Promise((r) => setTimeout(r, 10));
+    const second = await sale(db); // ...a new sale is saved...
+    await worker.kick(); // ...and its "send now" must not be dropped
+    await running;
+
+    expect(received).toEqual([[first.id], [second.id]]);
+    expect(await db.pendingCount()).toBe(0);
+    worker.stop();
+  });
+});
