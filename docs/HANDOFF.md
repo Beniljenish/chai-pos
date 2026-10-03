@@ -21,7 +21,7 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 5. **Phase 6:** discounts (item and bill, owner-set limits, reason), split payment (cash + UPI on one bill), split bill (one order into several invoices), customers (phone, name, visit history), credit/khata (bill on credit, record repayment, outstanding per customer).
 6. **Phase 7:** reports and inventory: item-wise and hour-wise sales, GST summary (GSTR-1 style export), stock valuation, reorder levels, suppliers and purchase orders (receive a PO into stock-in).
 - Follow-up from 5.3: keep pay-first takeaway orders on the kitchen screen after settling (README, Phase 5.3, "Known limit").
-7. **Phase 8c later, needs accounts the owner does not have yet:** Swiggy/Zomato, multiple outlets. Design note written (README, "Phase 8c (design only)"); not built.
+7. **Phase 8c later, needs accounts the owner does not have yet:** Swiggy/Zomato, multiple outlets. Write a short design note in the README; do not build.
 
 ## Razorpay (test mode)
 
@@ -45,8 +45,6 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 - When something needs the owner (keys, accounts, Supabase), stop that item, write it down at the top of this file under "Waiting for Benil", and carry on with the next item.
 
 ## Waiting for Benil
-
-- **Phase 7 PR (reports, GST summary, stock value, suppliers and purchase orders) has a migration (`1dedecb97caa`, three new tables).** It is a parallel head from `3e72290e9f62` like the other open migration PRs: apply its SQL (in the PR) in any order, choosing the last line as the PR says, then merge. Have your accountant look at one month's GST summary and the CSVs before relying on them for filing.
 
 - Make the repo private, and set up backups (Supabase Pro or a nightly export with its own secrets).
 - Upgrade to Vercel Pro and Supabase Pro before real sales.
