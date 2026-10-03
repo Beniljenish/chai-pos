@@ -1,61 +1,184 @@
-"""PHASE 0 GATE: a user from shop A can never read or write shop B's data.
+"""PHASE 0 GATE (extended every phase): a user from shop A can never read or
+write shop B's data, by URL id or by ids smuggled inside a request body.
 
-The coverage test at the bottom fails whenever someone adds an endpoint with
-an {id} in its path without adding it to ID_ROUTES here, so the gate keeps
-protecting future phases automatically.
+test_every_id_route_is_covered fails whenever an endpoint with an {id} in its
+path is added (or gains a method) without being listed here, so this gate keeps
+protecting every future phase automatically.
 """
 
+import uuid
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from tests.conftest import ShopFixture
+from tests.conftest import Catalogue, ShopFixture, build_catalogue
 
-# path template -> (fixture attribute that holds shop B's object, PATCH body)
+ANY_ID = str(uuid.uuid4())  # bodies must be schema-valid so a 404 can only come from the lookup
+
+# template -> (how to find shop B's id for it, {method: body})
 ID_ROUTES = {
-    "/api/v1/users/{user_id}": ("cashier", {"name": "hijacked"}),
-    "/api/v1/devices/{device_id}": ("device", {"name": "hijacked"}),
+    "/api/v1/users/{user_id}": ("cashier", {"GET": None, "PATCH": {"name": "hijacked"}}),
+    "/api/v1/devices/{device_id}": ("device", {"GET": None, "PATCH": {"name": "hijacked"}}),
+    "/api/v1/ingredients/{ingredient_id}": (
+        "cat.milk",
+        {"GET": None, "PATCH": {"name": "hijacked"}},
+    ),
+    "/api/v1/ingredients/{ingredient_id}/pack-units": (
+        "cat.milk",
+        {"GET": None, "POST": {"name": "hijack", "qty_in_base": "1"}},
+    ),
+    "/api/v1/ingredients/{ingredient_id}/recipe": (
+        "cat.decoction",
+        {"GET": None, "PUT": {"yield_qty": "1", "lines": [{"ingredient_id": ANY_ID, "qty": "1"}]}},
+    ),
+    "/api/v1/menu-items/{menu_item_id}": (
+        "cat.tea",
+        {"GET": None, "PATCH": {"name": "hijacked"}},
+    ),
+    "/api/v1/menu-items/{menu_item_id}/recipe": (
+        "cat.tea",
+        {"GET": None, "PUT": {"lines": [{"ingredient_id": ANY_ID, "qty": "1"}]}},
+    ),
+    "/api/v1/menu-items/{menu_item_id}/modifiers": ("cat.tea", {"PUT": {"modifier_ids": []}}),
+    "/api/v1/modifiers/{modifier_id}": (
+        "cat.less_sugar",
+        {"GET": None, "PATCH": {"name": "hijacked"}},
+    ),
+    "/api/v1/stock/{ingredient_id}/ledger": ("cat.milk", {"GET": None}),
 }
 
 
-def _path(template: str, obj_id) -> str:
-    return template.split("{")[0] + str(obj_id)
+def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
+    if key.startswith("cat."):
+        return getattr(cat, key[4:])["id"]
+    return str(getattr(shop, key).id)
 
 
-def test_every_id_route_is_covered_by_this_gate():
-    templated = {p for p in app.openapi()["paths"] if "{" in p and p.startswith("/api/")}
-    missing = templated - ID_ROUTES.keys()
-    assert not missing, f"Add these routes to ID_ROUTES in the tenant gate: {missing}"
+def _url(template: str, obj_id: str) -> str:
+    start, end = template.index("{"), template.index("}")
+    return template[:start] + obj_id + template[end + 1 :]
 
 
-def test_cannot_read_other_shops_rows_by_id(client: TestClient, shop_a, shop_b):
-    for template, (attr, _) in ID_ROUTES.items():
-        foreign_id = getattr(shop_b, attr).id
-        r = client.get(_path(template, foreign_id), headers=shop_a.owner_h)
-        assert r.status_code == 404, f"GET {template} leaked: {r.status_code} {r.text}"
+@pytest.fixture
+def two_shops(client, shop_a, shop_b):
+    return shop_a, shop_b, build_catalogue(client, shop_a), build_catalogue(client, shop_b)
 
 
-def test_cannot_modify_other_shops_rows_by_id(client: TestClient, shop_a, shop_b):
-    for template, (attr, body) in ID_ROUTES.items():
-        foreign = getattr(shop_b, attr)
-        r = client.patch(_path(template, foreign.id), json=body, headers=shop_a.owner_h)
-        assert r.status_code == 404, f"PATCH {template} leaked: {r.status_code}"
-        # and shop B's row really is unchanged
-        own = client.get(_path(template, foreign.id), headers=shop_b.owner_h)
-        assert own.json()["name"] != "hijacked"
+def test_every_id_route_is_covered():
+    actual = {
+        (path, method.upper())
+        for path, ops in app.openapi()["paths"].items()
+        if "{" in path and path.startswith("/api/")
+        for method in ops
+    }
+    covered = {(t, m) for t, (_, calls) in ID_ROUTES.items() for m in calls}
+    missing = actual - covered
+    assert not missing, f"Add these to ID_ROUTES in the tenant gate: {sorted(missing)}"
 
 
-def test_lists_only_show_own_shop(client: TestClient, shop_a: ShopFixture, shop_b):
-    users = client.get("/api/v1/users", headers=shop_a.owner_h).json()
+def test_other_shops_ids_are_404_for_every_method(client: TestClient, two_shops):
+    shop_a, shop_b, _, cat_b = two_shops
+    for template, (key, calls) in ID_ROUTES.items():
+        url = _url(template, _foreign_id(shop_b, cat_b, key))
+        for method, body in calls.items():
+            r = client.request(method, url, json=body, headers=shop_a.owner_h)
+            assert r.status_code == 404, f"{method} {template} leaked: {r.status_code} {r.text}"
+
+
+def test_shop_b_data_is_unchanged_after_the_attack(client: TestClient, two_shops):
+    shop_a, shop_b, _, cat_b = two_shops
+
+    def snapshot():
+        return {
+            t: client.get(_url(t, _foreign_id(shop_b, cat_b, key)), headers=shop_b.owner_h).json()
+            for t, (key, calls) in ID_ROUTES.items()
+            if "GET" in calls
+        }
+
+    before = snapshot()
+    for template, (key, calls) in ID_ROUTES.items():
+        url = _url(template, _foreign_id(shop_b, cat_b, key))
+        for method, body in calls.items():
+            if method != "GET":
+                client.request(method, url, json=body, headers=shop_a.owner_h)
+    assert snapshot() == before
+
+
+def test_lists_only_show_own_shop(client: TestClient, two_shops):
+    shop_a, _, cat_a, _ = two_shops
+    h = shop_a.owner_h
+    users = client.get("/api/v1/users", headers=h).json()
     assert {u["id"] for u in users} == {str(shop_a.owner.id), str(shop_a.cashier.id)}
-    devices = client.get("/api/v1/devices", headers=shop_a.owner_h).json()
-    assert [d["id"] for d in devices] == [str(shop_a.device.id)]
+    assert [d["id"] for d in client.get("/api/v1/devices", headers=h).json()] == [
+        str(shop_a.device.id)
+    ]
+    ingredient_ids = {i["id"] for i in client.get("/api/v1/ingredients", headers=h).json()}
+    assert cat_a.milk["id"] in ingredient_ids and len(ingredient_ids) == 5
+    assert len(client.get("/api/v1/menu-items", headers=h).json()) == 2
+    assert len(client.get("/api/v1/modifiers", headers=h).json()) == 1
+    assert len(client.get("/api/v1/stock", headers=h).json()) == 5
+    catalogue = client.get("/api/v1/catalogue", headers=h).json()
+    assert {m["id"] for m in catalogue["menu_items"]} == {cat_a.tea["id"], cat_a.juice["id"]}
+
+
+def test_other_shops_ids_inside_request_bodies_are_rejected(client: TestClient, two_shops):
+    shop_a, _, cat_a, cat_b = two_shops
+    h = shop_a.owner_h
+    # recipe on MY item using THEIR ingredient
+    r = client.put(
+        f"/api/v1/menu-items/{cat_a.tea['id']}/recipe",
+        json={"lines": [{"ingredient_id": cat_b.milk["id"], "qty": "10"}]},
+        headers=h,
+    )
+    assert r.status_code == 422
+    # my item linked to THEIR modifier
+    r = client.put(
+        f"/api/v1/menu-items/{cat_a.tea['id']}/modifiers",
+        json={"modifier_ids": [cat_b.less_sugar["id"]]},
+        headers=h,
+    )
+    assert r.status_code == 422
+    # modifier using THEIR ingredient
+    r = client.post(
+        "/api/v1/modifiers",
+        json={"name": "x", "lines": [{"ingredient_id": cat_b.sugar["id"], "qty_delta": "1"}]},
+        headers=h,
+    )
+    assert r.status_code == 422
+    # stock-in to MY milk using THEIR pack unit
+    r = client.post(
+        "/api/v1/stock-in",
+        json={
+            "ingredient_id": cat_a.milk["id"],
+            "packs": [{"pack_unit_id": cat_b.milk["pack_units"][0]["id"], "qty": "1"}],
+        },
+        headers=h,
+    )
+    assert r.status_code == 422
+    # stock-in / prep batch on THEIR ingredient
+    assert (
+        client.post(
+            "/api/v1/stock-in",
+            json={"ingredient_id": cat_b.milk["id"], "loose_qty": "5"},
+            headers=h,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            "/api/v1/prep-batches",
+            json={"ingredient_id": cat_b.decoction["id"], "batches": "1"},
+            headers=h,
+        ).status_code
+        == 404
+    )
 
 
 def test_shop_endpoint_is_always_the_callers_shop(client: TestClient, shop_a, shop_b):
     r = client.patch("/api/v1/shop", json={"name": "Renamed A"}, headers=shop_a.owner_h)
     assert r.status_code == 200 and r.json()["id"] == str(shop_a.shop.id)
-    b = client.get("/api/v1/shop", headers=shop_b.owner_h).json()
-    assert b["name"] == "Shop B"
+    assert client.get("/api/v1/shop", headers=shop_b.owner_h).json()["name"] == "Shop B"
 
 
 def test_new_rows_land_in_callers_shop_even_if_client_sends_shop_id(
@@ -69,5 +192,3 @@ def test_new_rows_land_in_callers_shop_even_if_client_sends_shop_id(
     assert r.status_code == 201
     b_devices = client.get("/api/v1/devices", headers=shop_b.owner_h).json()
     assert all(d["name"] != "Sneaky" for d in b_devices)
-    a_devices = client.get("/api/v1/devices", headers=shop_a.owner_h).json()
-    assert any(d["name"] == "Sneaky" for d in a_devices)
