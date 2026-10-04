@@ -26,7 +26,7 @@ export function HandoverReport({ day, refreshKey }: { day: string; refreshKey: n
   if (error) return <p className="error">{error}</p>;
   if (!rep || rep.periods.length === 0) return null; // no shift counts that day
   return (
-    <section className="report handover-report" aria-labelledby="handover-report-title">
+    <section className="handover-report" aria-labelledby="handover-report-title">
       <h2 id="handover-report-title">Shift handovers</h2>
       <p className="muted">
         Milk and fruit are counted at each shift change, so the day&apos;s gap is split by when it opened. With two

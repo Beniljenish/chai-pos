@@ -61,10 +61,14 @@ export function AdherenceTrend() {
   if (error && !trend) return <LoadError error={error} onRetry={() => void load()} />;
   if (!trend) return <Loading />;
   return (
-    <section className="report trend" aria-labelledby="trend-title">
+    <section className="trend" aria-labelledby="trend-title">
       <h2 id="trend-title">Recipe adherence, last 30 days</h2>
       {trend.lines.length === 0 ? (
-        <p className="empty">No closed days yet. Approve a day's count and it shows here.</p>
+        <p className="empty">
+          {trend.closed_days.length === 0
+            ? "No closed days yet. Approve a day's count and it shows here."
+            : 'Nothing counted was sold or made on the closed days, so there is no recipe use to compare.'}
+        </p>
       ) : (
         <>
           <p className="muted">

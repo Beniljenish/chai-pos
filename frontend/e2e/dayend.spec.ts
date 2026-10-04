@@ -135,3 +135,79 @@ test('cashier: batches, wastage and a blind count; no rupees, no report', async 
   await count.getByRole('button', { name: 'Send recount' }).click();
   await expect(count.getByRole('status')).toContainText('Count sent to the owner');
 });
+
+test('phase 10: adherence trend, a large wastage for the owner, a handover count', async ({ page }) => {
+  test.setTimeout(180_000);
+  const sheet = () => page.getByRole('dialog');
+  await login(page, OWNER, 'E2E phase 10 phone');
+
+  // ---- 10.1: the trend sits under the day's report ----
+  await tab(page, 'Manage').click();
+  await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
+  await expect(page.getByRole('heading', { name: 'Recipe adherence, last 30 days' })).toBeVisible();
+
+  // ---- 10.2: any cashier wastage now waits for the owner ----
+  const pending = page.locator('.pending-wastage');
+  await pending.getByLabel("Ask me when a cashier's wastage is over (₹)").fill('0');
+  await pending.getByRole('button', { name: 'Save' }).click();
+  await expect(pending.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await shot(page, '46-wastage-limit');
+
+  await page.getByRole('button', { name: 'Log out' }).click();
+  await page.getByLabel('Mobile number').fill(CASHIER);
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await tab(page, 'Stock').click();
+  const w = page.locator('.wastage');
+  await w.getByLabel('Which drink').selectOption({ label: 'Masala tea' });
+  await w.getByRole('radio', { name: 'Spilled / dropped' }).click();
+  await w.getByRole('button', { name: 'Record wastage' }).click();
+  await expect(w.getByRole('status')).toContainText('Recorded: 1 × Masala tea');
+  await w.locator('details.history summary').click();
+  await expect(w.locator('.ledger li', { hasText: 'Masala tea' }).first()).toContainText('Waiting for the owner');
+  await expect(page.locator('main')).not.toContainText('₹'); // still blind to rupees
+
+  await page.getByRole('button', { name: 'Log out' }).click();
+  await page.getByLabel('Mobile number').fill(OWNER);
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await tab(page, 'Manage').click();
+  await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
+  const waiting = pending.locator('.ledger li', { hasText: 'Masala tea' });
+  await expect(waiting).toContainText('₹');
+  await shot(page, '47-wastage-to-check');
+  await waiting.getByRole('button', { name: 'Reject' }).click();
+  await expect(pending).toContainText('Nothing waiting for you.');
+
+  // ---- 10.3: milk is counted at each shift change ----
+  await page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true }).click();
+  await page.locator('.stock-list li', { hasText: 'Milk' }).click();
+  await sheet().getByRole('radio', { name: 'Every shift' }).click();
+  await expect(sheet()).toContainText('Counted at each shift change');
+  await sheet().getByRole('button', { name: 'Close' }).click();
+
+  await tab(page, 'Today').click();
+  const panel = page.getByRole('region', { name: 'Cash drawer' });
+  await panel.getByRole('button', { name: 'Start shift now' }).click();
+  await sheet().getByLabel('Cash in the drawer now (₹)').fill('500');
+  await sheet().getByRole('button', { name: 'Start shift with ₹500' }).click();
+  await panel.getByRole('button', { name: 'End shift' }).click();
+  const handover = sheet().locator('.handover');
+  await expect(handover).toContainText('Milk');
+  await expect(sheet().getByRole('button', { name: /End shift with/ })).toBeDisabled(); // stock first
+  await expect(handover).not.toContainText('Should be'); // blind
+  await handover.getByLabel('Loose (ml)').fill('1000');
+  await shot(page, '48-handover-count');
+  await handover.getByRole('button', { name: 'Send count' }).click();
+  await expect(sheet()).toContainText('Milk and fruit counted');
+  await sheet().getByLabel('₹500 notes').fill('1');
+  await sheet().getByRole('button', { name: 'End shift with ₹500' }).click();
+  await sheet().getByRole('button', { name: 'Done' }).click();
+
+  await tab(page, 'Manage').click();
+  await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
+  const periods = page.locator('.handover-report');
+  await expect(periods.getByRole('heading', { name: 'Shift handovers' })).toBeVisible();
+  await expect(periods.locator('.period-lines li', { hasText: 'Milk' }).first()).toBeVisible();
+  await shot(page, '49-shift-handovers');
+});

@@ -1677,7 +1677,10 @@ label.check.email-switch input {
 }
 .wastage,
 .count,
-.report {
+.report,
+.trend,
+.handover-report,
+.pending-wastage {
   margin-top: var(--s5);
 }
 .wastage > .primary,

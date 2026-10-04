@@ -15,6 +15,7 @@ It stays the single source of truth; this file only tracks the phase gates.
 | 3 | Blind counts, wastage codes, adherence %, shifts + cash, voids, reports | Variance matches a hand-worked sample day to the paise | Done: gate, voids, sales report, staff accounts, shifts + cash |
 | 4 | Deploy, backups, printing, 1-week recipe calibration in a real shop | 7 days live, no lost bills | Lost-bill detection and printing done; backups, Pro deploy, pilot week to do |
 | 5 | Restaurant service: tables, running orders, KOT, kitchen screen, bill then settle | A table order from two devices settles into one invoice | 5.1 engine and floor setup, 5.2 Tables screen (KOT, bill, settle, takeaway/delivery) done |
+| 10 | v1 gaps: 30-day SOP adherence trend, owner approval for large wastage, shift-level counts for milk and fruit | Shift periods add up to the day's variance to the paisa; a rejected wastage shows as missing | Done |
 
 ## Placeholder data
 

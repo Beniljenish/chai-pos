@@ -14,15 +14,11 @@ export function PendingWastage({ refreshKey, onDecided }: { refreshKey: number; 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The list reloads whenever the day's numbers change; the limit loads once, so a
+  // reload never wipes a value the owner is typing.
   const load = useCallback(async () => {
     try {
-      const [pending, shop] = await Promise.all([
-        api.get<WastageRow[]>('/wastage?pending=true'),
-        api.get<{ wastage_approval_paise: number }>('/shop'),
-      ]);
-      setRows(pending);
-      setLimit(String(shop.wastage_approval_paise / 100));
-      setSavedLimit(String(shop.wastage_approval_paise / 100));
+      setRows(await api.get<WastageRow[]>('/wastage?pending=true'));
     } catch (e) {
       setError(explainError(e));
     }
@@ -30,6 +26,15 @@ export function PendingWastage({ refreshKey, onDecided }: { refreshKey: number; 
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+  useEffect(() => {
+    api.get<{ wastage_approval_paise: number }>('/shop').then(
+      (shop) => {
+        setLimit(String(shop.wastage_approval_paise / 100));
+        setSavedLimit(String(shop.wastage_approval_paise / 100));
+      },
+      (e) => setError(explainError(e)),
+    );
+  }, []);
 
   async function decide(id: string, accept: boolean) {
     setBusy(id);
