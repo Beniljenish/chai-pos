@@ -74,7 +74,13 @@ function Shell() {
   return (
     <div className="app">
       <header className="topbar">
-        <img src="/icon-192.png" alt="" width={36} height={36} className="brand-mark" />
+        <img
+          src="/icon-192.png"
+          alt=""
+          width={36}
+          height={36}
+          className="brand-mark"
+        />
         <div className="where">
           <strong>{catalogue?.shop.name ?? "Taptallow"}</strong>
           <span className="muted">
@@ -117,28 +123,31 @@ function Shell() {
           </button>
         </nav>
         <SyncBadge />
-        <button className="quiet" onClick={logout}>
-          Log out
+        <button className="quiet logout" onClick={logout}>
+          <Icon name="logout" />
+          <span>Log out</span>
         </button>
       </header>
-      {(notice || (sync?.needsLogin && sync.lastError)) && (
-        <p className="banner" role="status">
-          {notice ?? sync?.lastError}
-        </p>
-      )}
-      {tab === "bill" ? (
-        <BillingScreen />
-      ) : tab === "tables" && tables ? (
-        <TablesScreen />
-      ) : tab === "today" ? (
-        <BillsScreen />
-      ) : isOwner ? (
-        <ManageScreen />
-      ) : (
-        <main className="manage">
-          <DayEndScreen />
-        </main>
-      )}
+      <div className="content">
+        {(notice || (sync?.needsLogin && sync.lastError)) && (
+          <p className="banner" role="status">
+            {notice ?? sync?.lastError}
+          </p>
+        )}
+        {tab === "bill" ? (
+          <BillingScreen />
+        ) : tab === "tables" && tables ? (
+          <TablesScreen />
+        ) : tab === "today" ? (
+          <BillsScreen />
+        ) : isOwner ? (
+          <ManageScreen />
+        ) : (
+          <main className="manage">
+            <DayEndScreen />
+          </main>
+        )}
+      </div>
     </div>
   );
 }

@@ -2940,8 +2940,16 @@ details[open] > .shift-head::after {
   gap: 2px;
   flex: none;
 }
-.head-actions button {
-  padding: 0 10px;
+.head-actions {
+  gap: 6px;
+}
+.head-actions button,
+.head-actions button.quiet {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
 }
 @media (max-width: 600px) {
   .manage-head h1 {
@@ -2974,5 +2982,518 @@ h1 {
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--steel-deep) transparent;
+  }
+}
+
+/* =====================================================================
+   Design A (Oct 2026): the look Benil chose from the mockups.
+   Light, quiet surfaces with hairline borders; jamun for where you are,
+   berry only for the one button that finishes the job. Tablets get a left
+   rail for the four screens; phones keep the bottom tab bar.
+   ===================================================================== */
+:root {
+  --steel: #f6f5f9;
+  --line: #ece9f2;
+  --ink-soft: #625d76;
+  --ink-faint: #9a96aa;
+  /* Every card that uses --shadow also gets a 1 px hairline, so cards read
+     as cards on white and on the grey ground alike. */
+  --shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(23, 18, 43, 0.04), 0 2px 8px rgba(23, 18, 43, 0.04);
+  --radius-panel: 18px;
+}
+body {
+  background: var(--steel);
+}
+
+/* ---------- top bar (phones and narrow tablets): white, the icon, one row ---------- */
+.topbar {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 0 var(--line);
+}
+.where .muted,
+.where .muted button,
+.where .muted a {
+  color: var(--ink-faint);
+}
+.topbar button {
+  color: var(--ink);
+}
+.topbar button.quiet {
+  color: var(--ink-soft);
+}
+.topbar .sync-badge {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+}
+.sync-badge .dot {
+  background: var(--leaf);
+}
+.tabs {
+  background: var(--steel);
+}
+.tabs button {
+  color: var(--ink-soft);
+}
+.tabs button[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--brand);
+  box-shadow: var(--shadow);
+}
+.brand-mark {
+  box-shadow: none;
+}
+.logout .icon {
+  display: none;
+}
+@media (max-width: 600px) {
+  .brand-mark {
+    display: block;
+    width: 32px;
+    height: 32px;
+  }
+  /* Log out keeps its name for screen readers; the phone shows the icon. */
+  .logout .icon {
+    display: block;
+  }
+  .logout span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .tabs {
+    background: rgba(255, 255, 255, 0.92);
+  }
+  .tabs button[aria-pressed='true'] {
+    background: var(--brand-soft);
+    box-shadow: none;
+  }
+  .tabs button[aria-pressed='true'] svg {
+    color: var(--accent);
+  }
+}
+
+/* ---------- tablets: the left rail ---------- */
+@media (min-width: 820px) {
+  .app {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: start;
+  }
+  .app > .topbar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 18px 10px 14px;
+    background: linear-gradient(180deg, #2a0e4b, #3b1468);
+    color: #fff;
+    box-shadow: none;
+  }
+  .content {
+    min-width: 0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  .content > .billing {
+    flex: 1;
+  }
+  .brand-mark {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.18);
+    order: 0;
+  }
+  /* Shop, tablet and who: small, at the foot of the rail. */
+  .where {
+    order: 5;
+    margin: 0;
+    width: 100%;
+    text-align: center;
+    justify-items: center;
+    gap: 2px;
+    line-height: 1.2;
+  }
+  .where strong {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #cdbde6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .where .muted {
+    font-size: 0.66rem;
+    color: #a996c7;
+  }
+  .where .muted button,
+  .where .muted a {
+    color: #fff;
+  }
+  .tabs {
+    order: 1;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+    margin: 18px 0 auto;
+    background: none;
+  }
+  .tabs button {
+    width: 76px;
+    min-height: 66px;
+    padding: 6px 0;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 4px;
+    border-radius: 16px;
+    color: #cdbde6;
+    font-size: 0.72rem;
+  }
+  .tabs svg {
+    display: block;
+  }
+  .tabs .long {
+    display: none;
+  }
+  .tabs .short {
+    display: inline;
+  }
+  .tabs button[aria-pressed='true'] {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    box-shadow: none;
+  }
+  .tabs button[aria-pressed='true'] svg {
+    color: #ff8db1;
+  }
+  .topbar .sync-badge {
+    order: 4;
+    width: 76px;
+    min-height: 0;
+    padding: 8px 4px;
+    border-radius: 14px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.68rem;
+    text-align: center;
+    background: rgba(123, 224, 166, 0.12);
+    color: #8be8b4;
+  }
+  .topbar .sync-badge .long {
+    display: none;
+  }
+  .topbar .sync-badge .short {
+    display: inline;
+  }
+  .topbar .sync-badge.wait {
+    background: rgba(255, 196, 92, 0.16);
+    color: #ffd27f;
+  }
+  .topbar .sync-badge.bad {
+    background: rgba(255, 120, 150, 0.16);
+    color: #ff9fbe;
+  }
+  .sync-badge .dot {
+    background: currentColor;
+  }
+  .logout {
+    order: 6;
+    width: 76px;
+    min-height: 48px;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    padding: 6px 0;
+    font-size: 0.68rem;
+  }
+  .topbar button.quiet.logout {
+    color: #a996c7;
+  }
+  .logout .icon {
+    display: block;
+  }
+}
+
+/* ---------- menu: chips and tiles ---------- */
+.categories button {
+  border: 1px solid var(--line);
+  box-shadow: none;
+  color: var(--ink-soft);
+}
+.categories button[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 4px 12px rgba(23, 18, 43, 0.18);
+}
+.grid {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+}
+.tile {
+  min-height: 128px;
+  padding: 14px;
+  gap: 10px;
+  justify-content: flex-start;
+  border-radius: 16px;
+}
+.tile.in-bill {
+  box-shadow: 0 0 0 1.5px var(--brand), 0 0 0 5px var(--brand-soft);
+}
+.tile-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.02em;
+}
+.tone-0 { background: #fde8ef; color: #c42a5d; }
+.tone-1 { background: #efe6fb; color: #5a2a96; }
+.tone-2 { background: #fff1d6; color: #a7650a; }
+.tone-3 { background: #e3f5ec; color: #13865a; }
+.tone-4 { background: #e5eefc; color: #2c5cc5; }
+.tile-name {
+  font-size: 0.98rem;
+}
+.tile-foot {
+  margin-top: auto;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.tile-rate {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.tile-count {
+  top: 12px;
+  right: 12px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 9px;
+}
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .tile {
+    min-height: 116px;
+  }
+}
+
+/* ---------- till ---------- */
+.till:not(.open) {
+  background: var(--ink);
+  box-shadow: 0 10px 24px rgba(23, 18, 43, 0.3);
+}
+.lines li {
+  border-bottom: 1px dashed var(--steel-deep);
+}
+.stepper button {
+  width: 44px;
+  min-height: 40px;
+  color: var(--brand);
+}
+.till .chip[aria-pressed='true'] {
+  border-color: transparent;
+}
+.till-sums {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px var(--s3);
+  margin: var(--s3) 0 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.till-sums dd {
+  margin: 0;
+  text-align: right;
+}
+.total strong {
+  font-size: 2.6rem;
+  letter-spacing: -0.03em;
+}
+.payment {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.payment button {
+  min-height: 58px;
+  padding: 6px 2px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+/* The chosen payment: soft jamun with a jamun edge (the Save button stays the loud one). */
+.till .payment button[aria-checked='true'] {
+  background: var(--brand-soft);
+  border: 2px solid var(--brand);
+  color: var(--brand);
+}
+button.save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 8px 20px rgba(226, 62, 114, 0.3);
+}
+.save-amount {
+  font-weight: 700;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+.save-amount::before {
+  content: '· ';
+}
+@media (min-width: 820px) {
+  .billing {
+    grid-template-columns: minmax(0, 1fr) 400px;
+  }
+  .menu {
+    padding: var(--s5);
+  }
+  /* The till is the right-hand side of the screen, not a floating card. */
+  .till,
+  .till:not(.open) {
+    top: 0;
+    height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: -1px 0 0 var(--line);
+    background: var(--paper);
+  }
+  .till-body {
+    padding: var(--s5) var(--s5) var(--s4);
+  }
+}
+
+/* ---------- headline numbers (Today, and any page that has them) ---------- */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3);
+  margin: var(--s3) 0 var(--s4);
+}
+.kpi {
+  background: var(--paper);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.kpi-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+.kpi-value.warn {
+  color: var(--turmeric);
+}
+.kpi-note {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+.kpi-note.good {
+  color: var(--leaf);
+}
+@media (max-width: 600px) {
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .kpi-value {
+    font-size: 1.4rem;
+  }
+}
+.bills {
+  max-width: 1100px;
+}
+.bill-list {
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+  gap: 0;
+  overflow: hidden;
+}
+.bill-list li + li {
+  border-top: 1px solid var(--line);
+}
+.bill-list button {
+  box-shadow: none;
+  border-radius: 0;
+  min-height: 60px;
+  padding: 0 var(--s4);
+}
+
+/* ---------- page headers ---------- */
+.manage-head h1 {
+  font-size: 1.6rem;
+}
+
+/* ---------- Manage on tablets: a white sidebar the height of the screen ---------- */
+@media (min-width: 820px) {
+  /* Only the owner's Manage has the sidebar; a cashier's Stock page is one column. */
+  .manage:has(> .subnav) {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 0;
+    min-height: 100dvh;
+  }
+  .manage:not(:has(> .subnav)) {
+    display: block;
+    max-width: 1100px;
+    padding: var(--s5);
+  }
+  .subnav {
+    top: 0;
+    height: 100dvh;
+    overflow-y: auto;
+    border-radius: 0;
+    box-shadow: 1px 0 0 var(--line);
+    padding: var(--s5) var(--s3);
+  }
+  .subnav button[aria-pressed='true'] {
+    background: var(--brand-soft);
+    color: var(--brand);
+    box-shadow: none;
+  }
+  .subnav button[aria-pressed='true'] .icon {
+    color: var(--brand);
+  }
+  .manage-body {
+    padding: var(--s5);
+    max-width: 1100px;
+    width: 100%;
   }
 }
