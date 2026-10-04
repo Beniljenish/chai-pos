@@ -7,7 +7,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models import BaseUnit, DayCountStatus, IngredientKind, WastageReason
+from app.models import BaseUnit, DayCountStatus, IngredientKind, WastageReason, WastageStatus
 from app.schemas_catalogue import PackQtyIn, PackUnitOut, Qty
 
 Loose = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=3)]
@@ -38,6 +38,8 @@ class WastageOut(BaseModel):
     value_paise: int | None  # hidden from cashiers
     created_by_name: str
     created_at: datetime
+    status: WastageStatus = WastageStatus.approved
+    decided_by_name: str | None = None
 
 
 class CountLineIn(BaseModel):
@@ -111,6 +113,7 @@ class ReportOut(BaseModel):
     flagged_count: int
     wastage_paise: int
     wastage_by_reason: dict[str, int]
+    wastage_pending: int = 0  # entries waiting for the owner; the day cannot close until 0
     late_bills: int
     late_bills_explained_paise: int
 
@@ -137,3 +140,7 @@ class AdherenceOut(BaseModel):
     closed_days: list[date]
     overall_pct: Decimal | None  # weighted by value
     lines: list[TrendLineOut]
+
+
+class WastageDecisionIn(BaseModel):
+    accept: bool

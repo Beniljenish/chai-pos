@@ -141,7 +141,8 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
         <details className="history">
           <summary>
             Today: {rows.length} entr{rows.length === 1 ? 'y' : 'ies'}
-            {isOwner && ` · ${formatRupees(rows.reduce((a, r) => a + (r.value_paise ?? 0), 0))}`}
+            {isOwner &&
+              ` · ${formatRupees(rows.reduce((a, r) => a + (r.status === 'rejected' ? 0 : (r.value_paise ?? 0)), 0))}`}
           </summary>
           <ul className="ledger">
             {rows.map((r) => (
@@ -152,6 +153,8 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
                   <span className="muted">
                     {reasonLabel(r.reason)} · {r.created_by_name}
                   </span>
+                  {r.status === 'pending' && <span className="flag wait">Waiting for the owner</span>}
+                  {r.status === 'rejected' && <span className="flag bad">Not accepted</span>}
                 </span>
                 <span />
                 <span className="num right">{r.value_paise !== null ? formatRupees(r.value_paise) : ''}</span>

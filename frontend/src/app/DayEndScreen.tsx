@@ -4,6 +4,7 @@ import { countableDays } from '../lib/dayend';
 import { AdherenceTrend } from './AdherenceTrend';
 import { CountPanel } from './CountPanel';
 import { DayReport } from './DayReport';
+import { PendingWastage } from './PendingWastage';
 import { PrepPanel } from './PrepPanel';
 import { useSession } from './session';
 import { WastagePanel } from './WastagePanel';
@@ -25,6 +26,7 @@ export function DayEndScreen() {
       </header>
       {!isOwner && <PrepPanel />}
       <WastagePanel onLogged={bump} />
+      {isOwner && <PendingWastage refreshKey={refresh} onDecided={bump} />}
       <div className="segmented day-pick" role="radiogroup" aria-label="Which day">
         {days.map((d) => (
           <button key={d.date} role="radio" aria-checked={day === d.date} onClick={() => setDay(d.date)}>

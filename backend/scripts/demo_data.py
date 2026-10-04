@@ -1028,6 +1028,18 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
         # Wastage
         if not is_today:
             api.at(ist(d, 21, 30))
+            if rnd.random() < 0.25:
+                # Big enough (about Rs 220) to wait for the owner's yes or no
+                api.post(
+                    "/wastage",
+                    ravi,
+                    {
+                        "ingredient_id": ids["Milk"]["id"],
+                        "qty": "4000",
+                        "reason": "spoiled",
+                        "note": "Fridge was off overnight",
+                    },
+                )
             if rnd.random() < 0.5:
                 api.post(
                     "/wastage",
@@ -1127,6 +1139,8 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
             api.post(f"/day-counts/{d.isoformat()}/counts", evening, {"lines": again})
         if d < today - timedelta(days=1):  # yesterday is left for the owner to approve
             api.at(ist(d + timedelta(days=1), 5, 0))
+            for w in api.get("/wastage?pending=true", owner):
+                api.post(f"/wastage/{w['id']}/decision", owner, {"accept": rnd.random() < 0.8})
             api.post(f"/day-counts/{d.isoformat()}/approve", owner)
 
     # An order still open for the owner to see on Purchases

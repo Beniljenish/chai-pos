@@ -44,6 +44,12 @@ class WastageReason(enum.StrEnum):
 OWNER_ONLY_REASONS = frozenset({WastageReason.complimentary, WastageReason.theft})
 
 
+class WastageStatus(enum.StrEnum):
+    approved = "approved"  # counts as a known loss (owner entries, small ones, or decided)
+    pending = "pending"  # a cashier's large entry, waiting for the owner
+    rejected = "rejected"  # the owner did not accept it: reversed, so it shows as missing
+
+
 class WastageEntry(IdMixin, TenantScoped, Base):
     """One loss with a reason. Exactly one of ingredient / menu item: a dropped
     juice deducts its whole recipe; spoiled milk deducts milk."""
@@ -68,6 +74,13 @@ class WastageEntry(IdMixin, TenantScoped, Base):
     business_date: Mapped[date] = mapped_column(Date, index=True)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), _fk("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[WastageStatus] = mapped_column(
+        Enum(WastageStatus, name="wastage_status"),
+        default=WastageStatus.approved,
+        server_default=WastageStatus.approved.value,
+    )
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), _fk("users.id"))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class DayCountStatus(enum.StrEnum):

@@ -54,6 +54,10 @@ class Shop(IdMixin, TimestampMixin, Base):
     # The most a cashier may take off a bill, in basis points of its value
     # (1000 = 10%). Over it, the bill is still saved and the owner sees it flagged.
     max_discount_bp: Mapped[int] = mapped_column(Integer, default=1000, server_default="1000")
+    # A cashier's wastage worth more than this (paise, at cost) waits for the owner.
+    wastage_approval_paise: Mapped[int] = mapped_column(
+        Integer, default=20000, server_default="20000"
+    )
 
 
 class User(IdMixin, TimestampMixin, TenantScoped, Base):
@@ -153,6 +157,7 @@ from app.models.dayend import (  # noqa: E402
     DayCountStatus,
     WastageEntry,
     WastageReason,
+    WastageStatus,
 )
 from app.models.email import EmailKind, EmailOutbox, EmailStatus  # noqa: E402
 
@@ -194,6 +199,7 @@ __all__ = [
     "OWNER_ONLY_REASONS",
     "WastageEntry",
     "WastageReason",
+    "WastageStatus",
 ]
 from app.models.shifts import CashMovement, CashMovementKind, Shift  # noqa: E402
 

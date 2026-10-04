@@ -2469,3 +2469,25 @@ details[open] > .shift-head::after {
   display: flex;
   justify-content: space-between;
 }
+
+/* Phase 10.2: wastage waiting for the owner */
+.pending-wastage .ledger li {
+  grid-template-columns: 1fr auto;
+}
+.pending-wastage .row-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--s2);
+}
+.pending-wastage .row-actions button {
+  flex: 1;
+}
+.inline-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s2);
+}
+.inline-setting label {
+  flex: 1 1 14rem;
+}

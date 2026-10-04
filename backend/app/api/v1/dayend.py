@@ -4,6 +4,7 @@ Cashiers record wastage and count; they never see expected quantities or
 rupee values (blind counts). The owner sees the variance report and approves.
 """
 
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -22,6 +23,7 @@ from app.models import (
     Shop,
     User,
     WastageEntry,
+    WastageStatus,
 )
 from app.schemas_dayend import (
     AdherenceOut,
@@ -33,6 +35,7 @@ from app.schemas_dayend import (
     SubmitOut,
     TrendLineOut,
     TrendPointOut,
+    WastageDecisionIn,
     WastageIn,
     WastageOut,
 )
@@ -68,6 +71,7 @@ def record_wastage(body: WastageIn, caller: Caller = Depends(get_caller)):
             note=body.note.strip(),
             user_id=caller.user.id,
             is_owner=caller.ctx.role == Role.owner,
+            approval_paise=caller.db.scalar(select(Shop.wastage_approval_paise)),
         )
     except PermissionError as e:
         caller.db.rollback()
@@ -80,14 +84,33 @@ def record_wastage(body: WastageIn, caller: Caller = Depends(get_caller)):
 
 
 @router.get("/wastage", response_model=list[WastageOut])
-def list_wastage(business_date: date | None = None, caller: Caller = Depends(get_caller)):
-    day = business_date or business_date_of(utcnow())
-    entries = caller.db.scalars(
-        select(WastageEntry)
-        .where(WastageEntry.business_date == day)
-        .order_by(WastageEntry.created_at.desc())
-    ).all()
-    return _wastage_out(caller, entries)
+def list_wastage(
+    business_date: date | None = None, pending: bool = False, caller: Caller = Depends(get_caller)
+):
+    """A day's entries, or (`pending=true`) every entry still waiting for the owner."""
+    q = select(WastageEntry).order_by(WastageEntry.created_at.desc())
+    if pending:
+        q = q.where(WastageEntry.status == WastageStatus.pending)
+    else:
+        q = q.where(WastageEntry.business_date == (business_date or business_date_of(utcnow())))
+    return _wastage_out(caller, caller.db.scalars(q).all())
+
+
+@router.post("/wastage/{entry_id}/decision", response_model=WastageOut)
+def decide_wastage(
+    entry_id: uuid.UUID, body: WastageDecisionIn, caller: Caller = Depends(require_owner)
+):
+    entry = get_or_404(caller.db, WastageEntry, entry_id)
+    try:
+        dayend.decide_wastage(caller.db, entry, accept=body.accept, user_id=caller.user.id)
+    except dayend.DayLocked as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    except dayend.DayEndError as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    caller.db.commit()
+    return _wastage_out(caller, [entry])[0]
 
 
 def _wastage_out(caller: Caller, entries) -> list[WastageOut]:
@@ -110,6 +133,8 @@ def _wastage_out(caller: Caller, entries) -> list[WastageOut]:
                 value_paise=e.value_paise if owner else None,
                 created_by_name=users.get(e.created_by, "?"),
                 created_at=e.created_at,
+                status=e.status,
+                decided_by_name=users.get(e.decided_by) if e.decided_by else None,
             )
         )
     return out
@@ -196,7 +221,7 @@ def report(business_date: date, caller: Caller = Depends(require_owner)):
     users = dict(caller.db.execute(select(User.id, User.name)).all())
     wastage = caller.db.execute(
         select(WastageEntry.reason, func.sum(WastageEntry.value_paise))
-        .where(WastageEntry.business_date == day)
+        .where(WastageEntry.business_date == day, WastageEntry.status != WastageStatus.rejected)
         .group_by(WastageEntry.reason)
     ).all()
     late, late_paise = (
@@ -241,6 +266,7 @@ def report(business_date: date, caller: Caller = Depends(require_owner)):
         flagged_count=sum(r.flagged for r in lines),
         wastage_paise=sum(int(v or 0) for _, v in wastage),
         wastage_by_reason={r.value: int(v or 0) for r, v in wastage},
+        wastage_pending=dayend.pending_wastage(caller.db, day),
         late_bills=late,
         late_bills_explained_paise=late_paise,
     )

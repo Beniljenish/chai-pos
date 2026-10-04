@@ -33,6 +33,7 @@ from app.models import (
     StockLedger,
     WastageEntry,
     WastageReason,
+    WastageStatus,
 )
 from app.services.billing import consumption_for_line
 from app.services.recipes import Q3, resolve_recipe
@@ -79,7 +80,11 @@ def record_wastage(
     note: str,
     user_id: uuid.UUID,
     is_owner: bool,
+    approval_paise: int | None = None,
 ) -> WastageEntry:
+    """`approval_paise`: a cashier's entry worth more than this waits for the
+    owner. Its stock leaves the ledger at once (the milk did spoil); only the
+    explanation waits."""
     if reason in OWNER_ONLY_REASONS and not is_owner:
         raise PermissionError(f"Only the owner can record '{reason.value}'")
     now = utcnow()
@@ -112,14 +117,17 @@ def record_wastage(
 
     targets = db.scalars(select(Ingredient).where(Ingredient.id.in_(used))).all()
     costs = unit_costs(db, list(targets))
+    value = _paise(sum((q * costs.get(i, ZERO) for i, q in used.items()), ZERO))
+    pending = not is_owner and approval_paise is not None and value > approval_paise
     entry = WastageEntry(
+        status=WastageStatus.pending if pending else WastageStatus.approved,
         ingredient_id=ingredient.id if ingredient else None,
         menu_item_id=menu_item.id if menu_item else None,
         recipe_id=recipe_id,
         qty=qty,
         reason=reason,
         note=note,
-        value_paise=_paise(sum((q * costs.get(i, ZERO) for i, q in used.items()), ZERO)),
+        value_paise=value,
         business_date=bdate,
         created_by=user_id,
         created_at=now,
@@ -140,6 +148,49 @@ def record_wastage(
                 )
             )
     return entry
+
+
+def decide_wastage(db: Session, entry: WastageEntry, *, accept: bool, user_id: uuid.UUID) -> None:
+    """The owner's decision on a large entry. Rejecting it adds the stock back
+    as new ledger rows (never edits), so the loss shows as missing at day end."""
+    if entry.status != WastageStatus.pending:
+        raise DayEndError("This wastage entry was already decided")
+    closed = db.scalar(
+        select(DayCount.id).where(
+            DayCount.business_date == entry.business_date,
+            DayCount.status == DayCountStatus.approved,
+        )
+    )
+    if closed is not None and not accept:
+        raise DayLocked("That day is already closed; its stock can no longer change")
+    if not accept:
+        rows = db.execute(
+            select(StockLedger.ingredient_id, StockLedger.qty_delta).where(
+                StockLedger.ref_type == "wastage", StockLedger.ref_id == entry.id
+            )
+        ).all()
+        for ingredient_id, q in sorted(rows, key=lambda r: str(r[0])):
+            db.add(
+                StockLedger(
+                    ingredient_id=ingredient_id,
+                    qty_delta=-q,
+                    reason=LedgerReason.wastage,
+                    ref_type="wastage_rejected",
+                    ref_id=entry.id,
+                    business_date=entry.business_date,
+                    created_by=user_id,
+                )
+            )
+    entry.status = WastageStatus.approved if accept else WastageStatus.rejected
+    entry.decided_by, entry.decided_at = user_id, utcnow()
+
+
+def pending_wastage(db: Session, bdate: date) -> int:
+    return db.scalar(
+        select(func.count()).where(
+            WastageEntry.business_date == bdate, WastageEntry.status == WastageStatus.pending
+        )
+    )
 
 
 # ---------------------------------------------------------------- movements
@@ -414,6 +465,12 @@ def approve(db: Session, bdate: date, user_id: uuid.UUID) -> DayCount:
         raise DayLocked("This day is already closed")
     if dc.status != DayCountStatus.submitted:
         raise DayEndError("The count is not finished yet (recounts are still pending)")
+    waiting = pending_wastage(db, bdate)
+    if waiting:
+        raise DayEndError(
+            f"{waiting} wastage {'entry is' if waiting == 1 else 'entries are'} waiting for "
+            "your decision. Accept or reject them first: a rejected one counts as missing."
+        )
     lines = report_lines(db, dc)
     now = db.scalar(select(func.now()))  # database clock: compared with ledger created_at
     by_id = {ln.ingredient_id: ln for ln in dc.lines}
@@ -610,12 +667,14 @@ __all__ = [
     "TrendPoint",
     "adherence_trend",
     "approve",
+    "decide_wastage",
     "find_day",
     "get_or_create_day",
     "late_bill_correction",
     "late_bills_explained",
     "movements",
     "overall_adherence",
+    "pending_wastage",
     "record_wastage",
     "report_lines",
     "submit_counts",

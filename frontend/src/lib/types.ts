@@ -213,6 +213,9 @@ export interface WastageRow {
   value_paise: number | null;
   created_by_name: string;
   created_at: string;
+  /** pending: a cashier's large entry waiting for the owner; rejected: counts as missing. */
+  status: 'approved' | 'pending' | 'rejected';
+  decided_by_name: string | null;
 }
 
 export interface SheetItem {
@@ -269,6 +272,7 @@ export interface DayReport {
   flagged_count: number;
   wastage_paise: number;
   wastage_by_reason: Record<string, number>;
+  wastage_pending: number;
   late_bills: number;
   late_bills_explained_paise: number;
 }

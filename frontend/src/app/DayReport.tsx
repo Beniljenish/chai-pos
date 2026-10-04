@@ -179,6 +179,11 @@ export function DayReport({
           {rep.late_bills > 0 &&
             ` ${rep.late_bills} bill${rep.late_bills === 1 ? '' : 's'} arrived after closing and explain ${formatRupees(rep.late_bills_explained_paise)} of the missing amount.`}
         </p>
+      ) : rep.status === 'submitted' && rep.wastage_pending > 0 ? (
+        <p className="warn">
+          {rep.wastage_pending} wastage {rep.wastage_pending === 1 ? 'entry is' : 'entries are'} waiting for you (above).
+          Accept or reject {rep.wastage_pending === 1 ? 'it' : 'them'} before closing the day.
+        </p>
       ) : rep.status === 'submitted' ? (
         confirming ? (
           <div className="warn" role="alert">
