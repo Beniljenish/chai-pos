@@ -2,6 +2,23 @@
   "about": "How an order's state follows from its events. backend/app/services/orders.py and frontend/src/lib/orders.ts must both give exactly `expect` (only the keys listed are compared). Events are applied in order of `at`, then `id`, whatever order they arrive in.",
   "cases": [
     {
+      "name": "consent to messages belongs to the number it was given for",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "takeaway", "table_id": null, "covers": 0, "customer_name": "Priya", "customer_phone": "9876543210", "message_ok": true}},
+        {"id": "e2", "kind": "details", "at": "2026-10-04T06:05:00Z", "by": "ravi", "data": {"customer_phone": "9123456789"}}
+      ],
+      "expect": {"customer_phone": "9123456789", "message_ok": false}
+    },
+    {
+      "name": "consent given later, and kept when other details change",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "takeaway", "table_id": null, "covers": 0, "customer_phone": "9876543210"}},
+        {"id": "e2", "kind": "details", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"customer_phone": "9876543210", "message_ok": true}},
+        {"id": "e3", "kind": "details", "at": "2026-10-04T06:02:00Z", "by": "ravi", "data": {"customer_name": "Priya", "customer_phone": "9876543210"}}
+      ],
+      "expect": {"customer_name": "Priya", "message_ok": true}
+    },
+    {
       "name": "dine-in: open, two KOTs, bill, settle",
       "events": [
         {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "dine_in", "table_id": "t4", "covers": 2}},

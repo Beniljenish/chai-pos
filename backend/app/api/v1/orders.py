@@ -19,7 +19,7 @@ from app.schemas_orders import (
     TableIn,
     TableUpdate,
 )
-from app.services import orders
+from app.services import messages, orders
 
 router = APIRouter(tags=["orders"])
 
@@ -124,6 +124,7 @@ def sync_orders(body: OrderSyncRequest, caller: Caller = Depends(get_caller)):
         staff_ids=frozenset(caller.db.scalars(select(User.id))),
     )
     results = orders.ingest(ctx, [e.model_dump() for e in body.events])
+    messages.deliver_pending(caller.db)  # "your order is ready"; never raises
     return OrderSyncResponse(
         results=[OrderEventResult(id=i, status=s, reason=r) for i, s, r in results]
     )

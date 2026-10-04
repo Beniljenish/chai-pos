@@ -236,6 +236,7 @@ export function TablesScreen() {
 function NewOrderSheet({ kind, onClose, onStart }: { kind: 'takeaway' | 'delivery'; onClose(): void; onStart(s: OpenInput): void }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [messageOk, setMessageOk] = useState(false);
   const [note, setNote] = useState('');
   const phoneOk = phone === '' || /^\d{10}$/.test(phone);
   const ready = phoneOk && (kind === 'takeaway' || phone !== '');
@@ -247,9 +248,13 @@ function NewOrderSheet({ kind, onClose, onStart }: { kind: 'takeaway' | 'deliver
       </label>
       <label>
         Phone {kind === 'takeaway' && <span className="muted">(optional)</span>}
-        <input inputMode="numeric" value={phone} maxLength={10} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} />
+        <input inputMode="numeric" value={phone} maxLength={10} onChange={(e) => {
+            setPhone(e.target.value.replace(/\D/g, ''));
+            setMessageOk(false); // consent is for one number
+          }} />
       </label>
       {!phoneOk && <p className="error">A phone number has 10 digits.</p>}
+      <ConsentCheck phone={phone} checked={messageOk} onChange={setMessageOk} />
       {kind === 'delivery' && (
         <label>
           Address or note
@@ -260,7 +265,9 @@ function NewOrderSheet({ kind, onClose, onStart }: { kind: 'takeaway' | 'deliver
         <button
           className="primary"
           disabled={!ready}
-          onClick={() => onStart({ orderType: kind, customerName: name.trim(), customerPhone: phone, note: note.trim() })}
+          onClick={() =>
+            onStart({ orderType: kind, customerName: name.trim(), customerPhone: phone, messageOk: messageOk && phone !== '', note: note.trim() })
+          }
         >
           Start order
         </button>
@@ -804,6 +811,7 @@ function OrderScreen({
             covers,
             customerName: state?.customer_name ?? start.customerName ?? '',
             customerPhone: state?.customer_phone ?? start.customerPhone ?? '',
+            messageOk: state?.message_ok ?? start.messageOk ?? false,
             note: state?.note ?? start.note ?? '',
           }}
           onClose={() => setOverlay(null)}
@@ -814,6 +822,9 @@ function OrderScreen({
                 if (d.covers !== state.covers) changed.covers = d.covers;
                 if (d.customerName !== state.customer_name) changed.customer_name = d.customerName;
                 if (d.customerPhone !== state.customer_phone) changed.customer_phone = d.customerPhone;
+                const ok = d.messageOk && d.customerPhone !== '';
+                // Sent with the number whenever the number changes: consent is per number.
+                if (ok !== state.message_ok || 'customer_phone' in changed) changed.message_ok = ok;
                 if (d.note !== state.note) changed.note = d.note;
                 if (Object.keys(changed).length) {
                   await act(db, orderId, 'details', changed, by);
@@ -889,6 +900,7 @@ function emptyFor(start: OpenInput) {
     covers: start.covers ?? 0,
     customer_name: start.customerName ?? '',
     customer_phone: start.customerPhone ?? '',
+    message_ok: Boolean(start.messageOk && start.customerPhone),
     note: start.note ?? '',
     status: 'open' as const,
     opened_at: null,
@@ -1039,7 +1051,22 @@ interface Details {
   covers: number;
   customerName: string;
   customerPhone: string;
+  messageOk: boolean;
   note: string;
+}
+
+/**
+ * Messages go only to customers who said yes for that number (README, Phase 8b).
+ * Shown once a full number is typed; off by default.
+ */
+function ConsentCheck({ phone, checked, onChange }: { phone: string; checked: boolean; onChange(v: boolean): void }) {
+  if (!/^\d{10}$/.test(phone)) return null;
+  return (
+    <label className="check">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      Customer agrees to get the receipt and &quot;order ready&quot; on this number by iMessage
+    </label>
+  );
 }
 
 function DetailsSheet({
@@ -1079,10 +1106,11 @@ function DetailsSheet({
           inputMode="numeric"
           value={d.customerPhone}
           maxLength={10}
-          onChange={(e) => setD({ ...d, customerPhone: e.target.value.replace(/\D/g, '') })}
+          onChange={(e) => setD({ ...d, customerPhone: e.target.value.replace(/\D/g, ''), messageOk: false })}
         />
       </label>
       {!phoneOk && <p className="error">A phone number has 10 digits.</p>}
+      <ConsentCheck phone={d.customerPhone} checked={d.messageOk} onChange={(v) => setD({ ...d, messageOk: v })} />
       <label>
         Note
         <input value={d.note} maxLength={200} onChange={(e) => setD({ ...d, note: e.target.value })} />
