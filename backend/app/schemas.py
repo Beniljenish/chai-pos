@@ -150,18 +150,30 @@ class DeviceUpdate(BaseModel):
 
 
 # --- tablet health ---
-FyKey = Annotated[str, Field(pattern=r"^\d{2}-\d{2}$")]
+FY_KEY = re.compile(r"\d{2}-\d{2}")
 
 
 class DeviceReportIn(BaseModel):
     """What a tablet holds, sent whenever it syncs (see services/health.py)."""
 
-    seq_by_fy: dict[FyKey, Annotated[int, Field(ge=0, le=999_999)]]
+    seq_by_fy: Annotated[dict[str, Annotated[int, Field(ge=0, le=999_999)]], Field(max_length=50)]
     pending_bills: Annotated[int, Field(ge=0)]
     pending_ops: Annotated[int, Field(ge=0)] = 0
     rejected: Annotated[int, Field(ge=0)] = 0
     oldest_pending_at: datetime | None = None
     # Invoice sequences still on the tablet (waiting or refused): not lost.
-    held_seqs_by_fy: dict[FyKey, Annotated[list[int], Field(max_length=2000)]] = {}
+    held_seqs_by_fy: Annotated[
+        dict[str, Annotated[list[int], Field(max_length=2000)]], Field(max_length=50)
+    ] = {}
+
+    @field_validator("seq_by_fy", "held_seqs_by_fy")
+    @classmethod
+    def only_financial_years(cls, v: dict) -> dict:
+        """Keep the "26-27" keys and drop anything else. Tablets keep other
+        counters in the same store (the kitchen ticket count, `kot:<date>`), and
+        an app that sent them once got every later report refused: the owner
+        then never heard from that tablet again."""
+        return {k: n for k, n in v.items() if FY_KEY.fullmatch(k)}
+
     persisted_storage: bool | None = None
     app_version: Annotated[str, Field(max_length=40)] | None = None

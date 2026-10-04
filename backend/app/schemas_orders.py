@@ -113,9 +113,17 @@ class OrderEventIn(BaseModel):
         return self
 
 
+class RawEvent(BaseModel):
+    """Only what is needed to answer for an event; the rest is checked one event
+    at a time (OrderEventIn), so one malformed event cannot block a batch."""
+
+    model_config = {"extra": "allow"}
+    id: uuid.UUID
+
+
 class OrderSyncRequest(BaseModel):
     device_id: uuid.UUID
-    events: Annotated[list[OrderEventIn], Field(min_length=1, max_length=200)]
+    events: Annotated[list[RawEvent], Field(min_length=1, max_length=200)]
 
 
 class OrderEventResult(BaseModel):

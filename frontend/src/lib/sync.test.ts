@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import type { Api } from './api';
-import { NetworkError } from './api';
+import { HttpError, NetworkError } from './api';
 import { saveBill } from './billing';
 import { testCatalogue } from './test-fixtures';
 import { PosDB } from './db';
@@ -103,6 +103,39 @@ describe('SyncWorker.kick', () => {
     await running;
     expect(seen.at(-1)).toBe(0);
     worker.stop();
+  });
+});
+
+describe('SyncWorker: one stuck kind of record never holds back the bills', () => {
+  it('bills are still sent when the order events are refused', async () => {
+    const db = new PosDB(`s-${Math.random()}`);
+    const { openOrder } = await import('./orders');
+    await openOrder(db, { orderType: 'takeaway' }, 'u1');
+    const bill = await sale(db);
+    const sent: string[] = [];
+    const api = {
+      async post(path: string, body: { bills?: SyncBill[] }) {
+        sent.push(path);
+        if (path === '/sync/orders') throw new HttpError(422, 'Unprocessable');
+        return {
+          results: (body.bills ?? []).map((b) => ({
+            id: b.id, status: 'accepted', invoice_no: b.invoice_no, totals_mismatch: false, reason: null,
+          })),
+        };
+      },
+      async get() {
+        return { server_time: new Date().toISOString(), orders: [] };
+      },
+    } as unknown as Api;
+    const worker = new SyncWorker(api, db, 'dev');
+    let lastError: string | null = null;
+    worker.subscribe((st) => (lastError = st.lastError));
+    await worker.kick();
+    worker.stop();
+    expect(sent).toContain('/sync/bills');
+    expect((await db.bills.get(bill.id))?.status).toBe('synced');
+    // The failure is still shown: the order events are waiting.
+    expect(lastError).toBeTruthy();
   });
 });
 
