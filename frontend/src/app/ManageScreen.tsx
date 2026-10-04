@@ -75,15 +75,17 @@ export function ManageScreen() {
             <span className="subnav-label" aria-hidden="true">
               {g.label}
             </span>
-            {g.sections.map((s) => (
-              <button
-                key={s.id}
-                aria-pressed={section === s.id}
-                onClick={() => setSection(s.id)}
-              >
-                {s.label}
-              </button>
-            ))}
+            <div className="subnav-items">
+              {g.sections.map((s) => (
+                <button
+                  key={s.id}
+                  aria-pressed={section === s.id}
+                  onClick={() => setSection(s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         ))}
       </nav>

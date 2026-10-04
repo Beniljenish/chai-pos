@@ -1275,13 +1275,18 @@ select {
   padding-bottom: var(--s3);
 }
 .subnav-group {
+  display: grid;
+  grid-template-columns: 4.2rem minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+}
+.subnav-items {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 6px;
 }
 .subnav-label {
-  flex: 0 0 4.2rem;
+  padding-top: 14px;
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -1308,6 +1313,10 @@ select {
     gap: var(--s4);
   }
   .subnav-group {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .subnav-items {
     display: grid;
     gap: 4px;
   }
