@@ -51,7 +51,7 @@ class BillLineIn(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=80)]
     unit_price_paise: Paise
     qty: Annotated[int, Field(ge=1, le=999)]
-    gst_rate_bp: Annotated[int, Field(ge=0, le=2800)]
+    gst_rate_bp: Annotated[int, Field(ge=0, le=4000)]
     tax_inclusive: bool
     modifiers: Annotated[list[ModifierSnapshotIn], Field(max_length=10)] = []
     # The cashier's discount on this line (its share of a bill discount is not here).

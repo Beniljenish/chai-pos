@@ -30,7 +30,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from app.models import GstType
 
-MAX_RATE_BP = 2800  # 28%, the highest GST slab
+MAX_RATE_BP = 4000  # 40%, the highest GST slab since 22 Sep 2025
 BP = Decimal(10_000)  # basis points per 100%
 
 

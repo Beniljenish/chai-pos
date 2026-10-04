@@ -3,7 +3,7 @@
 import pytest
 
 from app.core.gstin import GstinError, check_digit, normalise_gstin
-from tests.conftest import build_catalogue
+from tests.conftest import FakeDevice, build_catalogue
 
 VALID_MH = "27AAPFU0939F1ZV"  # published sample GSTIN (Maharashtra)
 VALID_KA = "29AAGCB7383J1Z4"
@@ -111,3 +111,29 @@ def test_item_gst_rate_must_be_a_current_slab(client, shop_a):
         headers=h,
     )
     assert r.status_code == 422
+
+
+def test_a_40_percent_item_bills_and_syncs(client, shop_a):
+    """40% is a slab the menu offers, so a bill with it must work end to end. The
+    bill code still stopped at 28%, the old top slab: the till could not total
+    the bill, the server refused it, and Shop & GST went blank (staging, 5 Oct
+    2026, Badam milk set to 40%)."""
+    cat = build_catalogue(client, shop_a)
+    h = shop_a.owner_h
+    client.patch("/api/v1/shop", json={"gst_type": "regular", "gstin": VALID_MH}, headers=h)
+    client.patch(f"/api/v1/menu-items/{cat.tea['id']}", json={"gst_rate_bp": 4000}, headers=h)
+    device = FakeDevice(client, shop_a)
+    bill = device.bill([("Masala tea", 1, [])])
+    r = device.sync([bill])
+    assert r.status_code == 200, r.text
+    res = r.json()["results"][0]
+    assert res["status"] == "accepted" and res["totals_mismatch"] is False
+    stored = client.get(f"/api/v1/bills/{bill['id']}", headers=h).json()
+    # Rs 20 at 40% inclusive: 20 / 1.4 = 14.29, CGST = SGST = 20% of it = 2.86,
+    # and the taxable value gives up a paise so the customer pays exactly 20.
+    assert (stored["taxable_paise"], stored["cgst_paise"], stored["sgst_paise"]) == (
+        1428,
+        286,
+        286,
+    )
+    assert stored["total_paise"] == 2000

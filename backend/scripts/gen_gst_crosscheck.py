@@ -28,7 +28,7 @@ def build(seed: int = 2026, n: int = 2000) -> list[dict]:
                     [0, 1, 5, 99, 1000, 1050, 1500, 2000, 3333, 6000, rng.randint(0, 99_999)]
                 ),
                 "qty": rng.randint(1, 50),
-                "gst_rate_bp": rng.choice([0, 25, 300, 500, 1200, 1800, 2800]),
+                "gst_rate_bp": rng.choice([0, 25, 300, 500, 1200, 1800, 2800, 4000]),
                 "tax_inclusive": rng.random() < 0.7,
                 "modifier_deltas_paise": [
                     rng.choice([0, 500, 1000]) for _ in range(rng.randint(0, 2))
@@ -89,7 +89,7 @@ def build_discounted(seed: int = 2027, n: int = 1000) -> list[dict]:
                 {
                     "unit_price_paise": unit,
                     "qty": qty,
-                    "gst_rate_bp": rng.choice([0, 25, 300, 500, 1200, 1800, 2800]),
+                    "gst_rate_bp": rng.choice([0, 25, 300, 500, 1200, 1800, 2800, 4000]),
                     "tax_inclusive": rng.random() < 0.7,
                     "modifier_deltas_paise": deltas,
                     "discount_paise": rng.choice([0, 0, rng.randint(0, gross)]),
