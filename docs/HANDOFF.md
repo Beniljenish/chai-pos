@@ -1,4 +1,4 @@
-# Handoff: where the build stands (4 Oct 2026)
+# Handoff: where the build stands (4 Oct 2026, end of the unattended session)
 
 For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules that are not negotiable), then this file, then the README section for whatever you touch.
 
@@ -6,22 +6,40 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 
 | Thing | State |
 | --- | --- |
-| `main` | `a9b0dee` (PR #23 merged). Deployed: app on chai-pos-app.vercel.app. |
-| Supabase `alembic_version` | `3e72290e9f62` (tables and orders). Every migration after this one is **not** on Supabase yet. |
-| Phases done | 0–3, 4 (lost-bill detection, printing), 5.1 (order engine, floor setup), 5.2 (Tables screen: KOT, bill at the table, settle, takeaway/delivery), 5.3 (kitchen screen, table-service report; PR #24 merged), 5.4 (UI polish). |
-| Phase 5.3 | Reviewed, tested and finished on `kitchen-and-service-report-wip` (kitchen view, owner table-service report, daily email lines). No migration. |
-| Flaky `e2e/sales.spec.ts` | Fixed in the app: the sync badge could say "All bills sent" with a bill saved mid-sync still waiting (README, Phase 5.3). Unit tests pin it. |
+| `main` | Phases 0–5.4, 7, 8a (Razorpay test mode, #26), 8b (iMessage via Inkbox, #28) merged and deployed. |
+| Supabase `alembic_version` | Three rows, one per parallel head: `59c516ec02c9` (payments), `feebafd74402` (messages), `1dedecb97caa` (Phase 7). RLS on and no `anon`/`authenticated` grants on every new table. |
+| Open PR **with a migration**, waiting for Benil | #30 Phase 6 discounts/split payment/khata/split bill (`159f8fea95a7`). CI green, `main` merged in. |
+| Not built (design note only) | Phase 8c: Swiggy/Zomato and multiple outlets (README, "Phase 8c (design only)"). |
 
-## Order of work
+## Order of work (status)
 
-1. **Phase 5.3** from the WIP branch: kitchen screen (items by KOT, "mark ready" sends a `ready` event), owner report of bills changed after printing and cancelled KOT items (from `order_events`: `changed_after_bill`, `cancellations`), the same lines in the daily email. Fix the flaky sales spec in the same PR or just before it.
-2. **Phase 5.4: UI polish pass.** Phone (390 px) and tablet. Consolidate the duplicated `Sheet` components into `app/Sheet.tsx`, consistent empty states and errors, faster flows. Look at the CI screenshots after every UI change.
-3. **Phase 8a: Razorpay (test mode).** See below. Done before Phase 6 because the owner asked for it now.
-4. **Phase 8b: customer messages by iMessage through Inkbox.** See below.
-5. **Phase 6:** discounts (item and bill, owner-set limits, reason), split payment (cash + UPI on one bill), split bill (one order into several invoices), customers (phone, name, visit history), credit/khata (bill on credit, record repayment, outstanding per customer).
-6. **Phase 7:** reports and inventory: item-wise and hour-wise sales, GST summary (GSTR-1 style export), stock valuation, reorder levels, suppliers and purchase orders (receive a PO into stock-in).
-- Follow-up from 5.3: keep pay-first takeaway orders on the kitchen screen after settling (README, Phase 5.3, "Known limit").
-7. **Phase 8c later, needs accounts the owner does not have yet:** Swiggy/Zomato, multiple outlets. Write a short design note in the README; do not build.
+1. Phase 5.3: done (#24).
+2. Phase 5.4 UI polish: done (#25, plus the Tablets crash fix #27).
+3. Phase 8a Razorpay (test mode): **merged (#26)**. UPI and card each open their own Checkout; the server confirms the payment with Razorpay and captures it. Waiting for one real test payment (below).
+4. Phase 8b iMessage through Inkbox: **merged (#28)**. Messages are written to Manage → Messages until an Inkbox key is set.
+5. Phase 6: **#30, waiting for Benil** (apply its SQL; CA question on discounts and GST).
+6. Phase 7: **merged (#31)**. Accountant to check one month's GST summary.
+7. Phase 8c: design note written; not built until the accounts exist.
+- Follow-ups noted in the README: keep pay-first takeaway orders on the kitchen screen after settling (Phase 5.3); discounts at the table; B2B invoices; snapshot HSN on bill lines.
+
+## Landing #30 (Phase 6)
+
+Its migration replaces the `uq_bills_order_id` index (same name, adds `order_part`). The Supabase connector holds every `DROP` for a confirmation that a cloud session cannot give, so it could not be applied from here.
+1. In the Supabase SQL editor, run the SQL from the PR description inside `BEGIN; … COMMIT;`, with the last line as `INSERT INTO alembic_version (version_num) VALUES ('159f8fea95a7');` (the other three heads are already applied).
+2. Check RLS is on for `customers` and `credit_repayments`, and that `anon`/`authenticated` have no grants.
+3. Merge #30. If `main` has moved, ask a session to "merge main into phase6-discounts-split-khata and resolve" first.
+
+## Waiting for Benil
+
+- **#30 Phase 6:** apply SQL, then merge (see above).
+- **Razorpay:** keys and webhook secret are set in the `chai-pos-api` project. In Razorpay's dashboard (test mode), create a webhook to `https://chai-pos-api.vercel.app/api/v1/payments/razorpay/webhook` with events `payment.authorized`, `payment.captured`, `payment.failed` and `order.paid`, using the same secret as `RAZORPAY_WEBHOOK_SECRET`. Then, as owner, open **Manage → Shop & GST → Online payments (Razorpay) → Check connection**: it should say test mode, connected. Then on the till: UPI, tick "Collect through Razorpay", Save and collect, pay with `success@razorpay`; and once more with Card using Razorpay's test card. The till should say Paid each time and Sales should list both payments. This session cannot reach Razorpay.
+- **Inkbox:** add `INKBOX_API_KEY` (and `INKBOX_IDENTITY_ID` if the key is organisation-wide) to the API project. **Decide on a dedicated Inkbox iMessage line:** on the shared service, only customers who have messaged the shop's identity first can be messaged.
+- **Your CA (#30):** is sharing a bill discount across items in proportion to their value, then taxing each item on its reduced amount, how they want GST worked out?
+- **Your accountant (Phase 7):** check one month's GST summary and the three CSVs before filing from them.
+- Make the repo private, and set up backups (Supabase Pro or a nightly export with its own secrets).
+- Upgrade to Vercel Pro and Supabase Pro before real sales.
+- Pilot shop details: tables and areas, kitchen setup, printer model, menu language.
+- Reset the database password that was exposed earlier, and update `DATABASE_URL` in Vercel.
 
 ## Razorpay (test mode)
 
@@ -44,9 +62,3 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 - Explain trade-offs in the README for each phase, as earlier phases do. The owner wants reasons, not just code.
 - When something needs the owner (keys, accounts, Supabase), stop that item, write it down at the top of this file under "Waiting for Benil", and carry on with the next item.
 
-## Waiting for Benil
-
-- Make the repo private, and set up backups (Supabase Pro or a nightly export with its own secrets).
-- Upgrade to Vercel Pro and Supabase Pro before real sales.
-- Pilot shop details: tables and areas, kitchen setup, printer model, menu language.
-- Reset the database password that was exposed earlier, and update `DATABASE_URL` in Vercel.
