@@ -1,5 +1,6 @@
 /** Owner-only: the shop's records. */
 import { useState } from "react";
+import { Icon, type IconName } from "./icons";
 import { DayEndScreen } from "./DayEndScreen";
 import { FloorSetup } from "./FloorSetup";
 import { KhataScreen } from "./CustomersUI";
@@ -29,7 +30,11 @@ type Section =
 // Grouped by what the owner is doing: checking money, looking after stock, or
 // setting the shop up. Twelve sections in one sideways-scrolling row hid most
 // of them on a phone.
-const GROUPS: { label: string; sections: { id: Section; label: string }[] }[] =
+// Section ids double as icon names.
+const GROUPS: {
+  label: string;
+  sections: { id: Section & IconName; label: string }[];
+}[] =
   [
     {
       label: "Money",
@@ -82,7 +87,8 @@ export function ManageScreen() {
                   aria-pressed={section === s.id}
                   onClick={() => setSection(s.id)}
                 >
-                  {s.label}
+                  <Icon name={s.id} size={20} />
+                  <span>{s.label}</span>
                 </button>
               ))}
             </div>

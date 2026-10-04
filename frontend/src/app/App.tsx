@@ -9,32 +9,7 @@ import { DayEndScreen } from "./DayEndScreen";
 import { useSession } from "./session";
 import { TablesScreen } from "./TablesScreen";
 import { hasTables } from "../lib/table";
-
-/** Tab icons (phone bar only; tablets show the words alone). Decorative: the
- * button's text names it. */
-const ICON = {
-  bill: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6",
-  tables: "M3 8h18v4H3zM6 12v8M18 12v8",
-  today: "M4 5h16v16H4zM4 10h16M9 3v4M15 3v4",
-  manage: "M4 20V10M10 20V4M16 20v-7M22 20H2",
-};
-function TabIcon({ d }: { d: string }) {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={d} />
-    </svg>
-  );
-}
+import { Icon } from "./icons";
 
 function SyncBadge() {
   const { sync, worker } = useSession();
@@ -99,6 +74,7 @@ function Shell() {
   return (
     <div className="app">
       <header className="topbar">
+        <img src="/icon-192.png" alt="" width={36} height={36} className="brand-mark" />
         <div className="where">
           <strong>{catalogue?.shop.name ?? "Chai POS"}</strong>
           <span className="muted">
@@ -111,7 +87,7 @@ function Shell() {
             onClick={() => setTab("bill")}
             aria-label="New bill"
           >
-            <TabIcon d={ICON.bill} />
+            <Icon name="bill" />
             <span className="long">New bill</span>
             <span className="short">Bill</span>
           </button>
@@ -120,7 +96,7 @@ function Shell() {
               aria-pressed={tab === "tables"}
               onClick={() => setTab("tables")}
             >
-              <TabIcon d={ICON.tables} />
+              <Icon name="tables" />
               Tables
             </button>
           )}
@@ -128,7 +104,7 @@ function Shell() {
             aria-pressed={tab === "today"}
             onClick={() => setTab("today")}
           >
-            <TabIcon d={ICON.today} />
+            <Icon name="today" />
             Today
           </button>
           {/* Cashiers: batches, wastage and the blind count. They never see stock levels. */}
@@ -136,7 +112,7 @@ function Shell() {
             aria-pressed={tab === "stock"}
             onClick={() => setTab("stock")}
           >
-            <TabIcon d={ICON.manage} />
+            <Icon name="manage" />
             {isOwner ? "Manage" : "Stock"}
           </button>
         </nav>
