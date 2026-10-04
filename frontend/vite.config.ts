@@ -45,8 +45,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['icon-192.png'],
         manifest: {
-          name: 'Chai POS',
-          short_name: 'Chai POS',
+          name: 'Taptallow',
+          short_name: 'Taptallow',
           description: 'Billing and stock for tea and juice shops. Works offline.',
           start_url: '/',
           display: 'standalone',

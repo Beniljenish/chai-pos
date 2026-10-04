@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     shop_timezone: str = "Asia/Kolkata"
     # Email (Resend). Without a key, emails queue in the outbox and wait.
     resend_api_key: str = ""
-    email_from: str = "Chai POS <reports@beniljenish.dev>"
+    email_from: str = "Taptallow <reports@beniljenish.dev>"
     # Vercel Cron sends "Authorization: Bearer $CRON_SECRET". Empty = cron disabled.
     cron_secret: str = ""
     # Customer messages by iMessage through Inkbox. Empty key = messages are only

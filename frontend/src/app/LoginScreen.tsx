@@ -30,7 +30,7 @@ export function LoginScreen() {
     <main className="login-screen">
       <section className="login-hero">
         <ChaiCup />
-        <h1>Chai POS</h1>
+        <h1>Taptallow</h1>
         <p className="login-tagline">Billing and stock for tea and juice shops</p>
         <ul className="login-points" aria-label="What it does">
           <li>Bills even when the internet drops</li>

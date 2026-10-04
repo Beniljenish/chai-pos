@@ -41,7 +41,7 @@ test('offline billing, end to end', async ({ page, context }) => {
 
   // ---- Log in and set up this tablet ----
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Chai POS' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Taptallow' })).toBeVisible();
   await shot(page, '01-login');
   await page.getByLabel('Mobile number').fill(OWNER);
   await page.getByLabel('Password').fill(PASSWORD);

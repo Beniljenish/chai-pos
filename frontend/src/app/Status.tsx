@@ -4,10 +4,15 @@
  * can always be retried in place (README, "Phase 5.4").
  */
 export function Loading({ what }: { what?: string }) {
+  // Three shimmering rows where the content will be; the words are for screen
+  // readers (and the tests that wait for them to go).
   return (
-    <p className="muted" role="status">
-      Loading{what ? ` ${what}` : ''}…
-    </p>
+    <div className="skeleton" role="status">
+      <span className="sr-only">Loading{what ? ` ${what}` : ''}…</span>
+      <span className="skeleton-row" aria-hidden="true" />
+      <span className="skeleton-row" aria-hidden="true" />
+      <span className="skeleton-row short" aria-hidden="true" />
+    </div>
   );
 }
 

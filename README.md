@@ -585,6 +585,13 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **Small polish:** a hairline border colour for cards (`--line`), a lighter two-layer shadow, a soft focus ring on inputs, hover states for a mouse, a gradient top bar with the app icon (tablets only: the phone top bar must stay one row).
 - Icons live in one place (`src/app/icons.tsx`), shared by the tab bar and Manage.
 
+### 9.6 Taptallow, and movement
+- **The app is called Taptallow** (the domain is taptallow.tech): browser title, installed app name, login, report emails and the API title. The repository, the Vercel projects and every internal key stay `chai-pos`. In particular the tablet's bill store is still the IndexedDB database `chai-pos`: renaming it would open an empty one and strand any bill not yet sent.
+- **Small, quick movement that says what happened,** each under a quarter of a second so the counter never waits: a screen fades up when it opens; a sheet slides up (phone) or zooms in (tablet) over a blurred page; a menu tile lifts under a mouse and presses in under a finger; the count on a tile pops. Everything is CSS, and the existing reduced-motion rule turns it all off (so do the browser tests).
+- **Loading shows shimmering rows** where the content will be, instead of a line of text. The words are still there for screen readers.
+- **Phone tab bar is frosted glass** over the page. Page titles shrink a step on phones, and links beside a title (Customers, Printer) stay on one line.
+- **Report emails** say *Sent by Taptallow*. The sender's name comes from `EMAIL_FROM` when it is set in Vercel, so the owner changes it there if it still says Chai POS.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.
