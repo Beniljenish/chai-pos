@@ -118,6 +118,42 @@ def test_gst_summary_for_a_month_in_gstr1_shape(client, shop_a, device):
     assert client.get(f"{API}/reports/gst?month=2026-13", headers=shop_a.owner_h).status_code == 422
 
 
+def test_discounted_split_and_credit_bills_add_up_in_the_reports(client, shop_a, device):
+    """Phase 6 bills in Phase 7 reports: a discount lowers sales, item totals and
+    GST alike; a split bill counts each part under its own mode."""
+    client.patch(
+        f"{API}/shop",
+        json={"gst_type": "regular", "gstin": "33ABCDE1234F1Z7"},
+        headers=shop_a.owner_h,
+    ).raise_for_status()
+    device.refresh_catalogue()
+    a = _accept(
+        device,
+        device.bill(
+            [("Masala tea", 2, []), ("Orange juice", 1, [])],
+            line_discounts={0: 400},
+            bill_discount=500,
+            reason="Regular customer",
+            payment_mode="split",
+            parts=[("cash", 3000), ("upi", 6100)],
+        ),
+    )
+    today = business_date(datetime.now(UTC)).isoformat()
+    r = client.get(f"{API}/reports/range?from={today}&to={today}", headers=shop_a.owner_h).json()
+    assert r["total_paise"] == 9100  # 100 less 9 off
+    assert {m["mode"]: m["total_paise"] for m in r["by_mode"]} == {"cash": 3000, "upi": 6100}
+    assert sum(i["total_paise"] for i in r["items"]) == 9100
+
+    month = business_date(datetime.now(UTC)).strftime("%Y-%m")
+    g = client.get(f"{API}/reports/gst?month={month}", headers=shop_a.owner_h).json()
+    (row,) = g["b2cs"]
+    assert row["taxable_paise"] == sum(ln["totals"]["taxable"] for ln in a["lines"])
+    assert row["taxable_paise"] + row["cgst_paise"] + row["sgst_paise"] == 9100
+    (hsn,) = g["hsn"]
+    assert hsn["total_paise"] == 9100
+    assert g["totals"]["invoice_value_paise"] == 9100
+
+
 def test_stock_valuation(client, shop_a, cat, device):
     _stock_in(client, shop_a, cat.milk["id"], 10000, 6000)  # 0.60 paise per ml
     _stock_in(client, shop_a, cat.sugar["id"], 1000, 5000)

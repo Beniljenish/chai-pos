@@ -9,6 +9,8 @@ import { Receipt } from './Receipt';
 import { PAYMENT_LABELS } from '../lib/sales';
 import { shiftsOn } from '../lib/shift';
 import { StartShiftSheet } from './ShiftUI';
+import { CustomerSheet, DiscountSheet, SplitSheet, type SplitChoice } from './TillExtras';
+import type { BillCustomer, PaymentPart } from '../lib/types';
 import { useSession } from './session';
 
 interface Line extends CartLine {
@@ -19,7 +21,16 @@ const PAYMENT_MODES: { mode: PaymentMode; label: string }[] = [
   { mode: 'cash', label: 'Cash' },
   { mode: 'upi', label: 'UPI' },
   { mode: 'card', label: 'Card' },
+  { mode: 'split', label: 'Split' },
+  { mode: 'credit', label: 'Credit' },
 ];
+
+/** The payment parts for a split or part-credit bill, from the cashier's choice. */
+function partsFor(mode: PaymentMode, total: number, split: SplitChoice | null, paidNow: number): PaymentPart[] | undefined {
+  if (mode === 'split' && split) return [{ mode: 'cash', paise: split.cashPaise }, { mode: split.other, paise: total - split.cashPaise }];
+  if (mode === 'credit' && paidNow > 0) return [{ mode: 'cash', paise: paidNow }, { mode: 'credit', paise: total - paidNow }];
+  return undefined;
+}
 
 export function BillingScreen() {
   const { catalogue, device, worker, user, shift } = useSession();
@@ -34,6 +45,13 @@ export function BillingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [tillOpen, setTillOpen] = useState(false); // phones: the till is a bottom sheet
+  // Phase 6: discount, split, customer (and credit).
+  const [billDiscount, setBillDiscount] = useState(0);
+  const [discountReason, setDiscountReason] = useState('');
+  const [split, setSplit] = useState<SplitChoice | null>(null);
+  const [customer, setCustomer] = useState<BillCustomer | null>(null);
+  const [paidNow, setPaidNow] = useState(0);
+  const [sheet, setSheet] = useState<'discount' | 'split' | 'customer' | 'credit' | null>(null);
 
   const items = useMemo(() => catalogue?.menu_items.filter((m) => m.is_active) ?? [], [catalogue]);
   const categories = useMemo(() => [...new Set(items.map((i) => i.category))], [items]);
@@ -44,11 +62,11 @@ export function BillingScreen() {
   const totals = useMemo(() => {
     if (!catalogue || cart.length === 0) return null;
     try {
-      return priceLines(buildLines(cart, catalogue), catalogue.shop.gst_type);
+      return priceLines(buildLines(cart, catalogue), catalogue.shop.gst_type, billDiscount);
     } catch {
       return null;
     }
-  }, [cart, catalogue]);
+  }, [cart, catalogue, billDiscount]);
 
   if (!catalogue) {
     return (
@@ -101,7 +119,11 @@ export function BillingScreen() {
         deviceCode: device.code,
         catalogue,
         cart: cart.map(({ menuItemId, qty, modifierIds }) => ({ menuItemId, qty, modifierIds })),
-        paymentMode: payment,
+        paymentMode: payment === 'credit' && paidNow > 0 ? 'split' : payment,
+        paymentParts: partsFor(payment, totals?.total ?? 0, split, paidNow),
+        billDiscountPaise: billDiscount,
+        discountReason,
+        customer: customer ?? undefined,
         cashierId: user?.id,
         shiftId: shiftsOn(catalogue.shop.cash_shifts) ? shiftId : undefined,
       });
@@ -110,17 +132,38 @@ export function BillingScreen() {
       else setSaved(bill);
       setCart([]);
       setPayment('cash');
+      setBillDiscount(0);
+      setDiscountReason('');
+      setSplit(null);
+      setCustomer(null);
+      setPaidNow(0);
       setOnline(false);
       setTillOpen(false);
       void worker?.kick(); // send now if online; otherwise it waits in the outbox
     } catch (e) {
-      setError(e instanceof GstError ? e.message : 'Could not save the bill. Nothing was charged.');
+      // saveBill's own refusals (parts that do not add up, credit with no customer)
+      // are written for the cashier; anything else is a storage failure.
+      const ours = e instanceof Error && /add up|customer|empty/.test(e.message);
+      setError(e instanceof GstError || ours ? (e as Error).message : 'Could not save the bill. Nothing was charged.');
     } finally {
       setSaving(false);
     }
   }
 
   const itemCount = cart.reduce((n, l) => n + l.qty, 0);
+  // Phase 6: what the bill is worth before discounts (the cashier's limit is a
+  // share of this), and whether the chosen payment is complete.
+  const grossPaise = totals?.lines.reduce((a, l) => a + l.gross, 0) ?? 0;
+  const lineDiscounts = Object.fromEntries(cart.map((l) => [l.key, l.discountPaise ?? 0]));
+  const discountTotal = billDiscount + cart.reduce((a, l) => a + (l.discountPaise ?? 0), 0);
+  const splitBad = payment === 'split' && (!split || !totals || split.cashPaise >= totals.total);
+  const creditBad = payment === 'credit' && (!customer || (totals !== null && paidNow >= totals.total));
+  const paymentNote =
+    payment === 'split' && split && totals && !splitBad
+      ? `Cash ${formatRupees(split.cashPaise)} + ${split.other === 'upi' ? 'UPI' : 'Card'} ${formatRupees(totals.total - split.cashPaise)}`
+      : payment === 'credit' && customer && totals && !creditBad
+        ? `${formatRupees(totals.total - paidNow)} on ${customer.name}'s khata${paidNow ? `, ${formatRupees(paidNow)} cash now` : ''}`
+        : null;
   const canCollectOnline = Boolean(catalogue?.shop.online_payments) && (payment === 'upi' || payment === 'card');
 
   return (
@@ -219,17 +262,48 @@ export function BillingScreen() {
                 Includes GST {formatRupees(totals.cgst + totals.sgst)}
               </p>
             )}
+            <div className="till-extras">
+              <button className="quiet" disabled={cart.length === 0} onClick={() => setSheet('discount')}>
+                {discountTotal ? `Discount −${formatRupees(totals?.discount ?? discountTotal)}` : 'Discount'}
+              </button>
+              <button className="quiet" onClick={() => setSheet('customer')}>
+                {customer ? `Customer: ${customer.name}` : '+ Customer'}
+              </button>
+            </div>
+            {discountTotal > 0 && !totals && (
+              <p className="error" role="alert">
+                The discount is more than the bill now.{' '}
+                <button className="quiet" onClick={() => setBillDiscount(0)}>
+                  Remove it
+                </button>
+              </p>
+            )}
             <p className="total">
               <span>Total</span>
               <strong className="num">{formatRupees(totals?.total ?? 0)}</strong>
             </p>
             <div className="payment" role="radiogroup" aria-label="Payment">
               {PAYMENT_MODES.map(({ mode, label }) => (
-                <button key={mode} role="radio" aria-checked={payment === mode} onClick={() => setPayment(mode)}>
+                <button
+                  key={mode}
+                  role="radio"
+                  aria-checked={payment === mode}
+                  onClick={() => {
+                    setPayment(mode);
+                    if (mode === 'split') setSheet('split');
+                    if (mode === 'credit') setSheet('credit');
+                  }}
+                >
                   {label}
                 </button>
               ))}
             </div>
+            {paymentNote && (
+              <p className="payment-note num" role="status">
+                {paymentNote}
+              </p>
+            )}
+            {splitBad && split && <p className="error">The split no longer fits the bill: tap Split again.</p>}
             {canCollectOnline && (
               <label className="check online-toggle">
                 <input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} />
@@ -237,7 +311,11 @@ export function BillingScreen() {
               </label>
             )}
             {error && <p className="error" role="alert">{error}</p>}
-            <button className="primary save" onClick={() => void save()} disabled={saving || cart.length === 0}>
+            <button
+              className="primary save"
+              onClick={() => void save()}
+              disabled={saving || cart.length === 0 || !totals || splitBad || creditBad}
+            >
               {saving ? 'Saving…' : canCollectOnline && online ? 'Save and collect' : 'Save and print'}
             </button>
           </div>
@@ -245,6 +323,55 @@ export function BillingScreen() {
       </aside>
 
       {saved && <Receipt bill={saved} onClose={() => setSaved(null)} autoPrint />}
+      {sheet === 'discount' && totals && (
+        <DiscountSheet
+          targets={[
+            { key: 'bill', label: 'Whole bill', grossPaise: grossPaise - cart.reduce((a, l) => a + (l.discountPaise ?? 0), 0) },
+            ...cart.map((l, i) => ({
+              key: l.key,
+              label: itemsById.get(l.menuItemId)?.name ?? 'Item',
+              grossPaise: totals.lines[i]?.gross ?? 0,
+            })),
+          ]}
+          current={{ bill: billDiscount, ...lineDiscounts }}
+          reason={discountReason}
+          billGrossPaise={grossPaise}
+          otherDiscountPaise={(key) => discountTotal - (key === 'bill' ? billDiscount : lineDiscounts[key] ?? 0)}
+          maxBp={catalogue.shop.max_discount_bp ?? 1000}
+          isOwner={user?.role === 'owner'}
+          onClose={() => setSheet(null)}
+          onApply={(key, paise, why) => {
+            if (key === 'bill') setBillDiscount(paise);
+            else setCart((c) => c.map((l) => (l.key === key ? { ...l, discountPaise: paise } : l)));
+            if (paise) setDiscountReason(why);
+            setSheet(null);
+          }}
+        />
+      )}
+      {sheet === 'split' && totals && (
+        <SplitSheet
+          totalPaise={totals.total}
+          initial={split}
+          onClose={() => setSheet(null)}
+          onApply={(s) => {
+            setSplit(s);
+            setSheet(null);
+          }}
+        />
+      )}
+      {(sheet === 'customer' || sheet === 'credit') && (
+        <CustomerSheet
+          initial={customer}
+          credit={sheet === 'credit' ? { paidNowPaise: paidNow } : null}
+          totalPaise={totals?.total ?? 0}
+          onClose={() => setSheet(null)}
+          onApply={(c, now) => {
+            setCustomer(c);
+            if (sheet === 'credit') setPaidNow(now);
+            setSheet(null);
+          }}
+        />
+      )}
       {collect && (
         <OnlinePayment
           bill={collect.bill}

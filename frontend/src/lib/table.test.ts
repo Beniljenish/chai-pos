@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { billSummaryRows, kotRows } from './escpos';
 import { reduce, type LiveOrder, type OrderEvent } from './orders';
-import { floorModel, hasTables, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder } from './table';
+import { floorModel, hasTables, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder, splitOrderLines } from './table';
+import { buildLines } from './billing';
 import { testCatalogue } from './test-fixtures';
 import type { Catalogue } from './types';
 
@@ -220,5 +221,36 @@ describe('the kitchen screen', () => {
       ['T1', 'C1-3', 5, ['c']],
     ]);
     expect(tickets[1].lines[0]).toMatchObject({ qty: 2, modifiers: ['Large'], note: 'hot' });
+  });
+});
+
+describe('split bill', () => {
+  it('splits an order into parts by item, each priced as its own invoice', () => {
+    const lines = buildLines(
+      [
+        { menuItemId: 'tea', qty: 3, modifierIds: [] },
+        { menuItemId: 'tea', qty: 1, modifierIds: ['large'] },
+      ],
+      catalogue,
+    );
+    const parts = splitOrderLines(lines, [
+      [2, 0],
+      [1, 1],
+    ], 'regular');
+    expect(parts.map((p) => p.lines.map((l) => [l.name, l.qty, l.modifiers.length]))).toEqual([
+      [['Masala tea', 2, 0]],
+      [
+        ['Masala tea', 1, 0],
+        ['Masala tea', 1, 1],
+      ],
+    ]);
+    expect(parts.map((p) => p.totals.total)).toEqual([4000, 5000]);
+  });
+
+  it('refuses a split that leaves items out, counts one twice, or has an empty part', () => {
+    const lines = buildLines([{ menuItemId: 'tea', qty: 2, modifierIds: [] }], catalogue);
+    expect(() => splitOrderLines(lines, [[1], [0]], 'regular')).toThrow(/every item/);
+    expect(() => splitOrderLines(lines, [[2], [1]], 'regular')).toThrow(/every item/);
+    expect(() => splitOrderLines(lines, [[2], [0]], 'regular')).toThrow(/empty/);
   });
 });

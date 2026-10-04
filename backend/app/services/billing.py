@@ -82,6 +82,7 @@ def content_hash(payload: dict) -> str:
 
 def _totals_dict(t: gst.BillTotals) -> dict:
     return {
+        "discount": t.discount,
         "taxable": t.taxable,
         "cgst": t.cgst,
         "sgst": t.sgst,
@@ -91,6 +92,7 @@ def _totals_dict(t: gst.BillTotals) -> dict:
         "lines": [
             {
                 "gross": lt.gross,
+                "discount": lt.discount,
                 "taxable": lt.taxable,
                 "cgst": lt.cgst,
                 "sgst": lt.sgst,
@@ -112,6 +114,8 @@ class SyncContext:
     # Everyone in this shop, active or not: a cashier deactivated today still
     # had their offline bills from this morning credited to them.
     staff_ids: frozenset[uuid.UUID] = frozenset()
+    # The owners: a discount of any size is theirs to give.
+    owner_ids: frozenset[uuid.UUID] = frozenset()
 
     def cashier_for(self, b: dict) -> uuid.UUID:
         """Who rang the bill up. The tablet records it at sale time, because
@@ -248,25 +252,31 @@ def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
                     gst_rate_bp=ln["gst_rate_bp"],
                     tax_inclusive=ln["tax_inclusive"],
                     modifier_deltas_paise=tuple(m["price_delta_paise"] for m in ln["modifiers"]),
+                    discount_paise=ln.get("discount_paise", 0),
                 )
                 for ln in lines_in
             ],
             ctx.shop.gst_type,
+            b.get("bill_discount_paise", 0),
         )
     except gst.GstError as e:
         raise Reject(f"invalid_line: {e}") from None
     server_totals = _totals_dict(server)
-    printed = b["totals"]
-    printed_lines = [ln["totals"] for ln in lines_in]
+    # "discount" is left out of what an older tablet (or an undiscounted bill)
+    # sends: it means 0, as the server's own figures say.
+    printed = {"discount": 0, **b["totals"]}
+    printed_lines = [{"discount": 0, **ln["totals"]} for ln in lines_in]
     mismatch = (
         any(printed[k] != server_totals[k] for k in printed)
         or printed_lines != server_totals["lines"]
     )
 
+    cashier_id = ctx.cashier_for(b)
+    parts = b.get("payment_parts")
     bill = Bill(
         id=b["id"],
         device_id=ctx.device.id,
-        cashier_id=ctx.cashier_for(b),
+        cashier_id=cashier_id,
         shift_id=_shift_for(ctx, b),
         order_id=_order_for(ctx, b),
         fy=fy,
@@ -285,7 +295,13 @@ def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
         server_totals=server_totals,
         totals_mismatch=mismatch,
         content_hash=digest,
+        order_part=b.get("order_part", 1),
+        discount_paise=printed.get("discount", 0),
+        discount_reason=b.get("discount_reason", ""),
+        payment_parts=[{"mode": p["mode"], "paise": p["paise"]} for p in parts] if parts else None,
+        customer_id=_customer_for(ctx, b.get("customer")),
     )
+    bill.flags = _flags(ctx, b, bill, cashier_id, sum(t["gross"] for t in printed_lines))
     for pos, ln in enumerate(lines_in, start=1):
         t = ln["totals"]
         line = BillLine(
@@ -298,6 +314,7 @@ def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
             gst_rate_bp=ln["gst_rate_bp"],
             tax_inclusive=ln["tax_inclusive"],
             gross_paise=t["gross"],
+            discount_paise=t.get("discount", 0),
             taxable_paise=t["taxable"],
             cgst_paise=t["cgst"],
             sgst_paise=t["sgst"],
@@ -318,6 +335,54 @@ def _build_bill(ctx: SyncContext, b: dict, digest: str) -> Bill:
         ]
         bill.lines.append(line)
     return bill
+
+
+def _customer_for(ctx: SyncContext, c: dict | None) -> uuid.UUID | None:
+    """One customer per number per shop. A tablet that made its own record for a
+    number the shop already knows is pointed at the existing one; a newer name
+    replaces an older one (the latest bill is the best guess)."""
+    from app.models import Customer  # local: models import order
+
+    if not c:
+        return None
+    found = ctx.db.scalar(select(Customer).where(Customer.phone == c["phone"]))
+    if found is None:
+        found = Customer(id=c["id"], phone=c["phone"], name=c.get("name", ""))
+        ctx.db.add(found)
+        ctx.db.flush()
+    elif c.get("name") and c["name"] != found.name:
+        found.name = c["name"]
+    return found.id
+
+
+def payment_split(bill: Bill) -> list[tuple[str, int]]:
+    """How a bill was paid, as (mode, paise) parts: its own parts when split,
+    otherwise the whole total in its one mode."""
+    if bill.payment_parts:
+        return [(p["mode"], int(p["paise"])) for p in bill.payment_parts]
+    return [(bill.payment_mode.value, bill.total_paise)]
+
+
+def credit_paise(bill: Bill) -> int:
+    return sum(p for m, p in payment_split(bill) if m == "credit")
+
+
+def _flags(ctx: SyncContext, b: dict, bill: Bill, cashier_id, gross: int) -> list[str]:
+    """What the owner should look at. Never a reason to refuse the bill: the
+    tablet printed it, and the customer has paid (or owes) what it says."""
+    out = []
+    if bill.discount_paise:
+        limit = ctx.shop.max_discount_bp
+        if cashier_id not in ctx.owner_ids and bill.discount_paise * 10_000 > limit * gross:
+            out.append("discount_over_limit")
+        if not bill.discount_reason.strip():
+            out.append("discount_without_reason")
+    parts = b.get("payment_parts")
+    if parts and sum(p["paise"] for p in parts) != bill.total_paise:
+        out.append("payment_parts_mismatch")
+    if credit_paise(bill) and bill.customer_id is None:
+        out.append("credit_without_customer")
+    return out
 
 
 def _load(db: Session, model, ids: set, reason: str) -> dict:

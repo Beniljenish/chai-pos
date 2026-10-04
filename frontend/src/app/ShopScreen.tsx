@@ -8,7 +8,7 @@ import { checkGstin, STATES } from '../lib/gstin';
 import { api } from './apiClient';
 import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
-import { CashSettings } from './CashDrawer';
+import { CashSettings, DiscountSettings } from './CashDrawer';
 import { RazorpaySettings } from './OnlinePayment';
 import { EmailSettings } from './EmailSettings';
 import { MenuPrices } from './MenuPrices';
@@ -209,6 +209,7 @@ export function ShopScreen() {
 
       <CashSettings />
 
+      <DiscountSettings />
       <RazorpaySettings />
       <EmailSettings />
       <MenuPrices />

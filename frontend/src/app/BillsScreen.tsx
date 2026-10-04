@@ -5,6 +5,7 @@ import { formatRupees } from '../lib/gst';
 import type { ServerBill } from '../lib/types';
 import { api } from './apiClient';
 import { PrinterSheet } from './PrinterSettings';
+import { CustomersSheet } from './CustomersUI';
 import { Receipt } from './Receipt';
 import { ShiftPanel } from './ShiftUI';
 import { useSession } from './session';
@@ -31,6 +32,7 @@ export function BillsScreen() {
   const [bills, setBills] = useState<LocalBill[]>([]);
   const [open, setOpen] = useState<LocalBill | null>(null);
   const [printer, setPrinter] = useState(false);
+  const [customers, setCustomers] = useState(false);
   // Voids happen on the server (owner only). Shown when online; offline, the list
   // is what this tablet printed.
   const [voided, setVoided] = useState<Set<string>>(new Set());
@@ -57,9 +59,14 @@ export function BillsScreen() {
       <header className="bills-head">
         <div className="manage-head">
           <h1>Today on this tablet</h1>
-          <button className="quiet" onClick={() => setPrinter(true)}>
-            Printer
-          </button>
+          <span>
+            <button className="quiet" onClick={() => setCustomers(true)}>
+              Customers
+            </button>
+            <button className="quiet" onClick={() => setPrinter(true)}>
+              Printer
+            </button>
+          </span>
         </div>
         <p>
           <strong className="num">{formatRupees(total)}</strong> from {live.length} bill
@@ -92,6 +99,7 @@ export function BillsScreen() {
         </ul>
       )}
       {printer && <PrinterSheet onClose={() => setPrinter(false)} />}
+      {customers && <CustomersSheet onClose={() => setCustomers(false)} />}
       {open && <Receipt bill={open} voided={voided.has(open.id)} onClose={() => setOpen(null)} />}
     </main>
   );

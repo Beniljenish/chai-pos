@@ -17,10 +17,14 @@ export interface LineIn {
   gstRateBp: number; // 500 = 5%
   taxInclusive: boolean;
   modifierDeltasPaise?: number[];
+  /** Taken off this line by the cashier (Phase 6). */
+  discountPaise?: number;
 }
 
 export interface LineTotals {
   gross: number;
+  /** This line's discount plus its share of the bill discount. */
+  discount: number;
   taxable: number;
   cgst: number;
   sgst: number;
@@ -29,6 +33,7 @@ export interface LineTotals {
 
 export interface BillTotals {
   lines: LineTotals[];
+  discount: number;
   taxable: number;
   cgst: number;
   sgst: number;
@@ -64,15 +69,43 @@ function validate(line: LineIn): number {
   deltas.forEach((d) => checkInt('Modifier price', d));
   const unit = line.unitPricePaise + deltas.reduce((a, b) => a + b, 0);
   if (unit < 0) throw new GstError('Price after modifiers cannot be negative');
+  const off = line.discountPaise ?? 0;
+  checkInt('Discount', off);
+  if (off < 0 || off > unit * line.qty) throw new GstError("A line discount must be between nothing and the line's price");
   return unit;
 }
 
-export function computeLine(line: LineIn, gstType: GstType): LineTotals {
+/**
+ * Split a bill discount across lines in proportion to `amounts`. Largest
+ * remainder, ties to the earlier line: the same rule as gst.py share_discount.
+ */
+export function shareDiscount(discount: number, amounts: number[]): number[] {
+  checkInt('Discount', discount);
+  if (discount === 0) return amounts.map(() => 0);
+  const whole = amounts.reduce((a, b) => a + b, 0);
+  if (discount < 0 || discount > whole) throw new GstError('A bill discount must be between nothing and the bill');
+  const d = BigInt(discount);
+  const w = BigInt(whole);
+  const shares = amounts.map((a) => (d * BigInt(a)) / w);
+  const rest = amounts.map((a) => (d * BigInt(a)) % w);
+  let left = d - shares.reduce((a, b) => a + b, 0n);
+  const order = amounts.map((_, i) => i).sort((i, j) => (rest[j] > rest[i] ? 1 : rest[j] < rest[i] ? -1 : i - j));
+  for (const i of order) {
+    if (left === 0n) break;
+    shares[i] += 1n;
+    left -= 1n;
+  }
+  return shares.map(Number);
+}
+
+export function computeLine(line: LineIn, gstType: GstType, billShare = 0): LineTotals {
   const gross = BigInt(validate(line)) * BigInt(line.qty);
   const n = (x: bigint) => Number(x);
+  const discount = BigInt((line.discountPaise ?? 0) + billShare);
+  const net = gross - discount; // what GST is charged on (or included in)
 
   if (gstType !== 'regular' || line.gstRateBp === 0) {
-    return { gross: n(gross), taxable: n(gross), cgst: 0, sgst: 0, total: n(gross) };
+    return { gross: n(gross), discount: n(discount), taxable: n(net), cgst: 0, sgst: 0, total: n(net) };
   }
 
   const rate = BigInt(line.gstRateBp);
@@ -80,31 +113,35 @@ export function computeLine(line: LineIn, gstType: GstType): LineTotals {
   const halfTax = (taxable: bigint) => divHalfUp(taxable * rate, 2n * BP);
 
   if (line.taxInclusive) {
-    const firstTaxable = divHalfUp(gross * BP, BP + rate);
+    const firstTaxable = divHalfUp(net * BP, BP + rate);
     const cgst = halfTax(firstTaxable);
-    // The customer pays exactly the menu price: taxable absorbs any rounding paise.
-    const taxable = gross - 2n * cgst;
-    return { gross: n(gross), taxable: n(taxable), cgst: n(cgst), sgst: n(cgst), total: n(gross) };
+    // The customer pays exactly what is left: taxable absorbs any rounding paise.
+    const taxable = net - 2n * cgst;
+    return { gross: n(gross), discount: n(discount), taxable: n(taxable), cgst: n(cgst), sgst: n(cgst), total: n(net) };
   }
 
-  const cgst = halfTax(gross);
+  const cgst = halfTax(net);
   return {
     gross: n(gross),
-    taxable: n(gross),
+    discount: n(discount),
+    taxable: n(net),
     cgst: n(cgst),
     sgst: n(cgst),
-    total: n(gross + 2n * cgst),
+    total: n(net + 2n * cgst),
   };
 }
 
-export function computeBill(lines: LineIn[], gstType: GstType): BillTotals {
+export function computeBill(lines: LineIn[], gstType: GstType, billDiscountPaise = 0): BillTotals {
   if (lines.length === 0) throw new GstError('A bill needs at least one line');
-  const computed = lines.map((l) => computeLine(l, gstType));
+  const left = lines.map((l) => validate(l) * l.qty - (l.discountPaise ?? 0));
+  const shares = shareDiscount(billDiscountPaise, left);
+  const computed = lines.map((l, i) => computeLine(l, gstType, shares[i]));
   const sum = (f: (lt: LineTotals) => number) => computed.reduce((a, lt) => a + f(lt), 0);
   const subtotal = sum((lt) => lt.total);
   const total = Number(divHalfUp(BigInt(subtotal), 100n)) * 100; // nearest rupee, half up
   return {
     lines: computed,
+    discount: sum((lt) => lt.discount),
     taxable: sum((lt) => lt.taxable),
     cgst: sum((lt) => lt.cgst),
     sgst: sum((lt) => lt.sgst),

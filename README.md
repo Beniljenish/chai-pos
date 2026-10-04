@@ -526,6 +526,32 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **No visual redesign.** The screens already share one stylesheet and tokens; the pilot shop's feedback should drive the next round, not guesses.
 - **Lint warnings** (`set-state-in-effect`) are left as they are: they flag the load-on-mount pattern every screen uses. Moving to a data-fetching library is a bigger change than it is worth before the pilot.
 
+## Phase 6: discounts, split payment, customers and khata, split bill
+
+**At the till:**
+- **Discount** takes an amount (₹ or %) off one line or the whole bill. It always needs a reason (quick picks: Regular customer, Staff, Complaint, Offer). A cashier can take off up to the owner's limit (**Shop & GST → Discounts**, 10% by default); the owner has no limit.
+- **Split** takes part in cash and the rest by UPI or card.
+- **Credit** puts the bill on a customer's khata, optionally with part paid now in cash. **+ Customer** attaches a customer to any bill, for their visit history.
+- Receipts show the discount on its own row, each payment part, and the customer's name (never their number).
+
+**At the counter:** **Today → Customers** finds a customer by number or name and shows their visits and what they owe. **Take a repayment** records cash, UPI or card; this needs internet. Cash repaid goes into that drawer's expected cash.
+
+**At a table:** **Settle → Split bill** puts each item on bill 1 to 4, with a payment mode per bill, and makes all the invoices at once.
+
+**For the owner:** **Manage → Khata** lists everyone who owes, biggest first. **Manage → Sales** shows discounts with reasons (over-limit ones marked), credit given and repaid, and bills to look at. The daily email has the same lines.
+
+### Decisions and trade-offs
+- **A discount is on the invoice, so it lowers the GST.** A line discount comes off that line. A bill discount is shared across the lines in proportion to what is left on each, using largest remainder so the shares add up to the paise (ties go to the earlier line). Each line is then taxed on its own reduced amount, at its own rate. This is the usual reading of GST valuation (a discount shown on the invoice at the time of sale reduces the value). **Confirm with the shop's CA.** The rule is in `gst.py` and `gst.ts`, pinned by five hand-worked shared cases, three error cases, and 1,000 random discounted bills that TypeScript must reproduce from Python's answers. Receipts list items at full price, then the discount, so a customer can check the arithmetic.
+- **Limits are enforced on the tablet and flagged on the server, never refused.** Refusing a bill the tablet already printed would lose a sale that happened. A cashier simply cannot go over the limit in the app. A bill that does anyway (an old app, a tampered tablet, a limit lowered while a tablet was offline) is saved with `discount_over_limit`. The other flags are `discount_without_reason`, `payment_parts_mismatch` and `credit_without_customer`. They live in a `flags` list on the bill, so the next rule needs no migration.
+- **Older tablets are not disturbed.** An undiscounted, single-mode bill sends byte-for-byte what it sent before (a unit test), and the server leaves unused new keys out of the idempotency hash (a test compares with the old hash). A retry from a tablet that has not updated stays a harmless duplicate.
+- **Split and credit are payment *parts*, not new kinds of bill.** `payment_parts` holds `[{mode, paise}]`, and `payment_mode` says `split` or `credit`. Reports, the cash drawer and the email count each part under its own mode, so a ₹15 cash + ₹20 UPI bill expects ₹15 in the drawer.
+- **What a customer owes is computed, never stored.** It is the credit parts of their bills that are not void, minus repayments. A voided credit bill stops being owed by itself, with no balance to correct. Repaying more than is owed is refused, and the same repayment sent twice is recorded once (its id is made on the tablet).
+- **Customers are made on the tablet, offline; the server keeps one per number.** Two tablets that each made "Priya" for the same number end up on one khata. A newer name replaces an older one. A changed number is a new customer. The number is personal data: it is stored on the customer and shown to staff (they call the customer), but never printed or written to messages or logs.
+- **Repayments need internet; credit sales do not.** A sale must never wait for the network. A repayment needs the true balance, which only the server has.
+- **Split bill makes every invoice at once.** One part now and the rest later would leave a half-paid table whose plan exists only on one phone. Each part is a normal invoice with `order_part`. The unique index is now `(order_id, order_part)`, under the old name, so the "order already billed" check still works. The order is settled when every part is (`settle` carries `part`/`parts` in both reducers, with shared cases). Each part rounds to the rupee on its own, so the parts can differ from the whole by a few paise each.
+- **`payment_mode` gains `split` and `credit`.** Postgres cannot drop enum values, so a downgrade leaves them on the type. Nothing older uses them, and upgrading again skips them.
+- **Not done:** discounts at the table (a table discount can be given at the counter for now), splitting a bill equally by amount (an invoice must list items, and an equal split is a payment split, which **Split** does), credit limits per customer, and reminders to customers who owe.
+
 ## Phase 7: reports and inventory
 
 **Manage → Reports** (owner):

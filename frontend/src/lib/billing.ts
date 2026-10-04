@@ -7,7 +7,7 @@
  */
 import type { LocalBill, PosDB } from './db';
 import { computeBill, type GstType } from './gst';
-import type { Catalogue, SyncBill, SyncBillLine } from './types';
+import type { BillCustomer, Catalogue, PaymentPart, PayMode, SyncBill, SyncBillLine } from './types';
 
 export const SHOP_TIMEZONE = 'Asia/Kolkata';
 
@@ -50,9 +50,25 @@ export interface CartLine {
   menuItemId: string;
   qty: number;
   modifierIds: string[];
+  /** Phase 6: taken off this line, in paise. */
+  discountPaise?: number;
 }
 
-export type PaymentMode = 'cash' | 'upi' | 'card';
+export type PaymentMode = PayMode;
+
+/**
+ * May this person give this discount? The owner sets the most a cashier may take
+ * off (basis points of the bill's value); the owner has no limit. The server
+ * checks the same rule and flags a bill that got past it (README, Phase 6).
+ */
+export function discountAllowed(a: { discountPaise: number; grossPaise: number; maxBp: number; isOwner: boolean }): boolean {
+  return a.isOwner || a.discountPaise * 10_000 <= a.maxBp * a.grossPaise;
+}
+
+/** A percentage of an amount in whole paise, half up (12.5% of 40 = 5). */
+export function percentOff(percent: number, paise: number): number {
+  return Math.floor((Math.round(percent * 100) * paise + 5_000) / 10_000);
+}
 
 /** Turn a cart into the exact payload the server expects, with printed totals. */
 export function buildLines(cart: CartLine[], catalogue: Catalogue): SyncBillLine[] {
@@ -80,12 +96,18 @@ export function buildLines(cart: CartLine[], catalogue: Catalogue): SyncBillLine
           lines: m.lines.map((l) => ({ ingredient_id: l.ingredient_id, qty_delta: l.qty_delta })),
         };
       }),
+      ...(c.discountPaise ? { discount_paise: c.discountPaise } : {}),
       totals: { gross: 0, taxable: 0, cgst: 0, sgst: 0, total: 0 }, // filled below
     };
   });
 }
 
-export function priceLines(lines: SyncBillLine[], gstType: GstType) {
+/**
+ * Price lines with the shared GST rule, writing each line's printed totals. A
+ * discount appears in the totals only when there is one, so an undiscounted bill
+ * sends exactly what it did before Phase 6.
+ */
+export function priceLines(lines: SyncBillLine[], gstType: GstType, billDiscountPaise = 0) {
   const totals = computeBill(
     lines.map((l) => ({
       unitPricePaise: l.unit_price_paise,
@@ -93,10 +115,15 @@ export function priceLines(lines: SyncBillLine[], gstType: GstType) {
       gstRateBp: l.gst_rate_bp,
       taxInclusive: l.tax_inclusive,
       modifierDeltasPaise: l.modifiers.map((m) => m.price_delta_paise),
+      discountPaise: l.discount_paise ?? 0,
     })),
     gstType,
+    billDiscountPaise,
   );
-  lines.forEach((l, i) => (l.totals = { ...totals.lines[i] }));
+  lines.forEach((l, i) => {
+    const { discount, ...rest } = totals.lines[i];
+    l.totals = discount ? { ...rest, discount } : rest;
+  });
   return totals;
 }
 
@@ -114,6 +141,15 @@ export interface SaveBillInput {
   /** Settling a table order: its lines (priced when they were ordered) and its id. */
   lines?: SyncBillLine[];
   orderId?: string;
+  /** Split bill: which part of the order this invoice is (1 when not split). */
+  orderPart?: number;
+  /** Phase 6: a discount on the whole bill, and why (any discount needs a reason). */
+  billDiscountPaise?: number;
+  discountReason?: string;
+  /** Split payment or part on credit: must add up to the total. */
+  paymentParts?: PaymentPart[];
+  /** Whose bill it is (needed for credit). */
+  customer?: BillCustomer;
   now?: Date;
 }
 
@@ -125,7 +161,14 @@ export async function saveBill(input: SaveBillInput): Promise<LocalBill> {
   const fy = financialYear(bdate);
   const gstType = catalogue.shop.gst_type;
   const lines = input.lines ? input.lines.map((l) => ({ ...l, totals: { ...l.totals } })) : buildLines(cart, catalogue);
-  const totals = priceLines(lines, gstType);
+  const billDiscount = input.billDiscountPaise ?? 0;
+  const totals = priceLines(lines, gstType, billDiscount);
+  const parts = input.paymentParts?.length ? input.paymentParts : undefined;
+  if (parts && parts.reduce((a, p) => a + p.paise, 0) !== totals.total) {
+    throw new Error('The payment parts do not add up to the bill');
+  }
+  const onCredit = paymentMode === 'credit' || parts?.some((p) => p.mode === 'credit');
+  if (onCredit && !input.customer) throw new Error('A bill on credit needs the customer');
 
   return db.transaction('rw', db.counters, db.bills, async () => {
     const key = `${deviceId}:${fy}`;
@@ -137,6 +180,11 @@ export async function saveBill(input: SaveBillInput): Promise<LocalBill> {
       ...(cashierId ? { cashier_id: cashierId } : {}),
       ...(shiftId ? { shift_id: shiftId } : {}),
       ...(orderId ? { order_id: orderId } : {}),
+      ...(input.orderPart && input.orderPart > 1 ? { order_part: input.orderPart } : {}),
+      ...(billDiscount ? { bill_discount_paise: billDiscount } : {}),
+      ...(totals.discount && input.discountReason ? { discount_reason: input.discountReason } : {}),
+      ...(parts ? { payment_parts: parts } : {}),
+      ...(input.customer ? { customer: input.customer } : {}),
       local_seq: seq,
       invoice_no: invoiceNumber(deviceCode, fy, seq),
       sold_at: now.toISOString(),
@@ -144,6 +192,7 @@ export async function saveBill(input: SaveBillInput): Promise<LocalBill> {
       gst_type: gstType,
       lines,
       totals: {
+        ...(totals.discount ? { discount: totals.discount } : {}),
         taxable: totals.taxable,
         cgst: totals.cgst,
         sgst: totals.sgst,

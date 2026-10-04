@@ -23,6 +23,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     UniqueConstraint,
     func,
@@ -39,6 +40,8 @@ class PaymentMode(enum.StrEnum):
     cash = "cash"
     upi = "upi"
     card = "card"
+    split = "split"  # several parts (cash + UPI, or part on credit): see payment_parts
+    credit = "credit"  # the whole bill on the customer's khata
 
 
 class BillStatus(enum.StrEnum):
@@ -63,10 +66,13 @@ class Bill(TenantScoped, Base):
         Index("ix_bills_shop_business_date", "shop_id", "business_date"),
         CheckConstraint("local_seq >= 1", name="ck_bills_seq"),
         CheckConstraint("total_paise >= 0", name="ck_bills_total"),
-        # One invoice per order: a second settle from another tablet is refused.
+        # One invoice per order PART (a table may split its bill into several):
+        # a second settle of the same part from another tablet is refused. Same
+        # name as before Phase 6, so code that recognises it keeps working.
         Index(
             "uq_bills_order_id",
             "order_id",
+            "order_part",
             unique=True,
             postgresql_where=text("order_id IS NOT NULL"),
         ),
@@ -97,9 +103,24 @@ class Bill(TenantScoped, Base):
     order_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("orders.id", ondelete="RESTRICT")
     )
+    # Which part of a split order this invoice is (1 when not split).
+    order_part: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
     status: Mapped[BillStatus] = mapped_column(
         Enum(BillStatus, name="bill_status"), default=BillStatus.completed
     )
+    # Phase 6. All discounts on the bill (line discounts and the bill discount),
+    # and why; how it was paid when not in one mode ([{"mode", "paise"}]); whose
+    # khata a credit part goes on.
+    discount_paise: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    discount_reason: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    payment_parts: Mapped[list | None] = mapped_column(JSONB)
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), index=True
+    )
+    # Things the owner should look at; the bill still stands as printed:
+    # discount_over_limit, discount_without_reason, payment_parts_mismatch,
+    # credit_without_customer.
+    flags: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
     gst_type: Mapped[GstType] = mapped_column(Enum(GstType, name="gst_type", create_type=False))
 
     # As printed (the legal record)
@@ -150,6 +171,8 @@ class BillLine(TenantScoped, Base):
     tax_inclusive: Mapped[bool] = mapped_column(Boolean)
     # As printed
     gross_paise: Mapped[int] = mapped_column(Integer)
+    # The line's own discount plus its share of the bill discount (Phase 6).
+    discount_paise: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     taxable_paise: Mapped[int] = mapped_column(Integer)
     cgst_paise: Mapped[int] = mapped_column(Integer)
     sgst_paise: Mapped[int] = mapped_column(Integer)

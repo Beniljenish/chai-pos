@@ -474,6 +474,18 @@ input {
   line-height: 1;
   letter-spacing: -0.02em;
 }
+.till-extras {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+.till .payment-note {
+  margin: 0 0 var(--s3);
+  color: var(--paper);
+  font-weight: 700;
+}
 .payment {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1788,6 +1800,14 @@ label.check.email-switch input {
   border-radius: var(--radius-control);
   padding: var(--s3);
 }
+/* Plain cards (discounts): only a problem is marked. */
+.neutral-list li {
+  background: var(--paper);
+  border: 1px solid var(--steel-deep);
+}
+.neutral-list li.after-bill {
+  border-left: 4px solid var(--chilli);
+}
 /* Customer messages: neutral cards; only a failed one is marked. */
 .message-list li {
   background: var(--paper);
@@ -2090,4 +2110,30 @@ button.account {
 }
 .doc-list li.after-bill {
   border-left: 4px solid var(--chilli);
+}
+/* ---------- Phase 6: split bill, khata ---------- */
+.split-lines,
+.split-parts {
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.split-lines li,
+.split-parts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--steel-deep);
+}
+.khata-owed {
+  font-size: 1.2rem;
+}
+.repay {
+  display: grid;
+  gap: var(--s2);
 }

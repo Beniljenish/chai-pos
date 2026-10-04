@@ -51,6 +51,9 @@ class Shop(IdMixin, TimestampMixin, Base):
     email_weekly: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Cash drawer shifts: on unless the shop has no cash drawer to check.
     cash_shifts: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # The most a cashier may take off a bill, in basis points of its value
+    # (1000 = 10%). Over it, the bill is still saved and the owner sees it flagged.
+    max_discount_bp: Mapped[int] = mapped_column(Integer, default=1000, server_default="1000")
 
 
 class User(IdMixin, TimestampMixin, TenantScoped, Base):
@@ -214,9 +217,9 @@ __all__ += [
     "OrderStatus",
     "OrderType",
 ]
-from app.models.purchases import PurchaseOrder, PurchaseOrderLine, Supplier  # noqa: E402
+from app.models.customers import CreditRepayment, Customer  # noqa: E402
 
-__all__ += ["PurchaseOrder", "PurchaseOrderLine", "Supplier"]
+__all__ += ["CreditRepayment", "Customer"]
 
 from app.models.messages import Message  # noqa: E402
 
@@ -225,3 +228,7 @@ __all__ += ["Message"]
 from app.models.payments import Payment  # noqa: E402
 
 __all__ += ["Payment"]
+
+from app.models.purchases import PurchaseOrder, PurchaseOrderLine, Supplier  # noqa: E402
+
+__all__ += ["PurchaseOrder", "PurchaseOrderLine", "Supplier"]

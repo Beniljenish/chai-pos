@@ -157,3 +157,56 @@ export function CashSettings() {
     </section>
   );
 }
+
+/** Owner: the most a cashier may take off a bill (README, Phase 6). */
+export function DiscountSettings() {
+  const { reloadCatalogue } = useSession();
+  const [pct, setPct] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<{ max_discount_bp: number }>('/shop').then(
+      (s) => {
+        setPct(String(s.max_discount_bp / 100));
+        setSaved(String(s.max_discount_bp / 100));
+      },
+      (e) => setError(explainError(e)),
+    );
+  }, []);
+
+  async function save() {
+    setError(null);
+    try {
+      const s = await api.patch<{ max_discount_bp: number }>('/shop', { max_discount_bp: Math.round(Number(pct) * 100) });
+      setSaved(String(s.max_discount_bp / 100));
+      void reloadCatalogue();
+    } catch (e) {
+      setError(explainError(e));
+    }
+  }
+
+  if (pct === null) return error ? <p className="error">{error}</p> : null;
+  const valid = /^\d{1,3}(\.\d{1,2})?$/.test(pct) && Number(pct) <= 100;
+  return (
+    <section aria-labelledby="discount-title">
+      <h2 id="discount-title">Discounts</h2>
+      <label>
+        Most a cashier can take off a bill (%)
+        <input inputMode="decimal" value={pct} onChange={(e) => setPct(e.target.value)} />
+      </label>
+      <p className="muted">
+        Every discount needs a reason and shows under Sales. You can give any discount yourself. A bill over the limit
+        from an older or offline tablet is still saved, and flagged for you.
+      </p>
+      <button disabled={!valid || pct === saved} onClick={() => void save()}>
+        Save limit
+      </button>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}

@@ -145,3 +145,31 @@ describe('bytes', () => {
     }
   });
 });
+
+describe('Phase 6 on the receipt', () => {
+  it('a discount gets its own row, each payment part its own line, and the customer is named', async () => {
+    const b = await saveBill({
+      db,
+      deviceId: 'dev',
+      deviceCode: 'C1',
+      catalogue: { ...testCatalogue, shop },
+      cart: [{ menuItemId: 'tea', qty: 3, modifierIds: [] }],
+      billDiscountPaise: 1000,
+      discountReason: 'Regular',
+      paymentMode: 'split',
+      paymentParts: [
+        { mode: 'cash', paise: 3000 },
+        { mode: 'credit', paise: 2000 },
+      ],
+      customer: { id: 'c1', phone: '9876543210', name: 'Priya' },
+      now: new Date('2026-10-04T03:05:00Z'),
+    });
+    const text = receiptRows(b, shop, 32).map((r) => r.text);
+    expect(text).toContain('  3 x Rs.20                Rs.60'); // full price on the line
+    expect(text).toContain('Discount (Regular)        -Rs.10');
+    expect(text).toContain('Paid by Cash               Rs.30');
+    expect(text).toContain('On credit (khata)          Rs.20');
+    expect(text).toContain('Customer                   Priya');
+    expect(text.join('\n')).not.toContain('9876543210'); // the number is not printed
+  });
+});

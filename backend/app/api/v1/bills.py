@@ -34,6 +34,7 @@ def sync_bills(body: SyncRequest, caller: Caller = Depends(get_caller)):
         device=device,
         cashier_id=caller.user.id,
         staff_ids=frozenset(caller.db.scalars(select(User.id))),  # tenant-scoped
+        owner_ids=frozenset(caller.db.scalars(select(User.id).where(User.role == Role.owner))),
     )
     results = billing.ingest_batch(ctx, [_as_received(b) for b in body.bills])
     email.deliver_pending(caller.db)  # bill emails, if switched on; never raises
@@ -80,9 +81,20 @@ def _as_received(b) -> dict:
     existed did not send them: leave them out rather than add null, or a retry of
     such a bill would hash differently and be refused as altered."""
     d = b.model_dump()
-    for key in ("cashier_id", "shift_id", "order_id"):
+    for key in ("cashier_id", "shift_id", "order_id", "payment_parts", "customer"):
         if d.get(key) is None:
             d.pop(key, None)
+    # Phase 6 keys with their "not used" value: absent, as an older app sent it.
+    for key, unused in (("order_part", 1), ("bill_discount_paise", 0), ("discount_reason", "")):
+        if d.get(key) == unused:
+            d.pop(key)
+    if d["totals"].get("discount") == 0:
+        d["totals"].pop("discount")
+    for ln in d["lines"]:
+        if ln.get("discount_paise") == 0:
+            ln.pop("discount_paise")
+        if ln["totals"].get("discount") == 0:
+            ln["totals"].pop("discount")
     return d
 
 

@@ -4,7 +4,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
@@ -28,6 +28,7 @@ class ModifierSnapshotIn(BaseModel):
 
 class LineTotalsIn(BaseModel):
     gross: Paise
+    discount: Annotated[int, Field(ge=0, le=10_000_000)] = 0  # Phase 6
     taxable: Paise
     cgst: Paise
     sgst: Paise
@@ -35,6 +36,7 @@ class LineTotalsIn(BaseModel):
 
 
 class BillTotalsIn(BaseModel):
+    discount: Annotated[int, Field(ge=0, le=10_000_000)] = 0  # Phase 6
     taxable: Paise
     cgst: Paise
     sgst: Paise
@@ -52,7 +54,20 @@ class BillLineIn(BaseModel):
     gst_rate_bp: Annotated[int, Field(ge=0, le=2800)]
     tax_inclusive: bool
     modifiers: Annotated[list[ModifierSnapshotIn], Field(max_length=10)] = []
+    # The cashier's discount on this line (its share of a bill discount is not here).
+    discount_paise: Annotated[int, Field(ge=0, le=10_000_000)] = 0
     totals: LineTotalsIn
+
+
+class PaymentPartIn(BaseModel):
+    mode: Literal["cash", "upi", "card", "credit"]
+    paise: Annotated[int, Field(ge=1, le=10_000_000)]
+
+
+class CustomerIn(BaseModel):
+    id: uuid.UUID  # made on the tablet; the server keeps one customer per number
+    phone: Annotated[str, Field(pattern=r"^\d{10}$")]
+    name: Annotated[str, Field(max_length=80)] = ""
 
 
 class SyncBillIn(BaseModel):
@@ -70,6 +85,12 @@ class SyncBillIn(BaseModel):
     shift_id: uuid.UUID | None = None
     # The running order this bill settles (table service), if any.
     order_id: uuid.UUID | None = None
+    # Phase 6 (all optional; unused keys are left out of the hash, see bills.py).
+    order_part: Annotated[int, Field(ge=1, le=20)] = 1  # split bill: which part
+    bill_discount_paise: Annotated[int, Field(ge=0, le=10_000_000)] = 0
+    discount_reason: Annotated[str, Field(max_length=200)] = ""
+    payment_parts: Annotated[list[PaymentPartIn], Field(min_length=1, max_length=4)] | None = None
+    customer: CustomerIn | None = None
 
 
 class SyncRequest(BaseModel):
@@ -109,6 +130,7 @@ class BillLineOut(ORM):
     qty: int
     gst_rate_bp: int
     tax_inclusive: bool
+    discount_paise: int = 0
     total_paise: int
     modifiers: list[BillLineModifierOut]
 
@@ -138,6 +160,12 @@ class BillOut(ORM):
     payment_mode: PaymentMode
     status: str
     shift_id: uuid.UUID | None = None
+    discount_paise: int = 0
+    discount_reason: str = ""
+    payment_parts: list | None = None
+    customer_id: uuid.UUID | None = None
+    order_part: int = 1
+    flags: list = []
     order_id: uuid.UUID | None = None
     taxable_paise: int
     cgst_paise: int

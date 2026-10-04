@@ -90,6 +90,9 @@ export interface OrderState {
   bill_prints: number;
   changed_after_bill: boolean;
   bill_id: string | null;
+  /** Split bill (Phase 6): the invoices paid so far, and how many parts there are. */
+  bill_ids: string[];
+  parts: number;
   settled_at: string | null;
   cancel_reason: string | null;
   last_at: string | null;
@@ -118,6 +121,8 @@ export function emptyState(): OrderState {
     bill_prints: 0,
     changed_after_bill: false,
     bill_id: null,
+    bill_ids: [],
+    parts: 1,
     settled_at: null,
     cancel_reason: null,
     last_at: null,
@@ -222,11 +227,20 @@ export function reduce(events: OrderEvent[]): OrderState {
           if (ln) ln.ready = true;
         }
         break;
-      case 'settle':
-        s.status = 'settled';
-        s.bill_id = (d.bill_id as string) ?? null;
-        s.settled_at = at;
+      case 'settle': {
+        // A split bill settles part by part; the order is done when every part is.
+        const id = (d.bill_id as string) ?? null;
+        s.parts = Math.max(1, Number(d.parts ?? 1) || 1);
+        if (id && !s.bill_ids.includes(id)) s.bill_ids.push(id);
+        if (s.bill_ids.length >= s.parts) {
+          s.status = 'settled';
+          s.bill_id = s.bill_ids[0] ?? id;
+          s.settled_at = at;
+        } else {
+          s.status = 'billed';
+        }
         break;
+      }
       case 'cancel_order':
         s.status = 'cancelled';
         s.cancel_reason = (d.reason as string) || '';

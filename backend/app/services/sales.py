@@ -9,11 +9,11 @@ from collections import defaultdict
 from datetime import date
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
-from app.models import Bill, BillStatus, BillVoid, Payment, User
+from app.models import Bill, BillStatus, BillVoid, CreditRepayment, Payment, User
 from app.models.dayend import DayCount
 
 
@@ -34,9 +34,14 @@ def sales_report(db: Session, d: date) -> dict:
     by_cashier: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     items: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     rates: dict[int, list[int]] = defaultdict(lambda: [0, 0, 0])
+    from app.services.billing import credit_paise, payment_split  # local: billing imports a lot
+
     for b in bills:
+        # A split bill counts each part under its own mode (cash 20 + UPI 40).
+        for mode, paise in payment_split(b):
+            by_mode[mode][0] += 1
+            by_mode[mode][1] += paise
         for key, bucket in (
-            (b.payment_mode.value, by_mode),
             (b.sold_at.astimezone(tz).hour, by_hour),
             (cashiers.get(b.cashier_id, "?"), by_cashier),
         ):
@@ -50,6 +55,11 @@ def sales_report(db: Session, d: date) -> dict:
             r[1] += ln.cgst_paise
             r[2] += ln.sgst_paise
 
+    repaid = db.scalar(
+        select(func.coalesce(func.sum(CreditRepayment.amount_paise), 0)).where(
+            CreditRepayment.business_date == d
+        )
+    )
     day = db.scalar(select(DayCount).where(DayCount.business_date == d))
     online = _online_payments(db, every)
     return {
@@ -61,6 +71,28 @@ def sales_report(db: Session, d: date) -> dict:
         "cgst_paise": sum(b.cgst_paise for b in bills),
         "sgst_paise": sum(b.sgst_paise for b in bills),
         "round_off_paise": sum(b.round_off_paise for b in bills),
+        # Phase 6: discounts given, credit given (on khata), credit repaid today.
+        "discount_paise": sum(b.discount_paise for b in bills),
+        "discounts": [
+            {
+                "bill_id": b.id,
+                "invoice_no": b.invoice_no,
+                "discount_paise": b.discount_paise,
+                "total_paise": b.total_paise,
+                "reason": b.discount_reason,
+                "by_name": cashiers.get(b.cashier_id, "?"),
+                "over_limit": "discount_over_limit" in (b.flags or []),
+            }
+            for b in bills
+            if b.discount_paise
+        ],
+        "credit_given_paise": sum(credit_paise(b) for b in bills),
+        "repaid_paise": int(repaid or 0),
+        "flagged": [
+            {"bill_id": b.id, "invoice_no": b.invoice_no, "flags": b.flags}
+            for b in bills
+            if b.flags
+        ],
         "by_mode": [
             {"mode": m, "bills": n, "total_paise": t} for m, (n, t) in sorted(by_mode.items())
         ],

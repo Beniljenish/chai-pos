@@ -81,6 +81,9 @@ class ReadyData(_Strict):
 
 class SettleData(_Strict):
     bill_id: uuid.UUID
+    # Split bill (Phase 6): this invoice is part `part` of `parts`.
+    part: Annotated[int, Field(ge=1, le=20)] = 1
+    parts: Annotated[int, Field(ge=1, le=20)] = 1
 
 
 class CancelOrderData(_Strict):
