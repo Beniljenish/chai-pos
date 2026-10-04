@@ -1,22 +1,32 @@
 /*
  * Chai POS. A counter tool: legible in bright light, big targets for quick taps.
- * Palette from the counter itself: stainless steel, slate ink, tea-leaf green
- * for the one action that matters, turmeric for "waiting", chilli for problems.
+ * "Jamun & Berry" (Phase 9.3): deep jamun violet is the brand (header, selected
+ * states, the bill bar); berry pink is the one action that matters (Save);
+ * green only means "done / fine", turmeric "waiting", chilli "problem".
  */
 :root {
-  --steel: #e6eaed;
-  --steel-deep: #cfd6db;
+  --steel: #f6f3fa; /* the ground */
+  --steel-deep: #e6dfee; /* lines and borders */
   --paper: #ffffff;
-  --ink: #1d2730;
-  --ink-soft: #55626d;
-  --leaf: #1f6b4f;
-  --leaf-press: #17533d;
-  --turmeric: #d9962b;
-  --turmeric-soft: #fbefd9;
-  --chilli: #b3261e;
-  --chilli-soft: #fbe3e1;
-  --radius-control: 10px;
-  --radius-panel: 16px;
+  --ink: #1b1530;
+  --ink-soft: #6b6585;
+  --brand: #3b1468;
+  --brand-press: #2a0e4b;
+  --brand-soft: #f1eaf8;
+  --brand-ink: #d8c8ec; /* quiet text on jamun */
+  --accent: #e23e72;
+  --accent-press: #c42a5d;
+  --leaf: #13865a; /* "done / fine": sent, matched, eating */
+  --leaf-press: #0f6c49;
+  --leaf-soft: #e3f8ec;
+  --turmeric: #c77d0a;
+  --turmeric-soft: #fff4de;
+  --chilli: #c0213f;
+  --chilli-soft: #ffe5ea;
+  --shadow: 0 2px 10px rgba(27, 21, 48, 0.07);
+  --shadow-lift: 0 8px 24px rgba(59, 20, 104, 0.28);
+  --radius-control: 12px;
+  --radius-panel: 20px;
   --tap: 52px; /* minimum touch target */
   --s1: 4px;
   --s2: 8px;
@@ -24,8 +34,9 @@
   --s4: 16px;
   --s5: 24px;
   --s6: 32px;
-  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
-  font-size: 17px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
   line-height: 1.45;
   color: var(--ink);
   background: var(--steel);
@@ -41,6 +52,8 @@ body {
 }
 h1 {
   font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   line-height: 1.2;
   margin: 0 0 var(--s3);
 }
@@ -69,11 +82,14 @@ button {
   border: 1.5px solid var(--steel-deep);
   border-radius: var(--radius-control);
   background: var(--paper);
+  font-weight: 700;
   cursor: pointer;
   touch-action: manipulation; /* no double-tap zoom delay */
+  transition: background-color 0.12s, transform 0.08s;
 }
-button:active {
-  background: var(--steel);
+button:active:not(:disabled) {
+  background: var(--brand-soft);
+  transform: scale(0.98);
 }
 button:disabled {
   opacity: 0.5;
@@ -81,18 +97,18 @@ button:disabled {
 }
 button[aria-pressed='true'],
 button[aria-checked='true'] {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--brand);
+  border-color: var(--brand);
   color: var(--paper);
 }
 button.primary {
-  background: var(--leaf);
-  border-color: var(--leaf);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--paper);
-  font-weight: 700;
+  font-weight: 800;
 }
 button.primary:active:not(:disabled) {
-  background: var(--leaf-press);
+  background: var(--accent-press);
 }
 button.quiet {
   border-color: transparent;
@@ -100,7 +116,7 @@ button.quiet {
   color: var(--ink-soft);
 }
 :focus-visible {
-  outline: 3px solid var(--turmeric);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 label {
@@ -115,7 +131,10 @@ input {
   border: 1.5px solid var(--steel-deep);
   border-radius: var(--radius-control);
   background: var(--paper);
-  font-weight: 400;
+  font-weight: 500;
+}
+input:focus {
+  border-color: var(--brand);
 }
 .error {
   color: var(--chilli);
@@ -186,8 +205,8 @@ input {
   align-items: center;
   gap: var(--s3);
   padding: var(--s2) var(--s4);
-  background: var(--paper);
-  border-bottom: 1.5px solid var(--steel-deep);
+  background: var(--brand);
+  color: var(--paper);
   flex-wrap: wrap;
 }
 .where {
@@ -195,35 +214,72 @@ input {
   margin-right: auto;
   line-height: 1.25;
 }
-.where .muted {
-  font-size: 0.85rem;
+.where strong {
+  font-weight: 800;
+  font-size: 1.05rem;
 }
+.where .muted {
+  font-size: 0.8rem;
+  color: var(--brand-ink);
+}
+.where .muted button,
+.where .muted a {
+  color: var(--brand-ink);
+}
+.topbar button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--paper);
+}
+.topbar button.quiet {
+  color: var(--brand-ink);
+}
+/* Tablets: the screen tabs are a pill group in the header. */
 .tabs {
   display: flex;
-  gap: var(--s2);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.tabs button {
+  min-height: 44px;
+  border: none;
+  color: var(--brand-ink);
+}
+.tabs button[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--brand);
+}
+.tabs svg {
+  display: none;
 }
 .sync-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
   font-weight: 700;
+  border-radius: 999px;
+  min-height: 40px;
+}
+.topbar .sync-badge {
+  background: rgba(255, 255, 255, 0.14);
 }
 .sync-badge .dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: var(--leaf);
+  background: #7be0a6;
 }
-.sync-badge.wait {
+.topbar .sync-badge.wait {
   background: var(--turmeric-soft);
-  border-color: var(--turmeric);
+  color: #7a4d00;
 }
 .sync-badge.wait .dot {
   background: var(--turmeric);
 }
-.sync-badge.bad {
+.topbar .sync-badge.bad {
   background: var(--chilli-soft);
-  border-color: var(--chilli);
   color: var(--chilli);
 }
 .sync-badge.bad .dot {
@@ -287,14 +343,28 @@ input {
     box-sizing: border-box;
     height: var(--nav-h);
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    border-radius: 0;
     background: var(--paper);
-    border-top: 1.5px solid var(--steel-deep);
-    box-shadow: 0 -4px 12px rgba(29, 39, 48, 0.06);
+    box-shadow: 0 -2px 14px rgba(27, 21, 48, 0.08);
   }
   .tabs button {
     min-height: 48px;
-    border-color: transparent;
-    font-weight: 700;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0;
+    border-radius: 14px;
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+  }
+  .tabs button[aria-pressed='true'] {
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+  .tabs svg {
+    display: block;
   }
   /* The till and the order drawer sit on top of the tab bar, not under it
      (".app" so this wins over the base .till rule further down). */
@@ -328,6 +398,10 @@ input {
 }
 .categories button {
   flex: none;
+  min-height: 44px;
+  border-radius: 999px;
+  border-color: transparent;
+  box-shadow: var(--shadow);
 }
 .grid {
   display: grid;
@@ -344,7 +418,8 @@ input {
   align-items: flex-start;
   text-align: left;
   border-radius: var(--radius-panel);
-  border: 1.5px solid var(--steel-deep);
+  border: none;
+  box-shadow: var(--shadow);
 }
 .tile-name {
   padding-right: 32px; /* room for the count badge */
@@ -354,7 +429,8 @@ input {
 }
 .tile-price {
   font-variant-numeric: tabular-nums;
-  color: var(--ink-soft);
+  font-weight: 800;
+  font-size: 1.05rem;
 }
 .tile-count {
   position: absolute;
@@ -363,28 +439,39 @@ input {
   min-width: 30px;
   height: 30px;
   padding: 0 var(--s2);
-  border-radius: 15px;
-  background: var(--leaf);
+  border-radius: 10px;
+  background: var(--brand);
   color: var(--paper);
-  font-weight: 700;
+  font-weight: 800;
   display: grid;
   place-items: center;
   font-variant-numeric: tabular-nums;
 }
 
-/* The till: the one bold thing on screen. */
+/* The till. Phones: a jamun bar that floats above the tab bar and opens into
+   a light sheet ("Your bill"). Tablets: a white card on the right. */
 .till {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--ink);
-  color: var(--paper);
-  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -6px 24px rgba(27, 21, 48, 0.12);
   max-height: 85dvh;
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
+}
+.till:not(.open) {
+  left: var(--s3);
+  right: var(--s3);
+  margin-bottom: var(--s2);
+  border-radius: var(--radius-panel);
+  background: var(--brand);
+  color: var(--paper);
+  box-shadow: var(--shadow-lift);
 }
 .till-handle {
   display: flex;
@@ -394,11 +481,12 @@ input {
   min-height: 72px;
   background: transparent;
   border: none;
-  color: var(--paper);
-  font-size: 1.05rem;
+  color: inherit;
+  font-size: 1rem;
 }
 .till-handle strong {
   font-size: 1.6rem;
+  font-weight: 800;
 }
 .till-handle:active {
   background: transparent;
@@ -427,19 +515,20 @@ input {
 .till.open .till-body {
   display: block;
 }
-.till button:not(.primary):not([aria-pressed='true']):not([aria-checked='true']) {
+.till-handle,
+.till-handle:active:not(:disabled) {
   background: transparent;
-  color: var(--paper);
-  border-color: #3e4a55;
+  transform: none;
 }
+/* Chosen payment mode, chosen option: solid ink, like a ticked box. */
 .till button[aria-pressed='true'],
 .till button[aria-checked='true'] {
-  background: var(--paper);
-  color: var(--ink);
-  border-color: var(--paper);
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
 }
 .till .empty {
-  color: #a8b3bc;
+  color: var(--ink-soft);
 }
 .lines {
   list-style: none;
@@ -448,7 +537,7 @@ input {
 }
 .lines li {
   padding: var(--s3) 0;
-  border-bottom: 1px solid #36424d;
+  border-bottom: 1px solid var(--steel-deep);
 }
 .line-top {
   display: flex;
@@ -486,7 +575,7 @@ input {
   padding-top: var(--s4);
 }
 .tax-note {
-  color: #a8b3bc;
+  color: var(--ink-soft);
   font-size: 0.9rem;
   margin: 0;
 }
@@ -497,6 +586,7 @@ input {
   margin: var(--s2) 0 var(--s4);
 }
 .total strong {
+  font-weight: 800;
   font-size: 3rem;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -510,7 +600,7 @@ input {
 }
 .till .payment-note {
   margin: 0 0 var(--s3);
-  color: var(--paper);
+  color: var(--ink);
   font-weight: 700;
 }
 .payment {
@@ -520,11 +610,11 @@ input {
   margin-bottom: var(--s3);
 }
 .till .error {
-  color: #ff8a80;
+  color: var(--chilli);
 }
 .till .online-toggle {
   margin-bottom: var(--s3);
-  color: var(--paper);
+  color: var(--ink);
 }
 button.save {
   width: 100%;
@@ -540,12 +630,17 @@ button.save {
   .menu {
     padding-bottom: var(--s4);
   }
-  .till {
+  .till,
+  .till:not(.open) {
     position: sticky;
-    top: 0;
-    height: calc(100dvh - 70px);
+    top: var(--s3);
+    height: calc(100dvh - 84px);
     max-height: none;
-    border-radius: 0;
+    margin: var(--s3) var(--s3) var(--s3) 0;
+    border-radius: 24px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--shadow);
   }
   .till-handle,
   .till .quick-save {
@@ -845,31 +940,31 @@ button.save {
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #a8b3bc;
+  color: var(--ink-soft);
   margin: var(--s4) 0 0;
 }
 .till-warn {
   margin: var(--s2) 0 0;
   padding: var(--s2) var(--s3);
   border-radius: var(--radius-control);
-  background: var(--turmeric);
-  color: var(--ink);
+  background: var(--turmeric-soft);
+  color: #7a4d00;
   font-weight: 700;
   font-size: 0.9rem;
 }
 .line-note {
   margin-top: var(--s2);
   width: 100%;
-  background: transparent;
-  color: var(--paper);
-  border-color: #3e4a55;
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--steel-deep);
 }
 .line-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: var(--s2);
-  color: #a8b3bc;
+  color: var(--ink-soft);
   font-size: 0.9rem;
 }
 .till .line-meta button.quiet {
