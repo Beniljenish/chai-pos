@@ -528,6 +528,11 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 
 ## Phase 9: UI and UX pass
 
+### 9.1 Navigation
+- **Phones: the screen tabs are a bar along the bottom.** A counter phone is used one-handed, and the top of a phone is the hardest place to reach. The top bar is now one row: shop and tablet, sync badge, Log out. The till and the table-order drawer sit on top of the tab bar (`--nav-h`), never under it. A shared e2e guard (`expectPhoneBars`) checks that the bar is pinned to the bottom in one row and the top bar stays one row; the phone top bar had broken twice before.
+- **Manage's twelve sections are grouped:** Money (Sales, Reports, Khata), Stock (Stock, Purchases, Day end, Recipes), Setup (Shop & GST, Staff, Floor, Tablets, Messages). On a phone the groups wrap above the page; the old single row scrolled sideways and hid most sections. On a tablet they become a left sidebar, and Manage pages use the full width instead of a 760 px column.
+- **Not changed:** section and tab names, so staff who know the app find everything where its name says.
+
 ### 9.2 Sales: one row per cash drawer
 - **Each drawer is one row:** who, which tablet, when, what should be in it, and its state (*Not counted*, *Matched*, *₹20 short*). Tap it for the sums (float, cash sales, paid in/out, counted). On a busy day with nine tablets this section was most of a 3,500 px page on a phone.
 - **A drawer that was counted and does not match opens by itself.** The owner should not have to hunt for the one that is short. Matched and still-open drawers stay folded.

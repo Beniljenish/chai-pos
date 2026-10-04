@@ -3,13 +3,14 @@
  * check the sale deducted by the NEW version. Plus packaging and new ingredients.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { saveAndPrint } from './helpers';
+import { expectPhoneBars, saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
+
 const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 test('owner recipes: new version is what the next sale deducts', async ({ page }) => {
@@ -23,10 +24,7 @@ test('owner recipes: new version is what the next sale deducts', async ({ page }
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
   await tab(page, 'Manage').click();
-  // Regression guard: on a phone, tabs and sync badge share one row (this wrapped twice).
-  const tabsBox = await page.locator('.tabs').boundingBox();
-  const badgeBox = await page.locator('.sync-badge').boundingBox();
-  expect(Math.abs((tabsBox?.y ?? 0) - (badgeBox?.y ?? 999))).toBeLessThan(4);
+  await expectPhoneBars(page);
   await sub(page, 'Recipes').click();
   await expect(page.getByRole('heading', { name: 'Recipes', exact: true })).toBeVisible();
   await expect(page.locator('.sop-list li', { hasText: 'Masala tea' })).toBeVisible();
