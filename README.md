@@ -549,6 +549,56 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **`payment_mode` gains `split` and `credit`.** Postgres cannot drop enum values, so a downgrade leaves them on the type. Nothing older uses them, and upgrading again skips them.
 - **Not done:** discounts at the table (a table discount can be given at the counter for now), splitting a bill equally by amount (an invoice must list items, and an equal split is a payment split, which **Split** does), credit limits per customer, and reminders to customers who owe.
 
+## Phase 7: reports and inventory
+
+**Manage → Reports** (owner):
+- **Sales over time:** any range up to 92 days, with quick picks (last 7 days, this week, this month, last month). Shows totals, payment modes, a bar per day, items sold and a bar per hour of the day. Days and items download as CSV.
+- **GST for a month,** in the shape of GSTR-1:
+  - B2C (small) by rate;
+  - HSN summary;
+  - invoices issued per tablet series: from, to, cancelled, issued, and any numbers that never reached the server.
+
+  Each table downloads as a CSV for the accountant.
+- **Stock value:** what is on the shelf at the latest purchase price, with a CSV.
+
+**Manage → Purchases** (owner):
+- **Suppliers.**
+- **Purchase orders.** **Fill from reorder levels** proposes everything below its level. **Receive into stock** records what actually came and what it cost, and enters it as stock.
+
+**Stock → an item → Reorder below** sets the level. Stock marks items under it.
+
+### Decisions and trade-offs
+- **Reports are computed when asked, not stored.** A quarter of a busy tea shop is a few tens of thousands of bills: well within one query. Pre-computed totals would need keeping in step with voids and late bills, and would be one more thing that can disagree with the invoices. The 92-day limit keeps every request quick on a serverless function.
+- **All sales are B2C (small) and intra-state.** Customers of a tea shop are unregistered and local, so every sale is CGST + SGST, with the place of supply being the shop's state. Nil-rated (0%) sales are a separate total, not a rate row. A shop that sells to registered businesses (B2B invoices with the buyer's GSTIN) would need more; that is not built. Composition and unregistered shops see the totals with a note that GSTR-1 is not their return.
+- **HSN codes come from each item as it is today.** Bills did not keep a copy of the code. Changing an item's code changes how past sales are grouped in the summary; the screen says so. Snapshotting the code on each bill line is the fix, if this ever matters.
+- **Invoice series count numbers, not rows.** "Total" is the span from the first to the last number. "Not on the server" is the gap. That is the lost-bill signal from Tablets, shown again where the accountant will see it.
+- **CSV files are made in the browser** from the report already on screen. No second endpoint means no download link that needs the login token in a URL. Files have a BOM so Excel shows names correctly, and amounts in plain rupees (`19.04`) so they sum in a spreadsheet.
+- **Stock value uses the latest purchase price,** the same cost the day-end variance uses (a batch item: its ingredients' cost per batch). It is not FIFO or weighted average. For a tea shop, stock turns over within days and the difference is small; the owner gets one consistent number. Negative stock counts as worth nothing and is listed so it gets fixed.
+- **Receiving an order is an ordinary stock-in.** The ledger stays the one place stock moves. The purchase price updates as for a stock-in typed by hand. Each order line links to the receipt it made. What came can be less than, or different from, what was ordered; the order keeps both. An order is received once. Anything that comes later is a normal stock-in.
+- **"Fill from reorder levels" orders up to twice the level.** It is predictable and easy to explain, and the owner edits the quantities before saving. A forecast from past usage would be smarter, but harder to trust.
+- **Owner only,** like stock-in: buying for the shop and entering stock are the owner's.
+- **Not done:** sending the order to the supplier (WhatsApp or SMS comes with Phase 8b's providers), supplier bills and payments owed to suppliers, and stock valuation on a past date.
+
+## Phase 8c (design only): Swiggy/Zomato, and more than one outlet
+
+Not built: the owner has no partner accounts yet. What it would take, so the decisions are on paper.
+
+**Swiggy and Zomato orders**
+- **How orders arrive.** Both platforms send orders to a restaurant's POS only through approved integration partners (or their own partner APIs, with onboarding), not through a public API. Plan on a partner aggregator, or the platform's own POS integration once the shop is approved. Either way: a webhook to the API with a signature to verify, then an acknowledgement within the platform's time limit.
+- **Where they go.** An aggregator order becomes a running order of type `delivery`, with its platform and platform order id (unique per shop, which makes the webhook idempotent). It is posted as `open` + `kot` events from a "platform" device, so it shows on the Tables screen and the kitchen view like any other order, prints a KOT, and settles into an ordinary invoice. Status updates (accepted, ready, picked up) go back to the platform from the existing `ready` and `settle` events, through an outbox like email.
+- **Money.** The platform collects the payment, so the invoice's payment mode would be the platform (a new payment part, `swiggy` or `zomato`), and the platform's commission and payouts are reconciled separately against its settlement report. On food sold through an e-commerce operator, the **operator** pays the GST under section 9(5) (restaurant services, since 2022). Those invoices must be marked so the shop does not report that tax again in its own GSTR-1. Confirm with the CA before building.
+- **Menu sync.** Prices often differ on the apps (to cover commission). Keep a per-platform price on the menu item rather than a separate menu, and push changes through the partner API.
+
+**More than one outlet**
+- **Today, a shop is the tenant**: every table carries `shop_id` and the tenancy layer filters by it. The smallest change that works is a `business` above shops: one login, a picker, owner reports across shops, and the shop still the unit of stock, invoice series, GST registration and day end.
+- **What changes.**
+  - A user can belong to several shops (a membership table), and the token names the shop chosen at login.
+  - Owner reports gain a "business" view that reads several shops in one system-flagged session.
+  - The menu can be shared (copied per shop, so each outlet's prices and recipes can still differ).
+  - Stock moves between outlets as a transfer: an `out` row in one shop's ledger and an `in` row in the other's, linked.
+- **What does not change:** each outlet keeps its own invoice series and, if registered separately, its own GSTIN; tenant isolation still holds per shop. The tenant gate and RLS tests extend to "a user of shop A can see shop B only if a member of both".
+- **Cost:** most of the work is the membership and shop-switch plumbing and the cross-shop reports. The billing, stock and order engines stay as they are.
+
 ## Phase 8a: online payments through Razorpay (test mode)
 
 **On the till:** pick UPI or Card, tick **Collect through Razorpay**, and tap **Save and collect**. The bill is saved as usual. The till sends it to the server, asks Razorpay for an order for the bill's total, and shows **Open payment page**. The customer pays on that page. The till watches the server and shows **Paid** when the money has arrived, then prints the receipt. If anything fails, **Took the payment another way** prints the receipt anyway.

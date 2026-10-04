@@ -228,3 +228,7 @@ __all__ += ["Message"]
 from app.models.payments import Payment  # noqa: E402
 
 __all__ += ["Payment"]
+
+from app.models.purchases import PurchaseOrder, PurchaseOrderLine, Supplier  # noqa: E402
+
+__all__ += ["PurchaseOrder", "PurchaseOrderLine", "Supplier"]
