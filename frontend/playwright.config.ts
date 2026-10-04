@@ -13,6 +13,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:4173',
     trace: 'retain-on-failure',
+    // The app turns its button colour fades off for reduced motion; without
+    // this a screenshot right after a tap can catch a colour halfway.
+    contextOptions: { reducedMotion: 'reduce' },
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /dayend\.spec/ },
