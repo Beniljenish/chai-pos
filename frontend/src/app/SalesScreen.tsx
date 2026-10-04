@@ -17,6 +17,7 @@ import {
   type VoidReason,
 } from '../lib/sales';
 import type { SalesReport, ServerBill } from '../lib/types';
+import { PROBLEM_LABELS } from '../lib/payments';
 import { api } from './apiClient';
 import { Loading, LoadError } from './Status';
 import { Sheet } from './Sheet';
@@ -121,6 +122,40 @@ export function SalesScreen() {
               </ul>
               <p className="muted">They count at the printed amount (that is what the customer paid).</p>
             </div>
+          )}
+
+          {(report.online_payments ?? []).length > 0 && (
+            <section aria-label="Online payments">
+              <h2>Online payments (Razorpay)</h2>
+              <ul className="void-list online-list">
+                {(report.online_payments ?? []).map((p) => (
+                  <li key={p.bill_id} className={p.problem ? 'after-bill' : ''}>
+                    <span className="num">{p.invoice_no}</span> · {p.method === 'upi' ? 'UPI' : 'Card'} ·{' '}
+                    <span className="num">{formatRupees(p.paid_paise ?? p.amount_paise)}</span> ·{' '}
+                    <strong>{p.status === 'paid' ? 'Paid' : p.status === 'failed' ? 'Failed' : 'Started'}</strong>
+                    {p.problem && (
+                      <>
+                        <br />
+                        <span className="error">{PROBLEM_LABELS[p.problem]}</span>
+                        {p.problem === 'amount_mismatch' && ` (bill ${formatRupees(p.amount_paise)})`}
+                      </>
+                    )}
+                    {p.provider_payment_id && (
+                      <>
+                        <br />
+                        <span className="muted num">{p.provider_payment_id}</span>
+                      </>
+                    )}
+                    {p.error && p.status !== 'paid' && (
+                      <>
+                        <br />
+                        <span className="muted">{p.error}</span>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {/* Reloads when a void changes the day's cash. */}

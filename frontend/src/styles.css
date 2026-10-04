@@ -483,6 +483,10 @@ input {
 .till .error {
   color: #ff8a80;
 }
+.till .online-toggle {
+  margin-bottom: var(--s3);
+  color: var(--paper);
+}
 button.save {
   width: 100%;
   min-height: 64px;
@@ -1783,6 +1787,14 @@ label.check.email-switch input {
   background: var(--chilli-soft);
   border-radius: var(--radius-control);
   padding: var(--s3);
+}
+/* Online payments: neutral cards; a problem is marked on the left. */
+.online-list li {
+  background: var(--paper);
+  border: 1px solid var(--steel-deep);
+}
+.online-list li.after-bill {
+  border-left: 4px solid var(--chilli);
 }
 .void-stamp {
   background: var(--chilli-soft);

@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     email_from: str = "Chai POS <reports@beniljenish.dev>"
     # Vercel Cron sends "Authorization: Bearer $CRON_SECRET". Empty = cron disabled.
     cron_secret: str = ""
+    # Razorpay (test mode first). Empty key = online payments switched off; the
+    # app then offers only plain Cash/UPI/Card. The webhook has its own secret.
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
 
     @field_validator("jwt_secret")
     @classmethod
