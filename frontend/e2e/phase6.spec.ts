@@ -156,4 +156,7 @@ test('a takeaway split into two bills', async ({ page }) => {
   await second.getByRole('button', { name: 'Back to tables' }).click();
   await expect(page.locator('.floor-notice')).toContainText('(split)');
   await expect(page.locator('.order-list li', { hasText: 'Ravi and Anu' })).toHaveCount(0);
+  // The settle must reach the server before this page closes. Otherwise the
+  // order stays open there, and its KOT shows in the next spec's kitchen.
+  await expect(page.locator('.sync-badge')).toHaveAccessibleName(/All bills sent/, { timeout: 20_000 });
 });
