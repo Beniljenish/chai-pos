@@ -3586,7 +3586,7 @@ button.save {
     border-radius: var(--radius-panel);
     box-shadow: var(--shadow);
     font-size: 13px;
-    align-self: start;
+    align-self: stretch;
   }
   .just-saved .receipt-actions {
     margin-top: auto;
@@ -3671,6 +3671,7 @@ button.save {
 @media (max-width: 600px) {
   .manage-home .subnav {
     background: none;
+    border: none;
     box-shadow: none;
     padding: 0;
     gap: var(--s4);
