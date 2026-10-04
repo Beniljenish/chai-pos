@@ -68,11 +68,33 @@ export function BillsScreen() {
             </button>
           </span>
         </div>
-        <p>
-          <strong className="num">{formatRupees(total)}</strong> from {live.length} bill
-          {live.length === 1 ? '' : 's'}
-          {bills.length > live.length && <span className="muted"> ({bills.length - live.length} voided)</span>}
-        </p>
+        <div className="kpis">
+          <div className="kpi">
+            <span className="kpi-label">Sales</span>
+            <strong className="kpi-value num">{formatRupees(total)}</strong>
+            <span className="kpi-note">
+              from {live.length} bill{live.length === 1 ? '' : 's'}
+              {bills.length > live.length && ` (${bills.length - live.length} voided)`}
+            </span>
+          </div>
+          <div className="kpi">
+            <span className="kpi-label">Bills</span>
+            <strong className="kpi-value num">{live.length}</strong>
+            <span className="kpi-note">on this tablet today</span>
+          </div>
+          <div className="kpi">
+            <span className="kpi-label">Average bill</span>
+            <strong className="kpi-value num">{formatRupees(live.length ? Math.round(total / live.length / 100) * 100 : 0)}</strong>
+            <span className="kpi-note">to the nearest rupee</span>
+          </div>
+          <div className="kpi">
+            <span className="kpi-label">Waiting to send</span>
+            <strong className={`kpi-value num ${sync?.pending ? 'warn' : ''}`}>{sync?.pending ?? 0}</strong>
+            <span className={`kpi-note ${sync?.pending ? '' : 'good'}`}>
+              {sync?.pending ? 'Sent when the internet is back' : 'Everything reached the server'}
+            </span>
+          </div>
+        </div>
       </header>
       <ShiftPanel />
       {bills.length === 0 ? (

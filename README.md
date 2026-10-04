@@ -592,6 +592,16 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **Phone tab bar is frosted glass** over the page. Page titles shrink a step on phones, and links beside a title (Customers, Printer) stay on one line.
 - **Report emails** say *Sent by Taptallow*. The sender's name comes from `EMAIL_FROM` when it is set in Vercel, so the owner changes it there if it still says Chai POS.
 
+### 9.7 Design A, from mockups the owner chose
+Mockups of six screens went to Benil first. He chose the light till (a dark till was the alternative) and a restyle of every screen before any new feature.
+- **Tablets (820 px and up) have a left rail:** the app icon, the four screens, then the sync state, shop and who is logged in, and Log out at the foot. The menu and till get the full height. Phones keep the bottom tab bar and a one-row top bar, now white with the app icon; Log out is an icon there (its name is unchanged for screen readers and tests).
+- **Menu tiles** carry a two-letter badge in one of five soft colours (the same colour for the same item every day) and, for a registered shop, the item's GST rate. Both are `aria-hidden`: a tile is still named by the item. A tile already on the bill has a jamun ring.
+- **The till** is the right-hand side of a tablet's screen, not a floating card. For a regular-GST shop it shows the taxable value and CGST + SGST above the total. The payment modes have icons, and the chosen one is soft jamun with a jamun edge, so Save stays the loudest thing. Save shows the amount (hidden from its name).
+- **Today opens with four numbers:** sales, bills, the average bill, and bills waiting to send.
+- **Manage on a tablet** has a white sidebar the height of the screen. A cashier's Stock page has no sidebar and stays one column (`.manage:has(> .subnav)`).
+- **Every card has a hairline:** it is part of the shared `--shadow` token, so the look is one change, not forty.
+- **Not in this round** (new features, each to be done on its own): searching the menu, sales by hour against last week, stock level bars and stock value, counts of things waiting on the Manage sidebar, a Counter/Takeaway switch on the till.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { buildLines, priceLines, saveBill, type CartLine, type PaymentMode } from '../lib/billing';
 import type { LocalBill } from '../lib/db';
 import { db } from '../lib/db';
-import { formatRupees, GstError } from '../lib/gst';
+import { formatRate, formatRupees, GstError } from '../lib/gst';
+import { Icon } from './icons';
 import { formatPriceDelta } from '../lib/options';
 import { OnlinePayment } from './OnlinePayment';
 import { Receipt } from './Receipt';
@@ -24,6 +25,17 @@ const PAYMENT_MODES: { mode: PaymentMode; label: string }[] = [
   { mode: 'split', label: 'Split' },
   { mode: 'credit', label: 'Credit' },
 ];
+
+/** Two letters for a menu tile's badge ("Masala tea" -> "MT") and one of five
+ * soft colours, always the same for the same name. Decoration only: the tile is
+ * named by the item's name. */
+function badge(name: string): { text: string; tone: number } {
+  const words = name.trim().split(/\s+/);
+  const text = (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase();
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return { text, tone: h % 5 };
+}
 
 /** The payment parts for a split or part-credit bill, from the cashier's choice. */
 function partsFor(mode: PaymentMode, total: number, split: SplitChoice | null, paidNow: number): PaymentPart[] | undefined {
@@ -189,9 +201,19 @@ export function BillingScreen() {
             .map((i) => {
               const inCart = cart.filter((l) => l.menuItemId === i.id).reduce((n, l) => n + l.qty, 0);
               return (
-                <button key={i.id} className="tile" onClick={() => add(i.id)}>
+                <button key={i.id} className={`tile ${inCart > 0 ? 'in-bill' : ''}`} onClick={() => add(i.id)}>
+                  <span className={`tile-badge tone-${badge(i.name).tone}`} aria-hidden="true">
+                    {badge(i.name).text}
+                  </span>
                   <span className="tile-name">{i.name}</span>
-                  <span className="tile-price">{formatRupees(i.price_paise)}</span>
+                  <span className="tile-foot">
+                    <span className="tile-price">{formatRupees(i.price_paise)}</span>
+                    {catalogue.shop.gst_type === 'regular' && (
+                      <span className="tile-rate" aria-hidden="true">
+                        {formatRate(i.gst_rate_bp)}
+                      </span>
+                    )}
+                  </span>
                   {inCart > 0 && <span className="tile-count" aria-label={`${inCart} in bill`}>{inCart}</span>}
                 </button>
               );
@@ -258,9 +280,12 @@ export function BillingScreen() {
 
           <div className="till-foot">
             {totals && catalogue.shop.gst_type === 'regular' && totals.cgst > 0 && (
-              <p className="tax-note num">
-                Includes GST {formatRupees(totals.cgst + totals.sgst)}
-              </p>
+              <dl className="till-sums num">
+                <dt>Taxable value</dt>
+                <dd>{formatRupees(totals.taxable)}</dd>
+                <dt>CGST + SGST</dt>
+                <dd>{formatRupees(totals.cgst + totals.sgst)}</dd>
+              </dl>
             )}
             <div className="till-extras">
               <button className="quiet" disabled={cart.length === 0} onClick={() => setSheet('discount')}>
@@ -294,7 +319,8 @@ export function BillingScreen() {
                     if (mode === 'credit') setSheet('credit');
                   }}
                 >
-                  {label}
+                  <Icon name={mode} size={20} />
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
@@ -317,6 +343,11 @@ export function BillingScreen() {
               disabled={saving || cart.length === 0 || !totals || splitBad || creditBad}
             >
               {saving ? 'Saving…' : canCollectOnline && online ? 'Save and collect' : 'Save and print'}
+              {!saving && totals && (
+                <span className="save-amount num" aria-hidden="true">
+                  {formatRupees(totals.total)}
+                </span>
+              )}
             </button>
           </div>
         </div>

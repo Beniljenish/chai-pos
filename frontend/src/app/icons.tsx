@@ -17,6 +17,15 @@ export const ICON = {
   floor: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   tablets: 'M6 2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2',
   messages: 'M4 4h16v12H8l-4 4zM8 9h8M8 12h5',
+  logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  cash: 'M3 7h18v10H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  upi: 'M7 3h10v18H7zM11 18h2',
+  card: 'M3 6h18v12H3zM3 10h18',
+  split: 'M6 3v6a6 6 0 0 0 6 6 6 6 0 0 1 6 6M18 3v6a6 6 0 0 1-3 5.2M3 6l3-3 3 3M15 6l3-3 3 3',
+  credit: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11',
+  print: 'M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z',
+  tag: 'M3 12V4h8l10 10-8 8zM7.5 7.5h.01',
+  user: 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
 } as const;
 
 export type IconName = keyof typeof ICON;
