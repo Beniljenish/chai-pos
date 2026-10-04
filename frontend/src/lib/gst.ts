@@ -44,7 +44,7 @@ export interface BillTotals {
 
 export class GstError extends Error {}
 
-const MAX_RATE_BP = 2800;
+const MAX_RATE_BP = 4000; // 40%, the highest GST slab since 22 Sep 2025
 const BP = 10_000n;
 
 /** Round-half-up division for non-negative integers: (2n + d) / 2d, truncated. */

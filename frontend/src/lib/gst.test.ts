@@ -52,7 +52,7 @@ describe('invariants over 5000 random bills', () => {
       const lines: LineIn[] = Array.from({ length: 1 + Math.floor(rnd() * 6) }, () => ({
         unitPricePaise: pick([0, 1, 99, 1000, 1050, 2000, 3333, 6000, Math.floor(rnd() * 50_000)]),
         qty: 1 + Math.floor(rnd() * 20),
-        gstRateBp: pick([0, 25, 300, 500, 1200, 1800, 2800]),
+        gstRateBp: pick([0, 25, 300, 500, 1200, 1800, 2800, 4000]),
         taxInclusive: rnd() < 0.7,
         modifierDeltasPaise: [pick([0, 500, 1000])],
       }));

@@ -80,14 +80,20 @@ export function ShopScreen() {
     (name !== shop.name || address !== shop.address || typeChanged || (gstin.trim().toUpperCase() || null) !== shop.gstin);
   const blocked = (needsGstin && !(check && check.ok)) || (check !== null && !check.ok) || !name.trim();
 
-  // What a typical item would print under the chosen registration.
+  // What a typical item would print under the chosen registration. Only a
+  // preview: an item the bill code cannot price must not blank the settings.
   const sample = catalogue?.menu_items.find((m) => m.is_active);
-  const preview = sample
-    ? computeBill(
-        [{ unitPricePaise: sample.price_paise, qty: 1, gstRateBp: sample.gst_rate_bp, taxInclusive: sample.tax_inclusive }],
-        type,
-      )
-    : null;
+  let preview: ReturnType<typeof computeBill> | null = null;
+  try {
+    preview = sample
+      ? computeBill(
+          [{ unitPricePaise: sample.price_paise, qty: 1, gstRateBp: sample.gst_rate_bp, taxInclusive: sample.tax_inclusive }],
+          type,
+        )
+      : null;
+  } catch {
+    preview = null;
+  }
 
   async function save() {
     setBusy(true);

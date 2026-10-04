@@ -115,6 +115,19 @@
       "lines": [{"unit_price_paise": 2000, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true, "discount_paise": 2000}],
       "expect_lines": [{"gross": 2000, "discount": 2000, "taxable": 0, "cgst": 0, "sgst": 0, "total": 0}],
       "expect_bill": {"discount": 2000, "taxable": 0, "cgst": 0, "sgst": 0, "subtotal": 0, "round_off": 0, "total": 0}
+    },
+    {
+      "name": "40 percent item next to a 5 percent tea: each line at its own rate (Badam milk 100 at 40% inclusive: 71.42 + 14.29 + 14.29)",
+      "gst_type": "regular",
+      "lines": [
+        {"unit_price_paise": 2000, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true},
+        {"unit_price_paise": 10000, "qty": 1, "gst_rate_bp": 4000, "tax_inclusive": true}
+      ],
+      "expect_lines": [
+        {"gross": 2000, "discount": 0, "taxable": 1904, "cgst": 48, "sgst": 48, "total": 2000},
+        {"gross": 10000, "discount": 0, "taxable": 7142, "cgst": 1429, "sgst": 1429, "total": 10000}
+      ],
+      "expect_bill": {"discount": 0, "taxable": 9046, "cgst": 1477, "sgst": 1477, "subtotal": 12000, "round_off": 0, "total": 12000}
     }
   ],
   "errors": [
@@ -139,9 +152,9 @@
       "lines": [{"unit_price_paise": -1, "qty": 1, "gst_rate_bp": 500, "tax_inclusive": true}]
     },
     {
-      "name": "rate above 28 percent",
+      "name": "rate above 40 percent",
       "gst_type": "regular",
-      "lines": [{"unit_price_paise": 2000, "qty": 1, "gst_rate_bp": 3000, "tax_inclusive": true}]
+      "lines": [{"unit_price_paise": 2000, "qty": 1, "gst_rate_bp": 4001, "tax_inclusive": true}]
     },
     {
       "name": "empty bill",

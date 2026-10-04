@@ -49,7 +49,7 @@ def test_shared_error_vector(case):
         )
 
 
-RATES = [0, 25, 300, 500, 1200, 1800, 2800]
+RATES = [0, 25, 300, 500, 1200, 1800, 2800, 4000]
 
 
 def _random_line(rng: random.Random) -> LineIn:
