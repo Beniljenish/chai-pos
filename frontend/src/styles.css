@@ -3188,11 +3188,13 @@ body {
     background: rgba(123, 224, 166, 0.12);
     color: #8be8b4;
   }
+  /* The full words ("All bills sent", "Sending 2…"), two short lines in the rail. */
   .topbar .sync-badge .long {
-    display: none;
+    display: inline;
+    line-height: 1.2;
   }
   .topbar .sync-badge .short {
-    display: inline;
+    display: none;
   }
   .topbar .sync-badge.wait {
     background: rgba(255, 196, 92, 0.16);
