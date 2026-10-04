@@ -4,6 +4,7 @@ import { countableDays } from '../lib/dayend';
 import { AdherenceTrend } from './AdherenceTrend';
 import { CountPanel } from './CountPanel';
 import { DayReport } from './DayReport';
+import { HandoverReport } from './HandoverReport';
 import { PendingWastage } from './PendingWastage';
 import { PrepPanel } from './PrepPanel';
 import { useSession } from './session';
@@ -37,6 +38,7 @@ export function DayEndScreen() {
       <p className="muted">Closing after midnight? Choose yesterday: the count belongs to the day you are closing.</p>
       <CountPanel key={`${day}-count`} day={day} refreshKey={closed} onStatus={bump} />
       {isOwner && <DayReport key={`${day}-report`} day={day} refreshKey={refresh} onApproved={reloadCount} />}
+      {isOwner && <HandoverReport key={`${day}-handover`} day={day} refreshKey={refresh} />}
       {isOwner && <AdherenceTrend key={`trend-${closed}`} />}
     </section>
   );

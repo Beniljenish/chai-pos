@@ -144,3 +144,38 @@ class AdherenceOut(BaseModel):
 
 class WastageDecisionIn(BaseModel):
     accept: bool
+
+
+class HandoverIn(CountsIn):
+    shift_id: uuid.UUID | None = None  # the shift being closed, if the shop uses cash shifts
+
+
+class HandoverOut(BaseModel):
+    id: uuid.UUID
+    counted: int  # how many items were taken; deliberately no numbers (blind)
+
+
+class HandoverLineOut(BaseModel):
+    ingredient_id: uuid.UUID
+    name: str
+    base_unit: BaseUnit
+    expected: Decimal
+    counted: Decimal
+    gap: Decimal
+    gap_here: Decimal
+    gap_here_paise: int
+
+
+class HandoverPeriodOut(BaseModel):
+    start: datetime
+    end: datetime
+    is_day_end: bool
+    counted_by_name: str | None
+    on_duty: list[str]
+    gap_here_paise: int
+    lines: list[HandoverLineOut]
+
+
+class HandoverReportOut(BaseModel):
+    business_date: date
+    periods: list[HandoverPeriodOut]

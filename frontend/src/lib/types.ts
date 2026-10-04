@@ -164,6 +164,8 @@ export interface Ingredient {
   scales_with_size: boolean;
   is_active: boolean;
   reorder_level: string | null;
+  /** shift: counted at every shift change too (milk, fruit); weekly: optional at day end */
+  count_frequency: 'shift' | 'daily' | 'weekly';
   pack_units: { id: string; name: string; qty_in_base: string }[];
 }
 
@@ -292,6 +294,29 @@ export interface AdherenceTrend {
     adherence_pct: string | null;
     variance_paise: number;
     points: { business_date: string; adherence_pct: string | null }[];
+  }[];
+}
+
+/** GET /reports/handover: the day's gap on shift-counted items, split by period. */
+export interface HandoverReport {
+  business_date: string;
+  periods: {
+    start: string;
+    end: string;
+    is_day_end: boolean;
+    counted_by_name: string | null;
+    on_duty: string[];
+    gap_here_paise: number;
+    lines: {
+      ingredient_id: string;
+      name: string;
+      base_unit: BaseUnit;
+      expected: string;
+      counted: string;
+      gap: string;
+      gap_here: string;
+      gap_here_paise: number;
+    }[];
   }[];
 }
 

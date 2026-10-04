@@ -303,6 +303,8 @@ def build_catalogue(api: Api, owner: dict) -> dict:
             body["reorder_level"] = reorder
         if name in {"Samosa", "Veg puff"}:  # bought in each morning, counted each night
             body["count_frequency"] = "daily"
+        if name in SHIFT_COUNTED:  # counted at each shift change too (Phase 10.3)
+            body["count_frequency"] = "shift"
         ids[name] = api.post("/ingredients", owner, body)
     for prep, lines, yield_qty in (
         ("Tea decoction", [("Milk", 2000), ("Tea powder", 60), ("Sugar", 150)], 2200),
@@ -882,6 +884,24 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
                 api.at(at)
                 tab = t1
                 counted = close_count(expected_cash(api, owner, tab, d))  # syncs: before the append
+                # Milk and fruit counted at the handover, blind, near what is on the shelf
+                have = on_hand()
+                api.post(
+                    "/handover-counts",
+                    tab.who,
+                    {
+                        "shift_id": tab.shift,
+                        "lines": [
+                            {
+                                "ingredient_id": ids[n]["id"],
+                                "loose_qty": str(
+                                    max(D(0), (have[n] * D(rnd.uniform(0.97, 1.0))).quantize(D(1)))
+                                ),
+                            }
+                            for n in SHIFT_COUNTED
+                        ],
+                    },
+                )
                 tab.shift_ops.append(
                     {
                         "op": "close",
@@ -1150,6 +1170,7 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
         tab.sync(owner)
 
 
+SHIFT_COUNTED = ["Milk", "Oranges", "Watermelon", "Pineapple"]
 FRUIT = ["Oranges", "Watermelon", "Pineapple", "Lemon", "Mint leaves", "Ginger"]
 DRY = [
     "Tea powder",

@@ -21,6 +21,7 @@ from datetime import date
 from decimal import Decimal as D
 
 from app.core.time import business_date, utcnow
+from tests.conftest import FakeDevice, build_catalogue
 from tests.test_phase3_gate import _url, day  # noqa: F401  (the hand-worked day)
 
 
@@ -213,3 +214,148 @@ def test_after_the_day_closes_a_pending_entry_can_only_be_accepted(
     r = _decide(client, shop_a, big["id"], False)
     assert r.status_code == 409 and "already closed" in r.text
     assert _decide(client, shop_a, big["id"], True).status_code == 200
+
+
+# ---------------------------------------------------------------- 10.3 handover counts
+HANDOVER = "/api/v1/handover-counts"
+HANDOVER_REPORT = "/api/v1/reports/handover"
+
+
+def test_handover_counts_split_the_days_gap_into_periods(client, shop_a):
+    """Milk at 5.6 p/ml (one crate, 12,000 ml for Rs 672).
+
+      opening 6,000 + stock-in 12,000 - 2 batches 4,000         = 14,000 ml
+      handover 1: counted 13,800                gap -200  -> here -200 = -1,120 p
+      owner logs 500 ml spoiled: expected 13,500
+      handover 2: counted 13,000                gap -500  -> here -300 = -1,680 p
+      day end:    counted 12,900                gap -600  -> here -100 =   -560 p
+                                                       day's variance  -3,360 p
+    Decoction: 4,400 made, 5 teas (500 ml) rung up BEFORE handover 1 on a tablet
+    that only syncs after it. Expected at handover 1 is 3,900, so a count of 3,900
+    is no gap: the tea was sold before the count, whenever the server heard of it.
+    """
+    cat = build_catalogue(client, shop_a)
+    h, cashier = shop_a.owner_h, shop_a.cashier_h
+    units = client.get(f"/api/v1/ingredients/{cat.milk['id']}", headers=h).json()["pack_units"]
+    milk = {u["name"]: u["id"] for u in units}
+    for body in (
+        {"ingredient_id": cat.milk["id"], "packs": [{"pack_unit_id": milk["packet"], "qty": "12"}]},
+        {"ingredient_id": cat.decoction["id"]},
+    ):
+        assert client.post("/api/v1/stock/opening", json=body, headers=h).status_code == 201
+    r = client.post(
+        "/api/v1/stock-in",
+        json={
+            "ingredient_id": cat.milk["id"],
+            "packs": [{"pack_unit_id": milk["crate"], "qty": "1"}],
+            "cost_paise": 67200,
+        },
+        headers=h,
+    )
+    assert r.status_code == 201, r.text
+    r = client.post(
+        "/api/v1/prep-batches",
+        json={"ingredient_id": cat.decoction["id"], "batches": "2"},
+        headers=cashier,
+    )
+    assert r.status_code == 201, r.text
+    device = FakeDevice(client, shop_a)
+    offline_bill = device.bill([("Masala tea", 5, [])])  # rung up now, sent later
+
+    first = client.post(
+        HANDOVER,
+        json={
+            "lines": [
+                {"ingredient_id": cat.milk["id"], "loose_qty": "13800"},
+                {"ingredient_id": cat.decoction["id"], "loose_qty": "3900"},
+            ]
+        },
+        headers=cashier,
+    )
+    assert first.status_code == 201, first.text
+    assert set(first.json()) == {"id", "counted"}  # blind: nothing about what was expected
+    assert device.sync([offline_bill]).json()["results"][0]["status"] == "accepted"
+
+    r = client.post(
+        "/api/v1/wastage",
+        json={"ingredient_id": cat.milk["id"], "qty": "500", "reason": "spoiled"},
+        headers=h,
+    )
+    assert r.status_code == 201
+    second = client.post(
+        HANDOVER,
+        json={
+            "lines": [
+                {"ingredient_id": cat.milk["id"], "loose_qty": "13000"},
+                {"ingredient_id": cat.decoction["id"], "loose_qty": "3900"},
+            ]
+        },
+        headers=cashier,
+    )
+    assert second.status_code == 201
+    r = client.post(
+        _url("counts"),
+        json={
+            "lines": [
+                {"ingredient_id": cat.milk["id"], "loose_qty": "12900"},
+                {"ingredient_id": cat.decoction["id"], "loose_qty": "3850"},
+            ]
+        },
+        headers=h,  # the owner counts with the balance in view: no recount round
+    )
+    assert r.json()["status"] == "submitted", r.text
+
+    assert client.get(HANDOVER_REPORT, headers=cashier).status_code == 403
+    periods = client.get(HANDOVER_REPORT, headers=h).json()["periods"]
+    assert [p["is_day_end"] for p in periods] == [False, False, True]
+
+    def line(p, name):
+        return next(ln for ln in p["lines"] if ln["name"] == name)
+
+    milk_rows = [line(p, "Milk") for p in periods]
+    assert [(D(ln["expected"]), D(ln["counted"]), D(ln["gap"])) for ln in milk_rows] == [
+        (D("14000"), D("13800"), D("-200")),
+        (D("13500"), D("13000"), D("-500")),
+        (D("13500"), D("12900"), D("-600")),
+    ]
+    assert [ln["gap_here_paise"] for ln in milk_rows] == [-1120, -1680, -560]
+    dec = line(periods[0], "Tea decoction")
+    assert (D(dec["expected"]), D(dec["gap_here"])) == (D("3900"), D("0"))
+
+    # The periods add up to the day's own variance, item by item.
+    report = {ln["name"]: ln for ln in client.get(_url("report"), headers=h).json()["lines"]}
+    for name in ("Milk", "Tea decoction"):
+        assert (
+            sum(line(p, name)["gap_here_paise"] for p in periods)
+            == (report[name]["variance_paise"])
+        ), name
+    assert report["Milk"]["variance_paise"] == -3360
+
+
+def test_a_recount_of_the_same_shift_replaces_it(client, shop_a):
+    cat = build_catalogue(client, shop_a)
+    shift = "6b1f0e7e-58f4-4a0f-9a36-2f1a2b3c4d5e"
+    for qty in ("1000", "1200"):
+        r = client.post(
+            HANDOVER,
+            json={
+                "shift_id": shift,
+                "lines": [{"ingredient_id": cat.milk["id"], "loose_qty": qty}],
+            },
+            headers=shop_a.cashier_h,
+        )
+        assert r.status_code == 201, r.text
+    periods = client.get(HANDOVER_REPORT, headers=shop_a.owner_h).json()["periods"]
+    assert len(periods) == 1 and D(periods[0]["lines"][0]["counted"]) == D("1200")
+
+
+def test_handover_counts_are_per_shop_and_stop_when_the_day_closes(client, shop_a, shop_b, day):  # noqa: F811
+    cat, device, milk, tea, sugar = day
+    body = {"lines": [{"ingredient_id": cat.milk["id"], "loose_qty": "13000"}]}
+    assert client.post(HANDOVER, json=body, headers=shop_a.cashier_h).status_code == 201
+    assert client.get(HANDOVER_REPORT, headers=shop_b.owner_h).json()["periods"] == []
+    # Shop B cannot count shop A's milk into its own handover.
+    assert client.post(HANDOVER, json=body, headers=shop_b.cashier_h).status_code == 422
+    close_day(client, shop_a, cat, milk, tea, sugar)
+    r = client.post(HANDOVER, json=body, headers=shop_a.cashier_h)
+    assert r.status_code == 409 and "closed" in r.text

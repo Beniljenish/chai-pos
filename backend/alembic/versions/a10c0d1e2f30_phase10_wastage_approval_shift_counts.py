@@ -46,9 +46,49 @@ def upgrade() -> None:
     )
     op.add_column('wastage_entries', sa.Column('decided_at', sa.DateTime(timezone=True), nullable=True))
 
+    # 10.3 handover counts
+    op.create_table('handover_counts',
+    sa.Column('business_date', sa.Date(), nullable=False),
+    sa.Column('counted_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('counted_by', sa.UUID(), nullable=False),
+    sa.Column('shift_id', sa.UUID(), nullable=True),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('shop_id', sa.UUID(), nullable=False),
+    sa.ForeignKeyConstraint(['counted_by'], ['users.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['shop_id'], ['shops.id'], ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_handover_counts_business_date'), 'handover_counts', ['business_date'], unique=False)
+    op.create_index(op.f('ix_handover_counts_shop_id'), 'handover_counts', ['shop_id'], unique=False)
+    op.create_table('handover_count_lines',
+    sa.Column('handover_id', sa.UUID(), nullable=False),
+    sa.Column('ingredient_id', sa.UUID(), nullable=False),
+    sa.Column('entered', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('loose_qty', sa.Numeric(precision=14, scale=3), nullable=False),
+    sa.Column('counted_qty', sa.Numeric(precision=14, scale=3), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('shop_id', sa.UUID(), nullable=False),
+    sa.CheckConstraint('counted_qty >= 0', name='ck_handover_count_lines_counted'),
+    sa.ForeignKeyConstraint(['handover_id'], ['handover_counts.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['ingredient_id'], ['ingredients.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['shop_id'], ['shops.id'], ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('handover_id', 'ingredient_id', name='uq_handover_count_lines_ingredient')
+    )
+    op.create_index(op.f('ix_handover_count_lines_handover_id'), 'handover_count_lines', ['handover_id'], unique=False)
+    op.create_index(op.f('ix_handover_count_lines_shop_id'), 'handover_count_lines', ['shop_id'], unique=False)
+    op.execute("ALTER TABLE handover_counts ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE handover_count_lines ENABLE ROW LEVEL SECURITY")
+
 
 def downgrade() -> None:
     """Downgrade schema."""
+    op.drop_index(op.f('ix_handover_count_lines_shop_id'), table_name='handover_count_lines')
+    op.drop_index(op.f('ix_handover_count_lines_handover_id'), table_name='handover_count_lines')
+    op.drop_table('handover_count_lines')
+    op.drop_index(op.f('ix_handover_counts_shop_id'), table_name='handover_counts')
+    op.drop_index(op.f('ix_handover_counts_business_date'), table_name='handover_counts')
+    op.drop_table('handover_counts')
     op.drop_column('wastage_entries', 'decided_at')
     op.drop_column('wastage_entries', 'decided_by')
     op.drop_column('wastage_entries', 'status')

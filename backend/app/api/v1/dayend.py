@@ -28,6 +28,11 @@ from app.models import (
 from app.schemas_dayend import (
     AdherenceOut,
     CountsIn,
+    HandoverIn,
+    HandoverLineOut,
+    HandoverOut,
+    HandoverPeriodOut,
+    HandoverReportOut,
     ReportLineOut,
     ReportOut,
     SheetItem,
@@ -39,7 +44,7 @@ from app.schemas_dayend import (
     WastageIn,
     WastageOut,
 )
-from app.services import dayend, email, reports
+from app.services import dayend, email, handover, reports
 from app.services.stock import PackQty
 
 router = APIRouter(tags=["day-end"])
@@ -321,5 +326,68 @@ def adherence(days: int = 30, end: date | None = None, caller: Caller = Depends(
                 ],
             )
             for t in lines
+        ],
+    )
+
+
+# ---------------------------------------------------------------- handover counts
+@router.post("/handover-counts", response_model=HandoverOut, status_code=201)
+def record_handover(body: HandoverIn, caller: Caller = Depends(get_caller)):
+    """A blind count of the 'count every shift' items at a shift change. Changes
+    no stock; the owner reads it in /reports/handover."""
+    try:
+        hc = handover.record(
+            caller.db,
+            business_date_of(utcnow()),
+            [
+                dayend.CountIn(
+                    ln.ingredient_id,
+                    [PackQty(p.pack_unit_id, p.qty) for p in ln.packs],
+                    ln.loose_qty,
+                )
+                for ln in body.lines
+            ],
+            caller.user.id,
+            body.shift_id,
+        )
+    except dayend.DayLocked as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    except dayend.DayEndError as e:
+        caller.db.rollback()
+        raise unprocessable(str(e)) from None
+    caller.db.commit()
+    return HandoverOut(id=hc.id, counted=len(hc.lines))
+
+
+@router.get("/reports/handover", response_model=HandoverReportOut, tags=["reports"])
+def handover_report(business_date: date | None = None, caller: Caller = Depends(require_owner)):
+    day = _day(business_date or business_date_of(utcnow()))
+    users = dict(caller.db.execute(select(User.id, User.name)).all())
+    return HandoverReportOut(
+        business_date=day,
+        periods=[
+            HandoverPeriodOut(
+                start=p.start,
+                end=p.end,
+                is_day_end=p.is_day_end,
+                counted_by_name=users.get(p.counted_by),
+                on_duty=p.on_duty,
+                gap_here_paise=p.gap_here_paise,
+                lines=[
+                    HandoverLineOut(
+                        ingredient_id=ln.ingredient.id,
+                        name=ln.ingredient.name,
+                        base_unit=ln.ingredient.base_unit,
+                        expected=ln.expected,
+                        counted=ln.counted,
+                        gap=ln.gap,
+                        gap_here=ln.gap_here,
+                        gap_here_paise=ln.gap_here_paise,
+                    )
+                    for ln in p.lines
+                ],
+            )
+            for p in handover.report(caller.db, day)
         ],
     )

@@ -134,3 +134,40 @@ class DayCountLine(IdMixin, TenantScoped, Base):
     variance_paise: Mapped[int | None] = mapped_column(Integer)
 
     day_count: Mapped[DayCount] = relationship(back_populates="lines")
+
+
+class HandoverCount(IdMixin, TenantScoped, Base):
+    """A blind count of the 'count every shift' items (milk, fruit) when one
+    shift hands over to the next. It changes no stock: the day-end count stays
+    the truth. It pins the day's gap to the hours it happened in."""
+
+    __tablename__ = "handover_counts"
+
+    business_date: Mapped[date] = mapped_column(Date, index=True)
+    counted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # server clock
+    counted_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), _fk("users.id"))
+    # The shift being closed, when there is one. No foreign key: the tablet may
+    # not have sent the shift yet (it syncs later, offline-first).
+    shift_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+    lines: Mapped[list["HandoverCountLine"]] = relationship(
+        back_populates="handover", cascade="all, delete-orphan"
+    )
+
+
+class HandoverCountLine(IdMixin, TenantScoped, Base):
+    __tablename__ = "handover_count_lines"
+    __table_args__ = (
+        UniqueConstraint("handover_id", "ingredient_id", name="uq_handover_count_lines_ingredient"),
+        CheckConstraint("counted_qty >= 0", name="ck_handover_count_lines_counted"),
+    )
+
+    handover_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), _fk("handover_counts.id", "CASCADE"), index=True
+    )
+    ingredient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), _fk("ingredients.id"))
+    entered: Mapped[list] = mapped_column(JSONB)
+    loose_qty: Mapped[Decimal] = mapped_column(QTY, default=Decimal(0))
+    counted_qty: Mapped[Decimal] = mapped_column(QTY)
+
+    handover: Mapped[HandoverCount] = relationship(back_populates="lines")
