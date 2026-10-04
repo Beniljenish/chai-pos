@@ -538,6 +538,15 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **A drawer that was counted and does not match opens by itself.** The owner should not have to hunt for the one that is short. Matched and still-open drawers stay folded.
 - Uses the browser's own `<details>`: keyboard and screen readers work with no extra code.
 
+### 9.3 Jamun & Berry look
+- **One deep colour for the app, one bright colour for the main action.** Jamun (`--brand` `#3B1468`) is the top bar, chosen sections, counts and the folded till bar. Berry (`--accent` `#E23E72`) is kept for the one button that finishes the job on each screen (**Save and print**, **Send to kitchen**, **Log batch**). Green still means *done* (sent, matched), turmeric means *look at this* (not counted, reorder), chilli means *wrong* (short, below zero). The first try with a bright lime read as a toy; a dark base with one strong accent is the pattern quick-commerce apps use, and keeps the money and the main button the loudest things on the screen.
+- **Plus Jakarta Sans, bundled** (`@fontsource`, weights 500/700/800; the browser fetches only the subsets a page uses, about 36 KB for English text). It has clear figures for ₹ amounts. Shipping it with the app keeps it offline and inside the app's security policy (no Google Fonts call).
+- **Cards, not lines.** Tiles, stock rows and sections are white cards with a soft shadow on a pale lilac ground (`--steel`), 12/20 px corners. Secondary actions (Discount, + Customer, chosen options) are soft jamun pills, so they read as buttons without competing with Save.
+- **Till:** on a phone the closed till is a jamun bar floating above the tab bar (count, total, open); open, it is a light sheet. On a tablet it is a white card beside the menu.
+- **Icons on the phone tab bar** (inline SVG, `aria-hidden`; the tab's text is its name). Tablets keep the text pills in the top bar.
+- **App icon and theme colour** follow the brand, so the installed PWA and the phone's status bar match.
+- **Not changed:** layout of the money, wording, and every control's place. This is a look, not a relearn.
+
 ## Phase 6: discounts, split payment, customers and khata, split bill
 
 **At the till:**
