@@ -217,22 +217,26 @@ def _js(value: dict) -> str:
     return json.dumps(value).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
-# Every method Checkout can show; all but the chosen one are hidden.
-_METHODS = ("upi", "card", "netbanking", "wallet", "emi", "cardless_emi", "paylater")
+_NAMES = {"upi": "Pay by UPI", "card": "Pay by card"}
 
 
 def _only(method: str) -> dict:
-    """Checkout's display config that shows one payment method and nothing else.
+    """Checkout's display config: the cashier's method first, the other (UPI or
+    card) below it, nothing else (no netbanking, wallets, EMI or pay-later).
 
-    It hides the other methods rather than listing the allowed one: a listed UPI
-    instrument with named flows (QR, collect, intent) left nothing to show on a
-    desktop browser once collect was retired and QR was not switched on, and
-    Checkout said "No appropriate payment method found". Hiding keeps Razorpay's
-    own UPI choices for this account and this device."""
+    Showing only the chosen method left customers at "No appropriate payment
+    method found" when the Razorpay account could not offer it on that device
+    (UPI on a desktop browser: intent needs a phone, collect is retired, QR must
+    be switched on). Razorpay skips a block it cannot show, so the other method
+    is always a way out; the server records which one was used."""
+    other = "card" if method == "upi" else "upi"
     return {
         "display": {
-            "hide": [{"method": m} for m in _METHODS if m != method],
-            "preferences": {"show_default_blocks": True},
+            "blocks": {
+                m: {"name": _NAMES[m], "instruments": [{"method": m}]} for m in (method, other)
+            },
+            "sequence": [f"block.{method}", f"block.{other}"],
+            "preferences": {"show_default_blocks": False},
         }
     }
 

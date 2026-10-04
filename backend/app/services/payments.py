@@ -212,6 +212,8 @@ def settle_from_razorpay(p: Payment, pay: dict) -> None:
         pay = _client().capture(pay["id"], int(pay["amount"]))
         status = pay.get("status")
     if status == "captured":
+        if pay.get("method") in ("upi", "card"):
+            p.method = pay["method"]  # what was actually used (the way out, maybe)
         mark_paid(p, str(pay["id"]), int(pay["amount"]))
     elif status == "failed":
         mark_failed(p, str(pay.get("error_description") or "Payment failed"))
@@ -253,4 +255,6 @@ def problem(p: Payment, bill: Bill) -> str | None:
         return "not_paid"
     if p.paid_paise != bill.total_paise:
         return "amount_mismatch"
+    if p.method != bill.payment_mode.value:
+        return "paid_other_way"  # e.g. a UPI bill the customer paid by card
     return None
