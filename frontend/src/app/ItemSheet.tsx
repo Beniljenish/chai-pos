@@ -118,6 +118,7 @@ export function ItemSheet({ row, ingredient, onClose, onChanged }: Props) {
             <p className="muted">Made here: it goes up when a batch is logged, not by stock-in.</p>
           )}
           <ReorderLevel ingredient={ingredient} onSaved={onChanged} />
+          <CountFrequency ingredient={ingredient} onSaved={onChanged} />
           <h3>History</h3>
           {ledger === null ? (
             <p className="muted">Loading…</p>
@@ -229,6 +230,46 @@ function ReorderLevel({ ingredient, onSaved }: { ingredient: Ingredient; onSaved
       <button disabled={value === saved || base === ''} onClick={() => void save()}>
         Save
       </button>
+      {error && <p className="error">{error}</p>}
+    </div>
+  );
+}
+
+/** Phase 10.3: "every shift" adds the item to the count at each shift change. */
+function CountFrequency({ ingredient, onSaved }: { ingredient: Ingredient; onSaved(): void }) {
+  const [value, setValue] = useState(ingredient.count_frequency);
+  const [error, setError] = useState<string | null>(null);
+  async function save(next: Ingredient['count_frequency']) {
+    const before = value;
+    setValue(next);
+    try {
+      await api.patch(`/ingredients/${ingredient.id}`, { count_frequency: next });
+      setError(null);
+      onSaved();
+    } catch (e) {
+      setValue(before);
+      setError(explainError(e));
+    }
+  }
+  return (
+    <div className="count-frequency">
+      <span className="muted">Count it</span>
+      <div className="segmented" role="radiogroup" aria-label="How often to count it">
+        {(
+          [
+            ['shift', 'Every shift'],
+            ['daily', 'Every day'],
+            ['weekly', 'Weekly'],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} role="radio" aria-checked={value === id} onClick={() => void save(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {value === 'shift' && (
+        <p className="muted">Counted at each shift change as well as at day end, so a gap shows which shift it was in.</p>
+      )}
       {error && <p className="error">{error}</p>}
     </div>
   );

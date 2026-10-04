@@ -4,6 +4,7 @@ Cashiers record wastage and count; they never see expected quantities or
 rupee values (blind counts). The owner sees the variance report and approves.
 """
 
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -22,18 +23,28 @@ from app.models import (
     Shop,
     User,
     WastageEntry,
+    WastageStatus,
 )
 from app.schemas_dayend import (
+    AdherenceOut,
     CountsIn,
+    HandoverIn,
+    HandoverLineOut,
+    HandoverOut,
+    HandoverPeriodOut,
+    HandoverReportOut,
     ReportLineOut,
     ReportOut,
     SheetItem,
     SheetOut,
     SubmitOut,
+    TrendLineOut,
+    TrendPointOut,
+    WastageDecisionIn,
     WastageIn,
     WastageOut,
 )
-from app.services import dayend, email, reports
+from app.services import dayend, email, handover, reports
 from app.services.stock import PackQty
 
 router = APIRouter(tags=["day-end"])
@@ -65,6 +76,7 @@ def record_wastage(body: WastageIn, caller: Caller = Depends(get_caller)):
             note=body.note.strip(),
             user_id=caller.user.id,
             is_owner=caller.ctx.role == Role.owner,
+            approval_paise=caller.db.scalar(select(Shop.wastage_approval_paise)),
         )
     except PermissionError as e:
         caller.db.rollback()
@@ -77,14 +89,33 @@ def record_wastage(body: WastageIn, caller: Caller = Depends(get_caller)):
 
 
 @router.get("/wastage", response_model=list[WastageOut])
-def list_wastage(business_date: date | None = None, caller: Caller = Depends(get_caller)):
-    day = business_date or business_date_of(utcnow())
-    entries = caller.db.scalars(
-        select(WastageEntry)
-        .where(WastageEntry.business_date == day)
-        .order_by(WastageEntry.created_at.desc())
-    ).all()
-    return _wastage_out(caller, entries)
+def list_wastage(
+    business_date: date | None = None, pending: bool = False, caller: Caller = Depends(get_caller)
+):
+    """A day's entries, or (`pending=true`) every entry still waiting for the owner."""
+    q = select(WastageEntry).order_by(WastageEntry.created_at.desc())
+    if pending:
+        q = q.where(WastageEntry.status == WastageStatus.pending)
+    else:
+        q = q.where(WastageEntry.business_date == (business_date or business_date_of(utcnow())))
+    return _wastage_out(caller, caller.db.scalars(q).all())
+
+
+@router.post("/wastage/{entry_id}/decision", response_model=WastageOut)
+def decide_wastage(
+    entry_id: uuid.UUID, body: WastageDecisionIn, caller: Caller = Depends(require_owner)
+):
+    entry = get_or_404(caller.db, WastageEntry, entry_id)
+    try:
+        dayend.decide_wastage(caller.db, entry, accept=body.accept, user_id=caller.user.id)
+    except dayend.DayLocked as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    except dayend.DayEndError as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    caller.db.commit()
+    return _wastage_out(caller, [entry])[0]
 
 
 def _wastage_out(caller: Caller, entries) -> list[WastageOut]:
@@ -107,6 +138,8 @@ def _wastage_out(caller: Caller, entries) -> list[WastageOut]:
                 value_paise=e.value_paise if owner else None,
                 created_by_name=users.get(e.created_by, "?"),
                 created_at=e.created_at,
+                status=e.status,
+                decided_by_name=users.get(e.decided_by) if e.decided_by else None,
             )
         )
     return out
@@ -193,7 +226,7 @@ def report(business_date: date, caller: Caller = Depends(require_owner)):
     users = dict(caller.db.execute(select(User.id, User.name)).all())
     wastage = caller.db.execute(
         select(WastageEntry.reason, func.sum(WastageEntry.value_paise))
-        .where(WastageEntry.business_date == day)
+        .where(WastageEntry.business_date == day, WastageEntry.status != WastageStatus.rejected)
         .group_by(WastageEntry.reason)
     ).all()
     late, late_paise = (
@@ -238,6 +271,7 @@ def report(business_date: date, caller: Caller = Depends(require_owner)):
         flagged_count=sum(r.flagged for r in lines),
         wastage_paise=sum(int(v or 0) for _, v in wastage),
         wastage_by_reason={r.value: int(v or 0) for r, v in wastage},
+        wastage_pending=dayend.pending_wastage(caller.db, day),
         late_bills=late,
         late_bills_explained_paise=late_paise,
     )
@@ -259,3 +293,101 @@ def approve(business_date: date, caller: Caller = Depends(require_owner)):
     caller.db.commit()
     email.deliver_pending(caller.db)  # never raises
     return report(business_date, caller)
+
+
+# ---------------------------------------------------------------- adherence trend
+@router.get("/reports/adherence", response_model=AdherenceOut, tags=["reports"])
+def adherence(days: int = 30, end: date | None = None, caller: Caller = Depends(require_owner)):
+    """SOP adherence over the last `days` closed days: is the recipe wrong, or
+    are staff not following it? A steady 90% says the recipe; a drop on some
+    days says the shift."""
+    if not 7 <= days <= 92:
+        raise unprocessable("Choose between 7 and 92 days")
+    last = end or business_date_of(utcnow())
+    first = last - timedelta(days=days - 1)
+    closed, lines = dayend.adherence_trend(caller.db, first, last)
+    return AdherenceOut(
+        start=first,
+        end=last,
+        closed_days=closed,
+        overall_pct=dayend.overall_adherence(lines),
+        lines=[
+            TrendLineOut(
+                ingredient_id=t.ingredient.id,
+                name=t.ingredient.name,
+                base_unit=t.ingredient.base_unit,
+                expected_usage=t.expected_usage,
+                actual_usage=t.actual_usage,
+                adherence_pct=t.adherence_pct,
+                variance_paise=t.variance_paise,
+                points=[
+                    TrendPointOut(business_date=p.business_date, adherence_pct=p.adherence_pct)
+                    for p in t.points
+                ],
+            )
+            for t in lines
+        ],
+    )
+
+
+# ---------------------------------------------------------------- handover counts
+@router.post("/handover-counts", response_model=HandoverOut, status_code=201)
+def record_handover(body: HandoverIn, caller: Caller = Depends(get_caller)):
+    """A blind count of the 'count every shift' items at a shift change. Changes
+    no stock; the owner reads it in /reports/handover."""
+    try:
+        hc = handover.record(
+            caller.db,
+            business_date_of(utcnow()),
+            [
+                dayend.CountIn(
+                    ln.ingredient_id,
+                    [PackQty(p.pack_unit_id, p.qty) for p in ln.packs],
+                    ln.loose_qty,
+                )
+                for ln in body.lines
+            ],
+            caller.user.id,
+            body.shift_id,
+        )
+    except dayend.DayLocked as e:
+        caller.db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from None
+    except dayend.DayEndError as e:
+        caller.db.rollback()
+        raise unprocessable(str(e)) from None
+    caller.db.commit()
+    return HandoverOut(id=hc.id, counted=len(hc.lines))
+
+
+@router.get("/reports/handover", response_model=HandoverReportOut, tags=["reports"])
+def handover_report(business_date: date | None = None, caller: Caller = Depends(require_owner)):
+    day = _day(business_date or business_date_of(utcnow()))
+    users = dict(caller.db.execute(select(User.id, User.name)).all())
+    return HandoverReportOut(
+        business_date=day,
+        periods=[
+            HandoverPeriodOut(
+                start=p.start,
+                end=p.end,
+                is_day_end=p.is_day_end,
+                counted_by_name=users.get(p.counted_by),
+                on_duty=p.on_duty,
+                gap_here_paise=p.gap_here_paise,
+                lines=[
+                    HandoverLineOut(
+                        ingredient_id=ln.ingredient.id,
+                        name=ln.ingredient.name,
+                        base_unit=ln.ingredient.base_unit,
+                        expected=ln.expected,
+                        counted=ln.counted,
+                        gap=ln.gap,
+                        gap_here=ln.gap_here,
+                        gap_here_paise=ln.gap_here_paise,
+                    )
+                    for ln in p.lines
+                ],
+            )
+            for p in handover.report(caller.db, day)
+        ],
+    )

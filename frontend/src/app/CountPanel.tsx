@@ -23,6 +23,7 @@ const asIngredient = (s: SheetItem): Ingredient => ({
   name: s.name,
   kind: s.kind,
   base_unit: s.base_unit,
+  count_frequency: s.count_frequency as Ingredient['count_frequency'],
   pack_units: s.pack_units,
   scales_with_size: true,
   is_active: true,

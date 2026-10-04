@@ -15,6 +15,7 @@ import {
   startShift,
   type LocalShift,
 } from '../lib/shift';
+import { HandoverCount, type HandoverState } from './HandoverCount';
 import { Sheet } from './Sheet';
 import { useSession } from './session';
 
@@ -148,8 +149,10 @@ function EndShiftSheet({ shift, onClose }: { shift: LocalShift; onClose(): void 
   const [note, setNote] = useState('');
   const [done, setDone] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [handover, setHandover] = useState<HandoverState>('loading');
   const total = drawerTotalPaise(notes, coins);
   const someoneElse = user && shift.openedById !== user.id;
+  const stockFirst = handover === 'loading' || handover === 'todo';
 
   async function end() {
     if (!user) return;
@@ -186,6 +189,7 @@ function EndShiftSheet({ shift, onClose }: { shift: LocalShift; onClose(): void 
           your name.
         </p>
       )}
+      <HandoverCount shiftId={shift.id} onState={setHandover} />
       <p className="muted">Count every note and coin in the drawer, including the cash the shift started with.</p>
       <ul className="note-count">
         {NOTES.map((n) => (
@@ -226,7 +230,7 @@ function EndShiftSheet({ shift, onClose }: { shift: LocalShift; onClose(): void 
         </p>
       )}
       <div className="sheet-actions">
-        <button className="primary" onClick={() => void end()}>
+        <button className="primary" disabled={stockFirst} onClick={() => void end()}>
           End shift with {formatRupees(total)}
         </button>
         <button onClick={onClose}>Not yet</button>

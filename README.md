@@ -579,6 +579,58 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - Sheet headers centre the title and **Close** on one line.
 - **Browser tests run with reduced motion,** which the app already honours by turning off its button colour fades. A screenshot taken right after a tap no longer catches a colour halfway (the Floor/Kitchen switch looked greyed out).
 
+## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
+
+Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.
+
+### 10.1 Recipe adherence, last 30 days
+One row per counted ingredient: adherence over the closed days (100% = staff used exactly what the recipe says), a small line per day, and a verdict:
+- **Steady gap: the recipe may need updating.** Every day off by about the same (spread of 6 points or less). The recipe is wrong, not the people.
+- **Changes day to day: look at who was on shift.** Some days fine, some not.
+- **On recipe** (within ±3 of 100), or **too few closed days** (under 3).
+
+The headline is adherence weighted by value, so a gram of cardamom does not count as much as a litre of milk.
+
+**Decisions and trade-offs**
+- **Only approved days, read from what approval froze** (each line's expected quantity, count and cost) plus the day's sales and batch rows written before approval. An open count can still change, and a late bill that arrived after the close is not usage the count could have seen; the day report excludes it the same way. One query for the window, no new table.
+- **Thresholds are simple on purpose** (`lib/dayend.trendVerdict`, unit-tested). They decide wording, not money. Change them once the pilot shop has a month of data.
+- `GET /reports/adherence?days=30` (7 to 92), owner only.
+
+### 10.2 A cashier's large wastage waits for the owner
+A cashier's wastage worth more than the shop's limit (default ₹200, set under **Wastage to check**) is recorded as **waiting**. The owner accepts it (a known loss) or rejects it. The day cannot be closed while an entry waits.
+
+**Decisions and trade-offs**
+- **The stock leaves the ledger at once.** The milk did spoil; only the explanation waits. Holding the stock back would make the shelf and the books disagree until the owner looked.
+- **Rejecting adds the stock back as new ledger rows** (`ref_type = wastage_rejected`), never an edit. The loss then shows as missing at day end, which is the point: an unaccepted excuse is unexplained loss.
+- **Owner entries and small ones never wait.** The limit is in rupees at cost, not quantity, because a litre of milk and a kilo of cardamom are not the same decision.
+- **After the day closes**, a waiting entry can be accepted but not rejected: rejecting would move stock on a day whose count is final.
+- Cashiers see "Waiting for the owner" / "Not accepted" on their own entries, still with no rupees.
+
+### 10.3 Milk and fruit counted at each shift change
+**Stock → an item → Count it: Every shift** adds the item to a blind count at the start of **End shift**. It changes no stock; it splits the day's gap by when it opened, so the owner sees **Shift handovers**: each period, who was on duty, and what went missing in it.
+
+```
+expected at T = the day's opening + stock-in, batches and wastage entered by T
+                - sales rung up by T
+gap at T      = counted - expected at T
+gap in period = gap at T - gap at the previous count of the item today
+```
+
+The day-end count closes the last period, so the periods add up to the day's variance to the paisa (`test_phase10.py` works one day by hand).
+
+**Decisions and trade-offs**
+- **Sales are timed by the bill, not by when the server heard of it.** A tablet that was offline at 10 am still sold the tea before the 3 pm count. Other movements (stock-in, batches, wastage) are entered online, so their server time is right.
+- **Computed when asked, not stored.** A bill that syncs late moves into the right period on the next read; nothing frozen goes stale.
+- **Two counters share one shelf.** A period lists everyone on duty in it (`Ravi (Counter 1), Priya (Counter 2)`) rather than blaming whoever closed. Pinning to one person needs one person per period, which the shop decides, not the app.
+- **Online only, like the day-end count** (packs are converted on the server). Offline, End shift says the count is skipped; the day-end count still covers the day. **Skip this time** is there for the same reason: the drawer must never be held hostage by the milk count.
+- **Its own record, linked to the shift by id with no foreign key:** the tablet may not have sent the shift yet. Counting the same shift again replaces it (a recount, not a new period).
+- `POST /handover-counts` (any staff, blind: the answer is only how many items were taken), `GET /reports/handover?business_date=` (owner).
+
+### Also in this phase
+- **One migration ties the four open heads together** (`a10c0d1e2f30`) and adds everything above: two columns on `wastage_entries`, the `wastage_status` enum (dropped on downgrade), the shop's limit, and two tables with row-level security. All additive.
+- **Demo data:** an afternoon top-up from the local shop (a busy Sunday sold more mango pulp than was bought and the demo test failed on 4 Oct), the odd fridge failure for the owner to judge, and milk and fruit counted at the 3 pm shift change.
+- **Bug found by the browser test:** the wastage limit field was reset under the owner's typing whenever Day end refreshed. The limit now loads once; only the list reloads.
+
 ## Phase 6: discounts, split payment, customers and khata, split bill
 
 **At the till:**

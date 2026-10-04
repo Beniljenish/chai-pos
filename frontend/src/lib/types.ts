@@ -164,6 +164,8 @@ export interface Ingredient {
   scales_with_size: boolean;
   is_active: boolean;
   reorder_level: string | null;
+  /** shift: counted at every shift change too (milk, fruit); weekly: optional at day end */
+  count_frequency: 'shift' | 'daily' | 'weekly';
   pack_units: { id: string; name: string; qty_in_base: string }[];
 }
 
@@ -213,6 +215,9 @@ export interface WastageRow {
   value_paise: number | null;
   created_by_name: string;
   created_at: string;
+  /** pending: a cashier's large entry waiting for the owner; rejected: counts as missing. */
+  status: 'approved' | 'pending' | 'rejected';
+  decided_by_name: string | null;
 }
 
 export interface SheetItem {
@@ -269,8 +274,50 @@ export interface DayReport {
   flagged_count: number;
   wastage_paise: number;
   wastage_by_reason: Record<string, number>;
+  wastage_pending: number;
   late_bills: number;
   late_bills_explained_paise: number;
+}
+
+/** GET /reports/adherence: SOP adherence over the closed days of a window. */
+export interface AdherenceTrend {
+  start: string;
+  end: string;
+  closed_days: string[];
+  overall_pct: string | null;
+  lines: {
+    ingredient_id: string;
+    name: string;
+    base_unit: BaseUnit;
+    expected_usage: string;
+    actual_usage: string;
+    adherence_pct: string | null;
+    variance_paise: number;
+    points: { business_date: string; adherence_pct: string | null }[];
+  }[];
+}
+
+/** GET /reports/handover: the day's gap on shift-counted items, split by period. */
+export interface HandoverReport {
+  business_date: string;
+  periods: {
+    start: string;
+    end: string;
+    is_day_end: boolean;
+    counted_by_name: string | null;
+    on_duty: string[];
+    gap_here_paise: number;
+    lines: {
+      ingredient_id: string;
+      name: string;
+      base_unit: BaseUnit;
+      expected: string;
+      counted: string;
+      gap: string;
+      gap_here: string;
+      gap_here_paise: number;
+    }[];
+  }[];
 }
 
 /** A bill as the server holds it (GET /bills, /bills/{id}). */

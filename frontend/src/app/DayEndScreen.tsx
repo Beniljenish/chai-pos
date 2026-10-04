@@ -1,8 +1,11 @@
 /** Day end. Owner: wastage, count, variance and approval. Cashier: wastage and the blind count only. */
 import { useCallback, useState } from 'react';
 import { countableDays } from '../lib/dayend';
+import { AdherenceTrend } from './AdherenceTrend';
 import { CountPanel } from './CountPanel';
 import { DayReport } from './DayReport';
+import { HandoverReport } from './HandoverReport';
+import { PendingWastage } from './PendingWastage';
 import { PrepPanel } from './PrepPanel';
 import { useSession } from './session';
 import { WastagePanel } from './WastagePanel';
@@ -24,6 +27,7 @@ export function DayEndScreen() {
       </header>
       {!isOwner && <PrepPanel />}
       <WastagePanel onLogged={bump} />
+      {isOwner && <PendingWastage refreshKey={refresh} onDecided={bump} />}
       <div className="segmented day-pick" role="radiogroup" aria-label="Which day">
         {days.map((d) => (
           <button key={d.date} role="radio" aria-checked={day === d.date} onClick={() => setDay(d.date)}>
@@ -34,6 +38,8 @@ export function DayEndScreen() {
       <p className="muted">Closing after midnight? Choose yesterday: the count belongs to the day you are closing.</p>
       <CountPanel key={`${day}-count`} day={day} refreshKey={closed} onStatus={bump} />
       {isOwner && <DayReport key={`${day}-report`} day={day} refreshKey={refresh} onApproved={reloadCount} />}
+      {isOwner && <HandoverReport key={`${day}-handover`} day={day} refreshKey={refresh} />}
+      {isOwner && <AdherenceTrend key={`trend-${closed}`} />}
     </section>
   );
 }

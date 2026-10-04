@@ -33,6 +33,7 @@ from app.models import (
     StockLedger,
     WastageEntry,
     WastageReason,
+    WastageStatus,
 )
 from app.services.billing import consumption_for_line
 from app.services.recipes import Q3, resolve_recipe
@@ -79,7 +80,11 @@ def record_wastage(
     note: str,
     user_id: uuid.UUID,
     is_owner: bool,
+    approval_paise: int | None = None,
 ) -> WastageEntry:
+    """`approval_paise`: a cashier's entry worth more than this waits for the
+    owner. Its stock leaves the ledger at once (the milk did spoil); only the
+    explanation waits."""
     if reason in OWNER_ONLY_REASONS and not is_owner:
         raise PermissionError(f"Only the owner can record '{reason.value}'")
     now = utcnow()
@@ -112,14 +117,17 @@ def record_wastage(
 
     targets = db.scalars(select(Ingredient).where(Ingredient.id.in_(used))).all()
     costs = unit_costs(db, list(targets))
+    value = _paise(sum((q * costs.get(i, ZERO) for i, q in used.items()), ZERO))
+    pending = not is_owner and approval_paise is not None and value > approval_paise
     entry = WastageEntry(
+        status=WastageStatus.pending if pending else WastageStatus.approved,
         ingredient_id=ingredient.id if ingredient else None,
         menu_item_id=menu_item.id if menu_item else None,
         recipe_id=recipe_id,
         qty=qty,
         reason=reason,
         note=note,
-        value_paise=_paise(sum((q * costs.get(i, ZERO) for i, q in used.items()), ZERO)),
+        value_paise=value,
         business_date=bdate,
         created_by=user_id,
         created_at=now,
@@ -140,6 +148,49 @@ def record_wastage(
                 )
             )
     return entry
+
+
+def decide_wastage(db: Session, entry: WastageEntry, *, accept: bool, user_id: uuid.UUID) -> None:
+    """The owner's decision on a large entry. Rejecting it adds the stock back
+    as new ledger rows (never edits), so the loss shows as missing at day end."""
+    if entry.status != WastageStatus.pending:
+        raise DayEndError("This wastage entry was already decided")
+    closed = db.scalar(
+        select(DayCount.id).where(
+            DayCount.business_date == entry.business_date,
+            DayCount.status == DayCountStatus.approved,
+        )
+    )
+    if closed is not None and not accept:
+        raise DayLocked("That day is already closed; its stock can no longer change")
+    if not accept:
+        rows = db.execute(
+            select(StockLedger.ingredient_id, StockLedger.qty_delta).where(
+                StockLedger.ref_type == "wastage", StockLedger.ref_id == entry.id
+            )
+        ).all()
+        for ingredient_id, q in sorted(rows, key=lambda r: str(r[0])):
+            db.add(
+                StockLedger(
+                    ingredient_id=ingredient_id,
+                    qty_delta=-q,
+                    reason=LedgerReason.wastage,
+                    ref_type="wastage_rejected",
+                    ref_id=entry.id,
+                    business_date=entry.business_date,
+                    created_by=user_id,
+                )
+            )
+    entry.status = WastageStatus.approved if accept else WastageStatus.rejected
+    entry.decided_by, entry.decided_at = user_id, utcnow()
+
+
+def pending_wastage(db: Session, bdate: date) -> int:
+    return db.scalar(
+        select(func.count()).where(
+            WastageEntry.business_date == bdate, WastageEntry.status == WastageStatus.pending
+        )
+    )
 
 
 # ---------------------------------------------------------------- movements
@@ -414,6 +465,12 @@ def approve(db: Session, bdate: date, user_id: uuid.UUID) -> DayCount:
         raise DayLocked("This day is already closed")
     if dc.status != DayCountStatus.submitted:
         raise DayEndError("The count is not finished yet (recounts are still pending)")
+    waiting = pending_wastage(db, bdate)
+    if waiting:
+        raise DayEndError(
+            f"{waiting} wastage {'entry is' if waiting == 1 else 'entries are'} waiting for "
+            "your decision. Accept or reject them first: a rejected one counts as missing."
+        )
     lines = report_lines(db, dc)
     now = db.scalar(select(func.now()))  # database clock: compared with ledger created_at
     by_id = {ln.ingredient_id: ln for ln in dc.lines}
@@ -484,6 +541,121 @@ def late_bills_explained(db: Session, dc: DayCount) -> tuple[int, int]:
     return len({r for r, _, _ in rows}), _paise(value)
 
 
+# ---------------------------------------------------------------- adherence trend
+@dataclass
+class TrendPoint:
+    business_date: date
+    expected_usage: Decimal
+    actual_usage: Decimal
+    usage_paise: int  # expected usage at the day's frozen cost
+    actual_paise: int
+
+    @property
+    def adherence_pct(self) -> Decimal | None:
+        return _pct(self.expected_usage, self.actual_usage)
+
+
+def _pct(expected: Decimal, actual: Decimal) -> Decimal | None:
+    if expected <= 0 or actual <= 0:
+        return None
+    return (expected / actual * 100).quantize(Decimal("0.1"))
+
+
+@dataclass
+class TrendLine:
+    ingredient: Ingredient
+    points: list[TrendPoint]
+    variance_paise: int
+
+    @property
+    def expected_usage(self) -> Decimal:
+        return sum((p.expected_usage for p in self.points), ZERO)
+
+    @property
+    def actual_usage(self) -> Decimal:
+        return sum((p.actual_usage for p in self.points), ZERO)
+
+    @property
+    def adherence_pct(self) -> Decimal | None:
+        return _pct(self.expected_usage, self.actual_usage)
+
+
+def adherence_trend(db: Session, start: date, end: date) -> tuple[list[date], list[TrendLine]]:
+    """SOP adherence for every closed (approved) day in [start, end].
+
+    Read only from what approval froze: each line's expected and counted
+    quantity and cost, plus the day's sales and batch rows written before
+    approval (a late bill that arrived after the close is not usage the count
+    could have seen; the day report excludes it the same way)."""
+    days = db.execute(
+        select(DayCount.id, DayCount.business_date, DayCount.approved_at).where(
+            DayCount.status == DayCountStatus.approved,
+            DayCount.business_date >= start,
+            DayCount.business_date <= end,
+        )
+    ).all()
+    if not days:
+        return [], []
+    usage_rows = db.execute(
+        select(
+            StockLedger.business_date, StockLedger.ingredient_id, func.sum(StockLedger.qty_delta)
+        )
+        .join(DayCount, DayCount.business_date == StockLedger.business_date)
+        .where(
+            DayCount.status == DayCountStatus.approved,
+            StockLedger.business_date >= start,
+            StockLedger.business_date <= end,
+            StockLedger.created_at <= DayCount.approved_at,
+            StockLedger.reason.in_([LedgerReason.sale, LedgerReason.void, LedgerReason.prep_out]),
+        )
+        .group_by(StockLedger.business_date, StockLedger.ingredient_id)
+    ).all()
+    usage = {(d, i): -Decimal(q) for d, i, q in usage_rows}  # ledger rows are negative
+    date_of = {dc_id: d for dc_id, d, _ in days}
+    lines = db.scalars(
+        select(DayCountLine).where(
+            DayCountLine.day_count_id.in_(date_of), DayCountLine.expected_qty.is_not(None)
+        )
+    ).all()
+    ingredients = {
+        i.id: i
+        for i in db.scalars(
+            select(Ingredient).where(Ingredient.id.in_({ln.ingredient_id for ln in lines}))
+        )
+    }
+    by_ingredient: dict[uuid.UUID, TrendLine] = {}
+    for ln in lines:
+        d = date_of[ln.day_count_id]
+        expected_usage = usage.get((d, ln.ingredient_id), ZERO)
+        if expected_usage <= 0:
+            continue  # nothing was sold or made from it: no recipe to adhere to
+        actual = expected_usage - (ln.counted_qty - ln.expected_qty)
+        cost = ln.cost_per_unit_paise or ZERO
+        t = by_ingredient.setdefault(
+            ln.ingredient_id, TrendLine(ingredients[ln.ingredient_id], [], 0)
+        )
+        t.points.append(
+            TrendPoint(
+                d, expected_usage, actual, _paise(expected_usage * cost), _paise(actual * cost)
+            )
+        )
+        t.variance_paise += ln.variance_paise or 0
+    for t in by_ingredient.values():
+        t.points.sort(key=lambda p: p.business_date)
+    out = sorted(
+        by_ingredient.values(), key=lambda t: (t.variance_paise, t.ingredient.name.lower())
+    )
+    return sorted(d for _, d, _ in days), out
+
+
+def overall_adherence(lines: list[TrendLine]) -> Decimal | None:
+    """One number for the shop: recipe usage / real usage, weighted by value,
+    so a gram of cardamom does not count the same as a litre of milk."""
+    expected = sum((p.usage_paise for t in lines for p in t.points), 0)
+    actual = sum((p.actual_paise for t in lines for p in t.points), 0)
+    return _pct(Decimal(expected), Decimal(actual))
+
+
 __all__ = [
     "CountIn",
     "DayEndError",
@@ -491,12 +663,18 @@ __all__ = [
     "Movement",
     "ReportLine",
     "SubmitResult",
+    "TrendLine",
+    "TrendPoint",
+    "adherence_trend",
     "approve",
+    "decide_wastage",
     "find_day",
     "get_or_create_day",
     "late_bill_correction",
     "late_bills_explained",
     "movements",
+    "overall_adherence",
+    "pending_wastage",
     "record_wastage",
     "report_lines",
     "submit_counts",

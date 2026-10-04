@@ -303,6 +303,8 @@ def build_catalogue(api: Api, owner: dict) -> dict:
             body["reorder_level"] = reorder
         if name in {"Samosa", "Veg puff"}:  # bought in each morning, counted each night
             body["count_frequency"] = "daily"
+        if name in SHIFT_COUNTED:  # counted at each shift change too (Phase 10.3)
+            body["count_frequency"] = "shift"
         ids[name] = api.post("/ingredients", owner, body)
     for prep, lines, yield_qty in (
         ("Tea decoction", [("Milk", 2000), ("Tea powder", 60), ("Sugar", 150)], 2200),
@@ -863,6 +865,14 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
         if is_today:
             last_hour = min(21, now_ist.hour - 1)
         for hour in range(6, last_hour + 1):
+            if hour == 14:
+                # A busy day can outrun the morning's buying: the owner checks
+                # again after lunch and fetches what will not last the evening.
+                api.at(ist(d, 14, 0))
+                have = on_hand()
+                for n in FRUIT + DRY + DISPOSABLES:
+                    if have[n] < use[n] * D(busy) * D("0.6"):
+                        stock_in(n, round_up(n, use[n] * D(busy) - have[n]), "Local shop")
             if hour in (6, 10, 14, 17):
                 make_prep(
                     ist(d, hour, 0), "Tea decoction", D(9000 if hour in (6, 17) else 5000) * D(busy)
@@ -874,6 +884,24 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
                 api.at(at)
                 tab = t1
                 counted = close_count(expected_cash(api, owner, tab, d))  # syncs: before the append
+                # Milk and fruit counted at the handover, blind, near what is on the shelf
+                have = on_hand()
+                api.post(
+                    "/handover-counts",
+                    tab.who,
+                    {
+                        "shift_id": tab.shift,
+                        "lines": [
+                            {
+                                "ingredient_id": ids[n]["id"],
+                                "loose_qty": str(
+                                    max(D(0), (have[n] * D(rnd.uniform(0.97, 1.0))).quantize(D(1)))
+                                ),
+                            }
+                            for n in SHIFT_COUNTED
+                        ],
+                    },
+                )
                 tab.shift_ops.append(
                     {
                         "op": "close",
@@ -1020,6 +1048,18 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
         # Wastage
         if not is_today:
             api.at(ist(d, 21, 30))
+            if rnd.random() < 0.25:
+                # Big enough (about Rs 220) to wait for the owner's yes or no
+                api.post(
+                    "/wastage",
+                    ravi,
+                    {
+                        "ingredient_id": ids["Milk"]["id"],
+                        "qty": "4000",
+                        "reason": "spoiled",
+                        "note": "Fridge was off overnight",
+                    },
+                )
             if rnd.random() < 0.5:
                 api.post(
                     "/wastage",
@@ -1119,6 +1159,8 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
             api.post(f"/day-counts/{d.isoformat()}/counts", evening, {"lines": again})
         if d < today - timedelta(days=1):  # yesterday is left for the owner to approve
             api.at(ist(d + timedelta(days=1), 5, 0))
+            for w in api.get("/wastage?pending=true", owner):
+                api.post(f"/wastage/{w['id']}/decision", owner, {"accept": rnd.random() < 0.8})
             api.post(f"/day-counts/{d.isoformat()}/approve", owner)
 
     # An order still open for the owner to see on Purchases
@@ -1128,6 +1170,7 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
         tab.sync(owner)
 
 
+SHIFT_COUNTED = ["Milk", "Oranges", "Watermelon", "Pineapple"]
 FRUIT = ["Oranges", "Watermelon", "Pineapple", "Lemon", "Mint leaves", "Ginger"]
 DRY = [
     "Tea powder",

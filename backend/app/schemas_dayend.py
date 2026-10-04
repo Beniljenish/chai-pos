@@ -7,7 +7,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models import BaseUnit, DayCountStatus, IngredientKind, WastageReason
+from app.models import BaseUnit, DayCountStatus, IngredientKind, WastageReason, WastageStatus
 from app.schemas_catalogue import PackQtyIn, PackUnitOut, Qty
 
 Loose = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=3)]
@@ -38,6 +38,8 @@ class WastageOut(BaseModel):
     value_paise: int | None  # hidden from cashiers
     created_by_name: str
     created_at: datetime
+    status: WastageStatus = WastageStatus.approved
+    decided_by_name: str | None = None
 
 
 class CountLineIn(BaseModel):
@@ -111,5 +113,69 @@ class ReportOut(BaseModel):
     flagged_count: int
     wastage_paise: int
     wastage_by_reason: dict[str, int]
+    wastage_pending: int = 0  # entries waiting for the owner; the day cannot close until 0
     late_bills: int
     late_bills_explained_paise: int
+
+
+class TrendPointOut(BaseModel):
+    business_date: date
+    adherence_pct: Decimal | None
+
+
+class TrendLineOut(BaseModel):
+    ingredient_id: uuid.UUID
+    name: str
+    base_unit: BaseUnit
+    expected_usage: Decimal
+    actual_usage: Decimal
+    adherence_pct: Decimal | None
+    variance_paise: int  # summed over the closed days
+    points: list[TrendPointOut]
+
+
+class AdherenceOut(BaseModel):
+    start: date
+    end: date
+    closed_days: list[date]
+    overall_pct: Decimal | None  # weighted by value
+    lines: list[TrendLineOut]
+
+
+class WastageDecisionIn(BaseModel):
+    accept: bool
+
+
+class HandoverIn(CountsIn):
+    shift_id: uuid.UUID | None = None  # the shift being closed, if the shop uses cash shifts
+
+
+class HandoverOut(BaseModel):
+    id: uuid.UUID
+    counted: int  # how many items were taken; deliberately no numbers (blind)
+
+
+class HandoverLineOut(BaseModel):
+    ingredient_id: uuid.UUID
+    name: str
+    base_unit: BaseUnit
+    expected: Decimal
+    counted: Decimal
+    gap: Decimal
+    gap_here: Decimal
+    gap_here_paise: int
+
+
+class HandoverPeriodOut(BaseModel):
+    start: datetime
+    end: datetime
+    is_day_end: bool
+    counted_by_name: str | None
+    on_duty: list[str]
+    gap_here_paise: int
+    lines: list[HandoverLineOut]
+
+
+class HandoverReportOut(BaseModel):
+    business_date: date
+    periods: list[HandoverPeriodOut]
