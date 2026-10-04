@@ -217,21 +217,22 @@ def _js(value: dict) -> str:
     return json.dumps(value).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
+# Every method Checkout can show; all but the chosen one are hidden.
+_METHODS = ("upi", "card", "netbanking", "wallet", "emi", "cardless_emi", "paylater")
+
+
 def _only(method: str) -> dict:
-    """Checkout's display config that shows one payment method and nothing else."""
-    if method == "upi":
-        # QR for a customer at the counter, collect (type the UPI id), or intent
-        # (this phone's UPI app).
-        instrument = {"method": "upi", "flows": ["qr", "collect", "intent"]}
-        name = "Pay by UPI"
-    else:
-        instrument = {"method": "card"}
-        name = "Pay by card"
+    """Checkout's display config that shows one payment method and nothing else.
+
+    It hides the other methods rather than listing the allowed one: a listed UPI
+    instrument with named flows (QR, collect, intent) left nothing to show on a
+    desktop browser once collect was retired and QR was not switched on, and
+    Checkout said "No appropriate payment method found". Hiding keeps Razorpay's
+    own UPI choices for this account and this device."""
     return {
         "display": {
-            "blocks": {method: {"name": name, "instruments": [instrument]}},
-            "sequence": [f"block.{method}"],
-            "preferences": {"show_default_blocks": False},
+            "hide": [{"method": m} for m in _METHODS if m != method],
+            "preferences": {"show_default_blocks": True},
         }
     }
 
