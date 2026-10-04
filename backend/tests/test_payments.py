@@ -351,18 +351,23 @@ def test_webhook_authorized_payment_is_captured(client, shop_a, device, rzp):
 
 @pytest.mark.parametrize("method", ["upi", "card"])
 def test_checkout_shows_only_the_chosen_method(client, shop_a, device, rzp, method):
+    """The chosen method stays on Razorpay's own default list, with every other
+    method hidden. An earlier version allowed only listed UPI flows (QR, collect,
+    intent); on a desktop browser with collect retired and QR not switched on,
+    none was available and Checkout said "No appropriate payment method found"
+    (staging, 4 Oct 2026). Razorpay now shows whichever UPI flows the account has."""
     bill = _synced_bill(device)
     oid = _order(client, shop_a.cashier_h, bill, method=method).json()["razorpay_order_id"]
     page = client.get(f"{API}/payments/razorpay/checkout?order_id={oid}").text
     start = page.index("const o = ") + len("const o = ")
     options = json.loads(page[start : page.index(";\n", start)])
     display = options["config"]["display"]
-    assert display["preferences"] == {"show_default_blocks": False}
-    (block,) = display["blocks"].values()
-    assert [i["method"] for i in block["instruments"]] == [method]
-    assert display["sequence"] == [f"block.{method}"]
-    if method == "upi":  # QR on the counter tablet, collect, or the phone's UPI app
-        assert block["instruments"][0]["flows"] == ["qr", "collect", "intent"]
+    assert "blocks" not in display and "sequence" not in display
+    assert display["preferences"] == {"show_default_blocks": True}
+    hidden = {h["method"] for h in display["hide"]}
+    assert method not in hidden
+    assert {"upi", "card", "netbanking", "wallet", "emi", "paylater"} - {method} <= hidden
+    assert "flows" not in json.dumps(display)  # never limit which UPI flows show
 
 
 def test_owner_can_check_the_razorpay_connection(client, shop_a, rzp, monkeypatch):
