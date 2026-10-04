@@ -9,6 +9,7 @@ import { api } from './apiClient';
 import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { CashSettings, DiscountSettings } from './CashDrawer';
+import { RazorpaySettings } from './OnlinePayment';
 import { EmailSettings } from './EmailSettings';
 import { MenuPrices } from './MenuPrices';
 import { useSession } from './session';
@@ -209,6 +210,7 @@ export function ShopScreen() {
       <CashSettings />
 
       <DiscountSettings />
+      <RazorpaySettings />
       <EmailSettings />
       <MenuPrices />
     </section>

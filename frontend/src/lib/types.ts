@@ -43,6 +43,8 @@ export interface Catalogue {
     cash_shifts?: boolean;
     /** The most a cashier may take off a bill, basis points (1000 = 10%). */
     max_discount_bp?: number;
+    /** Razorpay keys are set on the server (README, Phase 8a). */
+    online_payments?: boolean;
   };
   menu_items: MenuItem[];
   modifiers: Modifier[];
@@ -344,6 +346,19 @@ export interface SalesReport {
   credit_given_paise?: number;
   repaid_paise?: number;
   flagged?: { bill_id: string; invoice_no: string; flags: string[] }[];
+  online_payments?: OnlinePaymentRow[];
+}
+
+export interface OnlinePaymentRow {
+  bill_id: string;
+  invoice_no: string;
+  method: 'upi' | 'card';
+  status: 'created' | 'paid' | 'failed';
+  amount_paise: number;
+  paid_paise: number | null;
+  provider_payment_id: string | null;
+  error: string;
+  problem: 'not_paid' | 'amount_mismatch' | 'refund_due' | null;
 }
 
 export interface ShiftReport {

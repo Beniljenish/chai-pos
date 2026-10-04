@@ -153,6 +153,9 @@ def _ingest_one(ctx: SyncContext, b: dict) -> Result:
         from app.services.reports import enqueue_bill  # local: reports imports billing
 
         enqueue_bill(ctx.db, ctx.shop, bill)
+        from app.services import messages  # local: messages imports reports lazily
+
+        messages.bill_accepted(ctx.db, ctx.shop, bill)  # the customer's receipt link
         return Result(bill_id, Outcome.accepted, bill.invoice_no, bill.totals_mismatch)
     except Reject as e:
         savepoint.rollback()

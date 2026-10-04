@@ -101,20 +101,32 @@ def _table(rows: list[tuple], head: tuple | None = None, right_from: int = 1) ->
     return f'<table style="width:100%;border-collapse:collapse;font-size:14px">{h}{b}</table>'
 
 
+def ist_time(dt) -> str:
+    return _ist_time(dt)
+
+
 def _ist_time(dt) -> str:
     tz = ZoneInfo(get_settings().shop_timezone)
     return dt.astimezone(tz).strftime("%d %b %Y, %I:%M %p")
 
 
 # ---------------------------------------------------------------- one bill
-def enqueue_bill(db: Session, shop: Shop, bill: Bill) -> None:
-    if not shop.email_each_bill:
-        return
+def bill_rows(bill: Bill) -> list[tuple[str, str]]:
+    """A bill as (label, amount) rows: lines, GST, total. The bill email and the
+    customer's receipt page both use these."""
     lines = sorted(bill.lines, key=lambda ln: ln.position)
     rows = [(f"{ln.qty} × {ln.name_snapshot}", rupees(ln.total_paise)) for ln in lines]
     if bill.cgst_paise:
         rows += [("CGST", rupees(bill.cgst_paise)), ("SGST", rupees(bill.sgst_paise))]
     rows.append(("Total", rupees(bill.total_paise)))
+    rows.append(("Paid by", PAYMENT.get(bill.payment_mode.value, bill.payment_mode.value)))
+    return rows
+
+
+def enqueue_bill(db: Session, shop: Shop, bill: Bill) -> None:
+    if not shop.email_each_bill:
+        return
+    rows = bill_rows(bill)[:-1]  # the email says how it was paid in its first line
     pay = PAYMENT.get(bill.payment_mode.value, bill.payment_mode.value)
     subject = f"{rupees(bill.total_paise)} · {bill.invoice_no} · {pay}"
     meta = f"{bill.invoice_no} · {_ist_time(bill.sold_at)} · paid by {pay}"

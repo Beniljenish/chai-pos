@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
-from app.models import Bill, BillStatus, BillVoid, CreditRepayment, User
+from app.models import Bill, BillStatus, BillVoid, CreditRepayment, Payment, User
 from app.models.dayend import DayCount
 
 
@@ -61,6 +61,7 @@ def sales_report(db: Session, d: date) -> dict:
         )
     )
     day = db.scalar(select(DayCount).where(DayCount.business_date == d))
+    online = _online_payments(db, every)
     return {
         "business_date": d,
         "day_status": day.status.value if day else None,
@@ -134,4 +135,37 @@ def sales_report(db: Session, d: date) -> dict:
             for b in bills
             if b.totals_mismatch
         ],
+        "online_payments": online,
     }
+
+
+def _online_payments(db: Session, every: list[Bill]) -> list[dict]:
+    """One line per bill paid (or meant to be paid) online, with what the owner
+    should look at: not paid, paid a different amount, or paid and then voided."""
+    from app.services.payments import problem  # local: payments imports models only
+
+    by_id = {b.id: b for b in every}
+    if not by_id:
+        return []
+    chosen: dict = {}
+    for p in db.scalars(
+        select(Payment).where(Payment.bill_id.in_(list(by_id))).order_by(Payment.created_at)
+    ):
+        # A paid row wins; otherwise the latest attempt.
+        if chosen.get(p.bill_id) is None or chosen[p.bill_id].status != "paid":
+            chosen[p.bill_id] = p
+    return [
+        {
+            "bill_id": b.id,
+            "invoice_no": b.invoice_no,
+            "method": p.method,
+            "status": p.status,
+            "amount_paise": p.amount_paise,
+            "paid_paise": p.paid_paise,
+            "provider_payment_id": p.provider_payment_id,
+            "error": p.error,
+            "problem": problem(p, b),
+        }
+        for b in every
+        if (p := chosen.get(b.id)) is not None
+    ]

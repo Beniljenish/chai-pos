@@ -46,6 +46,7 @@ from app.schemas_catalogue import (
     RecipeLineOut,
     RecipeOut,
 )
+from app.services import payments as payments_service
 from app.services import recipes as recipe_service
 
 router = APIRouter()
@@ -411,6 +412,8 @@ def catalogue(
                 "address": shop.address,
                 "cash_shifts": shop.cash_shifts,
                 "max_discount_bp": shop.max_discount_bp,
+                # Razorpay keys are set on the server: the till may offer online payment.
+                "online_payments": payments_service.enabled(),
             },
             "menu_items": [
                 {

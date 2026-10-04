@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { DayEndScreen } from './DayEndScreen';
 import { FloorSetup } from './FloorSetup';
 import { KhataScreen } from './CustomersUI';
+import { MessagesScreen } from './MessagesScreen';
 import { RecipesScreen } from './RecipesScreen';
 import { SalesScreen } from './SalesScreen';
 import { ShopScreen } from './ShopScreen';
@@ -10,7 +11,7 @@ import { StaffScreen } from './StaffScreen';
 import { TabletsScreen } from './TabletsScreen';
 import { StockScreen } from './StockScreen';
 
-type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop' | 'staff' | 'tablets' | 'floor' | 'khata';
+type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop' | 'staff' | 'tablets' | 'floor' | 'khata' | 'messages';
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'sales', label: 'Sales' },
   { id: 'stock', label: 'Stock' },
@@ -20,6 +21,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'floor', label: 'Floor' },
   { id: 'khata', label: 'Khata' },
   { id: 'staff', label: 'Staff' },
+  { id: 'messages', label: 'Messages' },
   { id: 'tablets', label: 'Tablets' },
 ];
 
@@ -50,6 +52,8 @@ export function ManageScreen() {
         <KhataScreen />
       ) : section === 'staff' ? (
         <StaffScreen />
+      ) : section === 'messages' ? (
+        <MessagesScreen />
       ) : (
         <TabletsScreen />
       )}

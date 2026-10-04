@@ -78,6 +78,8 @@ export interface OrderState {
   covers: number;
   customer_name: string;
   customer_phone: string;
+  /** The customer agreed to messages (receipt, "order ready") on that number. */
+  message_ok: boolean;
   note: string;
   status: OrderStatus;
   opened_at: string | null;
@@ -108,6 +110,7 @@ export function emptyState(): OrderState {
     covers: 0,
     customer_name: '',
     customer_phone: '',
+    message_ok: false,
     note: '',
     status: 'open',
     opened_at: null,
@@ -149,6 +152,7 @@ export function reduce(events: OrderEvent[]): OrderState {
         s.covers = Number(d.covers ?? 0) || 0;
         s.customer_name = (d.customer_name as string) || '';
         s.customer_phone = (d.customer_phone as string) || '';
+        s.message_ok = Boolean(d.message_ok) && Boolean(s.customer_phone);
         s.note = (d.note as string) || '';
         s.opened_at = at;
         s.opened_by = by;
@@ -204,7 +208,14 @@ export function reduce(events: OrderEvent[]): OrderState {
         break;
       case 'details':
         if ('covers' in d) s.covers = Number(d.covers ?? 0) || 0;
-        for (const k of ['customer_name', 'customer_phone', 'note'] as const) if (k in d) s[k] = (d[k] as string) || '';
+        {
+          const phoneBefore = s.customer_phone;
+          for (const k of ['customer_name', 'customer_phone', 'note'] as const) if (k in d) s[k] = (d[k] as string) || '';
+          // Consent belongs to the number it was given for (same rule as the server).
+          if ('message_ok' in d) s.message_ok = Boolean(d.message_ok);
+          else if (s.customer_phone !== phoneBefore) s.message_ok = false;
+          if (!s.customer_phone) s.message_ok = false;
+        }
         break;
       case 'bill_printed':
         s.bill_prints += 1;
@@ -285,6 +296,8 @@ export interface OpenInput {
   covers?: number;
   customerName?: string;
   customerPhone?: string;
+  /** The customer agreed to messages on that number (README, Phase 8b). */
+  messageOk?: boolean;
   note?: string;
 }
 
@@ -298,6 +311,7 @@ export async function openOrder(db: PosDB, input: OpenInput, by: string, now = n
       covers: input.covers ?? 0,
       customer_name: input.customerName ?? '',
       customer_phone: input.customerPhone ?? '',
+      message_ok: Boolean(input.messageOk && input.customerPhone),
       note: input.note ?? '',
     }, now),
   );

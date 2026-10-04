@@ -22,6 +22,24 @@
         {"id": "e5", "kind": "settle", "at": "2026-10-04T06:31:00Z", "by": "ravi", "data": {"bill_id": "b2", "part": 2, "parts": 2}}
       ],
       "expect": {"status": "settled", "bill_ids": ["b1", "b2"], "parts": 2, "bill_id": "b1", "settled_at": "2026-10-04T06:31:00Z"}
+
+    },
+    {
+      "name": "consent to messages belongs to the number it was given for",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "takeaway", "table_id": null, "covers": 0, "customer_name": "Priya", "customer_phone": "9876543210", "message_ok": true}},
+        {"id": "e2", "kind": "details", "at": "2026-10-04T06:05:00Z", "by": "ravi", "data": {"customer_phone": "9123456789"}}
+      ],
+      "expect": {"customer_phone": "9123456789", "message_ok": false}
+    },
+    {
+      "name": "consent given later, and kept when other details change",
+      "events": [
+        {"id": "e1", "kind": "open", "at": "2026-10-04T06:00:00Z", "by": "ravi", "data": {"order_type": "takeaway", "table_id": null, "covers": 0, "customer_phone": "9876543210"}},
+        {"id": "e2", "kind": "details", "at": "2026-10-04T06:01:00Z", "by": "ravi", "data": {"customer_phone": "9876543210", "message_ok": true}},
+        {"id": "e3", "kind": "details", "at": "2026-10-04T06:02:00Z", "by": "ravi", "data": {"customer_name": "Priya", "customer_phone": "9876543210"}}
+      ],
+      "expect": {"customer_name": "Priya", "message_ok": true}
     },
     {
       "name": "dine-in: open, two KOTs, bill, settle",
