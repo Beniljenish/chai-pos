@@ -91,6 +91,12 @@ test('a shift from opening float to blind count; the owner sees whether it match
   await expect(first.locator('tr', { hasText: 'Should be in the drawer' })).toContainText('₹420');
   await expect(first).toContainText('UPI ₹20');
   await expect(mine.nth(1)).toContainText('₹20 short');
+  // One line per drawer: a matched one stays folded, a short one opens by itself.
+  await expect(first.locator('details')).not.toHaveAttribute('open', '');
+  await expect(first.locator('tr', { hasText: 'Started with' })).toBeHidden();
+  await expect(mine.nth(1).locator('details')).toHaveAttribute('open', '');
+  await first.locator('summary').click();
+  await expect(first.locator('tr', { hasText: 'Started with' })).toBeVisible();
   await mine.nth(0).scrollIntoViewIfNeeded();
   await shot(page, '52-cash-drawer-report');
 });

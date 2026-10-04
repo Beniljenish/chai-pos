@@ -2039,10 +2039,21 @@ button.account {
   display: grid;
   gap: var(--s3);
 }
+/* One row per drawer; tap for the sums (Phase 9.2). */
+.shift-list {
+  gap: var(--s2);
+}
 .shift-list > li {
   background: var(--paper);
-  border-radius: var(--radius-panel);
-  padding: var(--s3);
+  border-radius: var(--radius-control);
+  padding: 0;
+}
+.shift-list details > :not(summary) {
+  margin-left: var(--s3);
+  margin-right: var(--s3);
+}
+.shift-list details[open] {
+  padding-bottom: var(--s2);
 }
 .shift-list .sales-table {
   background: var(--steel);
@@ -2052,6 +2063,37 @@ button.account {
   justify-content: space-between;
   align-items: center;
   gap: var(--s2);
+  min-height: var(--tap);
+  padding: var(--s2) var(--s3);
+  cursor: pointer;
+  list-style: none;
+}
+.shift-head::-webkit-details-marker {
+  display: none;
+}
+.shift-head::after {
+  content: '›';
+  font-size: 1.3rem;
+  color: var(--ink-soft);
+  transition: transform 0.15s;
+}
+details[open] > .shift-head::after {
+  transform: rotate(90deg);
+}
+.shift-who {
+  display: grid;
+  min-width: 0;
+}
+.shift-who .muted {
+  font-size: 0.85rem;
+}
+.shift-sum {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-left: auto;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .shift-list p {
   margin: var(--s1) 0 var(--s2);
