@@ -547,6 +547,13 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **App icon and theme colour** follow the brand, so the installed PWA and the phone's status bar match.
 - **Not changed:** layout of the money, wording, and every control's place. This is a look, not a relearn.
 
+### 9.4 The rest of the screens
+- **Every list row is a card:** Today's bills, open orders, tables, kitchen tickets, stock, staff, recipes, options, khata, purchase orders, messages, payments and invoice series. A white card with a soft shadow, no grey outline. A row that needs attention keeps its colour (turmeric for bill printed, chilli edge for a problem), so it still stands out.
+- **Free tables are solid cards** instead of dashed outlines. Busy tables are still green and printed bills turmeric, so the floor reads at a glance.
+- **Sent** on Today is a soft green pill, the same as *Matched* in Sales.
+- Sheet headers centre the title and **Close** on one line.
+- **Browser tests run with reduced motion,** which the app already honours by turning off its button colour fades. A screenshot taken right after a tap no longer catches a colour halfway (the Floor/Kitchen switch looked greyed out).
+
 ## Phase 6: discounts, split payment, customers and khata, split bill
 
 **At the till:**

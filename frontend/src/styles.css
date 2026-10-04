@@ -690,6 +690,8 @@ button.save {
 }
 .bill-list button {
   width: 100%;
+  border-color: transparent;
+  box-shadow: var(--shadow);
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   gap: var(--s2);
@@ -703,6 +705,7 @@ button.save {
   border-radius: 6px;
 }
 .status.synced {
+  background: var(--leaf-soft);
   color: var(--leaf);
 }
 .status.pending {
@@ -873,8 +876,9 @@ button.save {
   justify-content: space-between;
   text-align: left;
   border-radius: var(--radius-panel);
-  border: 1.5px dashed var(--steel-deep);
+  border: 1.5px solid transparent;
   background: var(--paper);
+  box-shadow: var(--shadow);
 }
 .table-name {
   font-size: 1.35rem;
@@ -890,11 +894,13 @@ button.save {
 }
 .table-tile.running {
   border: 1.5px solid var(--leaf);
+  box-shadow: none;
   background: var(--leaf);
   color: var(--paper);
 }
 .table-tile.billed {
   border: 1.5px solid var(--turmeric);
+  box-shadow: none;
   background: var(--turmeric-soft);
 }
 .table-tile.running .table-sub {
@@ -915,6 +921,8 @@ button.save {
 }
 .order-list button {
   width: 100%;
+  border-color: transparent;
+  box-shadow: var(--shadow);
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: var(--s3);
@@ -924,6 +932,7 @@ button.save {
 .order-list button.billed {
   background: var(--turmeric-soft);
   border-color: var(--turmeric);
+  box-shadow: none;
 }
 
 /* ---------- table service: one order ---------- */
@@ -1076,8 +1085,8 @@ button.kot {
 }
 .kitchen-ticket {
   background: var(--paper);
-  border: 1.5px solid var(--steel-deep);
   border-top: 6px solid var(--leaf);
+  box-shadow: var(--shadow);
   border-radius: var(--radius-panel);
   padding: var(--s3) var(--s4) var(--s4);
   display: grid;
@@ -1302,7 +1311,7 @@ h3 {
 .sheet-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--s3);
 }
 .sheet-head h2 {
@@ -2372,4 +2381,25 @@ details[open] > .shift-head::after {
 .repay {
   display: grid;
   gap: var(--s2);
+}
+
+/* ---------- 9.4: list rows are cards (shadow, no grey line) ---------- */
+.stock-list button,
+.sop-list button,
+.opt-list button {
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+.neutral-list li,
+.message-list li,
+.online-list li,
+.doc-list li {
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+.count-list li,
+.variance-list li,
+.tablet-list > li,
+.shift-list > li {
+  box-shadow: var(--shadow);
 }
