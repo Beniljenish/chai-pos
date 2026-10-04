@@ -76,7 +76,7 @@ function Shell() {
       <header className="topbar">
         <img src="/icon-192.png" alt="" width={36} height={36} className="brand-mark" />
         <div className="where">
-          <strong>{catalogue?.shop.name ?? "Chai POS"}</strong>
+          <strong>{catalogue?.shop.name ?? "Taptallow"}</strong>
           <span className="muted">
             {device?.name} ({device?.code}), <AccountButton />
           </span>

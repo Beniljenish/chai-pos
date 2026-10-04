@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","msg":"
 
 def create_app() -> FastAPI:
     s = get_settings()
-    app = FastAPI(title="Chai POS API", version="0.1.0")
+    app = FastAPI(title="Taptallow API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=s.cors_origins,

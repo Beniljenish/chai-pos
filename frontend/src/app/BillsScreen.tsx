@@ -59,7 +59,7 @@ export function BillsScreen() {
       <header className="bills-head">
         <div className="manage-head">
           <h1>Today on this tablet</h1>
-          <span>
+          <span className="head-actions">
             <button className="quiet" onClick={() => setCustomers(true)}>
               Customers
             </button>

@@ -1,5 +1,5 @@
 /*
- * Chai POS. A counter tool: legible in bright light, big targets for quick taps.
+ * Taptallow (repo: chai-pos). A counter tool: legible in bright light, big targets for quick taps.
  * "Jamun & Berry" (Phase 9.3): deep jamun violet is the brand (header, selected
  * states, the bill bar); berry pink is the one action that matters (Save);
  * green only means "done / fine", turmeric "waiting", chilli "problem".
@@ -2803,5 +2803,176 @@ details[open] > .shift-head::after {
   .chai-cup .steam path {
     animation: none;
     opacity: 0.7;
+  }
+}
+
+/* ---------- motion and finish (Taptallow look) ----------
+   Small, quick movements that say what happened: a screen fades up when it
+   opens, a sheet slides up from the bottom (phone) or zooms in (tablet), a tile
+   presses in, a count pops. Each is under a quarter of a second, so the
+   counter never waits for a frame. The reduced-motion rule above switches all
+   of it off (and the browser tests run that way). */
+.app > main,
+.app > .billing,
+.manage-body > * {
+  animation: screen-in 0.22s ease-out both;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.overlay {
+  background: rgba(30, 12, 54, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade-in 0.18s ease-out both;
+}
+.overlay > .sheet,
+.overlay > [role='dialog'] {
+  animation: sheet-zoom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  box-shadow: 0 24px 64px rgba(15, 4, 30, 0.35);
+}
+@media (max-width: 600px) {
+  .overlay > .sheet {
+    animation-name: sheet-up;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-zoom {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0.4;
+  }
+}
+
+/* Menu tiles: lift under a mouse, press in under a finger, the count pops. */
+.tile {
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+@media (hover: hover) {
+  .tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(27, 21, 48, 0.05), 0 10px 24px rgba(59, 20, 104, 0.12);
+  }
+}
+.tile:active {
+  transform: scale(0.97);
+}
+.tile-count {
+  animation: pop 0.2s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+.categories button[aria-pressed='true'] {
+  box-shadow: 0 4px 12px rgba(59, 20, 104, 0.25);
+}
+
+/* Phone tab bar: frosted glass, the chosen tab in a soft pill. */
+@media (max-width: 600px) {
+  .tabs {
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: saturate(1.6) blur(14px);
+    -webkit-backdrop-filter: saturate(1.6) blur(14px);
+    border-top: 1px solid var(--line);
+  }
+  .tabs button {
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .tabs button[aria-pressed='true'] svg {
+    animation: pop 0.2s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  }
+}
+
+/* Loading: shimmering rows where the content will be. */
+.skeleton {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+}
+.skeleton-row {
+  display: block;
+  height: 56px;
+  border-radius: var(--radius-control);
+  background: linear-gradient(90deg, #ece7f3 0%, #f7f4fb 40%, #ece7f3 80%);
+  background-size: 300% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+.skeleton-row.short {
+  width: 60%;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* Page headers: the links beside a title stay on one line next to it. */
+.head-actions {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+.head-actions button {
+  padding: 0 10px;
+}
+@media (max-width: 600px) {
+  .manage-head h1 {
+    font-size: 1.3rem;
+  }
+}
+
+/* Rows the owner can open react to a mouse. */
+@media (hover: hover) {
+  .stock-list li button,
+  .bills li button,
+  .staff-list li button {
+    transition: box-shadow 0.12s ease;
+  }
+  .stock-list li button:hover,
+  .bills li button:hover,
+  .staff-list li button:hover {
+    box-shadow: 0 2px 4px rgba(27, 21, 48, 0.05), 0 8px 20px rgba(59, 20, 104, 0.1);
+  }
+}
+
+h1 {
+  letter-spacing: -0.02em;
+}
+::selection {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+@media (hover: hover) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--steel-deep) transparent;
   }
 }

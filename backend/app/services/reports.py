@@ -87,7 +87,7 @@ def _page(title: str, body: str) -> str:
         '<div style="max-width:560px;margin:0 auto;padding:16px">'
         f'<h1 style="font-size:20px;margin:0 0 12px">{escape(title)}</h1>'
         f'<div style="background:#fff;border-radius:12px;padding:16px">{body}</div>'
-        '<p style="font-size:12px;color:#55626d">Sent by Chai POS.</p></div></body></html>'
+        '<p style="font-size:12px;color:#55626d">Sent by Taptallow.</p></div></body></html>'
     )
 
 
@@ -546,7 +546,7 @@ def enqueue_test(db: Session, shop: Shop) -> None:
     from app.core.time import utcnow
 
     now = utcnow()
-    subject = "Chai POS: test email"
+    subject = "Taptallow: test email"
     body = (
         f"<p>Reports for <b>{escape(shop.name)}</b> will arrive at this address.</p>"
         f"<p style='color:#55626d'>Sent {escape(_ist_time(now))}.</p>"
