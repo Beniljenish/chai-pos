@@ -41,6 +41,7 @@ class OpenData(_Strict):
     covers: Annotated[int, Field(ge=0, le=99)] = 0
     customer_name: Annotated[str, Field(max_length=80)] = ""
     customer_phone: Phone = ""
+    message_ok: bool = False
     note: Text = ""
 
 
@@ -63,6 +64,7 @@ class DetailsData(_Strict):
     covers: Annotated[int, Field(ge=0, le=99)] | None = None
     customer_name: Annotated[str, Field(max_length=80)] | None = None
     customer_phone: Phone | None = None
+    message_ok: bool | None = None
     note: Text | None = None
 
 

@@ -544,3 +544,23 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **Tests never call Razorpay.** `services/payments.set_client` swaps the HTTP call for a recorder; signatures are computed with test secrets in the tests. The browser test answers the three payment calls itself, because CI has no keys.
 - **Not done yet:** refunds from the app (the owner refunds in Razorpay's dashboard; the report says when one is due), collecting online for a bill from Today after the fact, and live mode (switching keys is all it needs, after a real-money test).
 - **Unverified from here:** the checkout page against Razorpay itself. This environment cannot reach Razorpay, so the first real test-mode payment is the check (see HANDOFF).
+
+## Phase 8b: customer messages by iMessage (Inkbox)
+
+**Taking a number:** the takeaway/delivery sheet and the order's **Customer** sheet show, once a 10-digit number is typed, *Customer agrees to get the receipt and "order ready" on this number by iMessage*. It is off by default.
+
+**What is sent, only to customers who agreed:**
+- **Order ready** (takeaway), when the kitchen has marked everything left on the order ready.
+- **Receipt link**, when a settled order's invoice reaches the server. The link opens the customer's copy of the bill without logging in.
+
+**For the owner:** **Manage → Messages** lists every message with the number masked (`••••••3210`), its status and any error. **Send waiting now** retries; every sync and the daily cron retry too.
+
+**Server settings (Vercel env, API project):** `INKBOX_API_KEY` (secret) turns sending on. `INKBOX_IDENTITY_ID` is needed only with an organisation-wide key, to name the sender. `PUBLIC_API_URL` defaults to the staging API, where receipt links point. Without a key, messages are written to the outbox and marked *Not sent (no provider)*; nothing leaves the server.
+
+### Decisions and trade-offs
+- **Inkbox has an app-side API** (`POST https://inkbox.ai/api/v1/imessage/messages`, `X-API-Key`, `Idempotency-Key`). I read its shape from Inkbox's published SDK, because its docs site is blocked from this environment. The catch is **Inkbox's shared iMessage service only lets you message people who messaged you first**. A customer who has never texted the shop's Inkbox identity gets a refusal, which shows as *Failed* with the reason. Messaging new customers needs a **dedicated Inkbox line**, which is an account decision for the owner (see HANDOFF). The code works the same either way.
+- **Consent is per number, on the order.** `message_ok` lives in the order's event history next to the number, in both reducers, pinned by `shared/order_cases.json`. Changing the number without a fresh "yes" switches consent off, on the server and on the device, so a mistyped number that gets corrected is not messaged on the old consent. Dine-in customers can also agree, for the receipt.
+- **Phone numbers are not copied anywhere.** The `messages` outbox has no phone column (a test checks the table). The number is read from the order at the moment of sending, so a number corrected before sending is used and nothing else keeps it. Errors are scrubbed of anything that looks like a number before they are stored or shown. The owner's screen masks numbers. Nothing logs them.
+- **Same outbox pattern as email.** A message is a row written in the same transaction as its event, delivered after, never raising into billing or orders. It is retried up to 5 times, and it is exactly-once per shop by its key (`ready:<order>`, `receipt:<bill>`), which is also sent to Inkbox as the idempotency key.
+- **The receipt link is signed, not stored.** The token is the bill id plus an HMAC of it, using a key derived from `JWT_SECRET`. It needs no table, and ids cannot be guessed or walked. The page shows the bill as printed (GSTIN, lines, GST, total, payment mode; "VOIDED" if voided) and never the customer's number. It sends `noindex`, `no-store` and a strict CSP. Rotating `JWT_SECRET` invalidates old links, which is acceptable for receipts.
+- **Not done:** SMS and WhatsApp (the same `Transport` slot; the owner wants them later), messages for counter bills (they carry no customer number), and a customer opt-out reply ("STOP"). For now the owner can untick consent on the order.

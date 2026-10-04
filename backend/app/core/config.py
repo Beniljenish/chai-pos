@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     email_from: str = "Chai POS <reports@beniljenish.dev>"
     # Vercel Cron sends "Authorization: Bearer $CRON_SECRET". Empty = cron disabled.
     cron_secret: str = ""
+    # Customer messages by iMessage through Inkbox. Empty key = messages are only
+    # written to the outbox (owner's Messages screen), not sent. INKBOX_IDENTITY_ID
+    # is needed only with an organisation-wide key (it names the sender).
+    inkbox_api_key: str = ""
+    inkbox_identity_id: str = ""
+    # Where customers open receipt links (this API's public address).
+    public_api_url: str = "https://chai-pos-api.vercel.app/api/v1"
     # Razorpay (test mode first). Empty key = online payments switched off; the
     # app then offers only plain Cash/UPI/Card. The webhook has its own secret.
     razorpay_key_id: str = ""

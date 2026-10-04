@@ -17,7 +17,7 @@ from app.core.time import business_date, utcnow
 from app.db.session import SessionLocal
 from app.db.tenancy import bind_tenant, mark_system
 from app.models import Shop
-from app.services import email, reports
+from app.services import email, messages, reports
 
 router = APIRouter(tags=["ops"])
 
@@ -51,4 +51,6 @@ def daily(authorization: str | None = Header(default=None), today: date | None =
             queued += 1
     with SessionLocal() as db:
         stats = email.deliver_pending(mark_system(db), limit=1000)
+    with SessionLocal() as db:
+        stats["messages"] = messages.deliver_pending(mark_system(db), limit=1000)
     return {"shops": queued, "date": yesterday.isoformat(), "weekly": bool(week), **stats}
