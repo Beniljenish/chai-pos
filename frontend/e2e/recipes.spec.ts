@@ -3,7 +3,7 @@
  * check the sale deducted by the NEW version. Plus packaging and new ingredients.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { saveAndPrint } from './helpers';
+import { expectPhoneBars, saveAndPrint } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -11,20 +11,6 @@ const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screensh
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
 
-/** Phone layout guard (the top bar broke twice): the screen tabs sit in one
- * row at the bottom of the screen, and the top bar is a single row with the
- * sync badge in it. */
-async function expectPhoneBars(page: Page) {
-  const vh = page.viewportSize()?.height ?? 844;
-  const tabs = await page.locator('.tabs').boundingBox();
-  expect(tabs).not.toBeNull();
-  expect(Math.abs(tabs!.y + tabs!.height - vh)).toBeLessThan(2); // pinned to the bottom
-  expect(tabs!.height).toBeLessThan(90); // one row
-  const bar = await page.locator('.topbar').boundingBox();
-  const badge = await page.locator('.sync-badge').boundingBox();
-  expect(bar!.height).toBeLessThan(80); // one row
-  expect(badge!.y).toBeLessThan(bar!.y + bar!.height);
-}
 const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 test('owner recipes: new version is what the next sale deducts', async ({ page }) => {
