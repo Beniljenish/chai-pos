@@ -214,6 +214,10 @@ __all__ += [
     "OrderStatus",
     "OrderType",
 ]
+from app.models.purchases import PurchaseOrder, PurchaseOrderLine, Supplier  # noqa: E402
+
+__all__ += ["PurchaseOrder", "PurchaseOrderLine", "Supplier"]
+
 from app.models.messages import Message  # noqa: E402
 
 __all__ += ["Message"]

@@ -11,9 +11,11 @@ from app.api.v1 import (
     catalogue,
     cron,
     dayend,
+    insights,
     messages,
     orders,
     payments,
+    purchases,
     shifts,
     stock,
 )
@@ -41,6 +43,8 @@ def create_app() -> FastAPI:
     app.include_router(cron.router, prefix="/api/v1")
     app.include_router(shifts.router, prefix="/api/v1")
     app.include_router(orders.router, prefix="/api/v1")
+    app.include_router(insights.router, prefix="/api/v1")
+    app.include_router(purchases.router, prefix="/api/v1")
     app.include_router(messages.router, prefix="/api/v1")
     app.include_router(payments.router, prefix="/api/v1")
 

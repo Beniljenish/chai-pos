@@ -2047,3 +2047,47 @@ button.account {
   border-radius: var(--radius-panel);
   padding: var(--s4);
 }
+
+/* ---------- Phase 7: reports ---------- */
+.reports > section {
+  margin-bottom: var(--s5, 2rem);
+}
+.day-bars li {
+  grid-template-columns: 5.5rem 1fr 5rem;
+}
+.range-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+.reorder-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s2);
+  margin: var(--s3) 0;
+}
+.po-lines {
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s3);
+}
+.po-lines li {
+  display: grid;
+  gap: var(--s2);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--steel-deep);
+}
+.po-list .flag {
+  margin-left: var(--s2);
+}
+/* Invoice series: plain cards, a series with missing numbers marked. */
+.doc-list li {
+  background: var(--paper);
+  border: 1px solid var(--steel-deep);
+}
+.doc-list li.after-bill {
+  border-left: 4px solid var(--chilli);
+}
