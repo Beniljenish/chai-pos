@@ -5,8 +5,9 @@
  * green only means "done / fine", turmeric "waiting", chilli "problem".
  */
 :root {
-  --steel: #f6f3fa; /* the ground */
-  --steel-deep: #e6dfee; /* lines and borders */
+  --steel: #f5f3f9; /* the ground */
+  --steel-deep: #e4deed; /* lines and borders */
+  --line: #ebe6f2; /* hairline round cards */
   --paper: #ffffff;
   --ink: #1b1530;
   --ink-soft: #6b6585;
@@ -23,7 +24,7 @@
   --turmeric-soft: #fff4de;
   --chilli: #c0213f;
   --chilli-soft: #ffe5ea;
-  --shadow: 0 2px 10px rgba(27, 21, 48, 0.07);
+  --shadow: 0 1px 2px rgba(27, 21, 48, 0.04), 0 4px 14px rgba(27, 21, 48, 0.06);
   --shadow-lift: 0 8px 24px rgba(59, 20, 104, 0.28);
   --radius-control: 12px;
   --radius-panel: 20px;
@@ -91,6 +92,15 @@ button:active:not(:disabled) {
   background: var(--brand-soft);
   transform: scale(0.98);
 }
+@media (hover: hover) {
+  /* Screens only: the header's buttons sit on jamun and keep no border. */
+  main button:hover:not(:disabled):not([aria-pressed='true']):not(.primary) {
+    border-color: var(--brand-ink);
+  }
+  button.primary:hover:not(:disabled) {
+    background: var(--accent-press);
+  }
+}
 button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -106,6 +116,7 @@ button.primary {
   border-color: var(--accent);
   color: var(--paper);
   font-weight: 800;
+  box-shadow: 0 6px 16px rgba(226, 62, 114, 0.28);
 }
 button.primary:active:not(:disabled) {
   background: var(--accent-press);
@@ -135,6 +146,8 @@ input {
 }
 input:focus {
   border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-soft);
+  outline: none;
 }
 .error {
   color: var(--chilli);
@@ -205,9 +218,17 @@ input:focus {
   align-items: center;
   gap: var(--s3);
   padding: var(--s2) var(--s4);
-  background: var(--brand);
+  background: linear-gradient(100deg, var(--brand-press), var(--brand) 55%, #4d1c85);
   color: var(--paper);
   flex-wrap: wrap;
+  box-shadow: 0 2px 12px rgba(42, 14, 75, 0.25);
+  position: relative;
+  z-index: 4;
+}
+.brand-mark {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.22);
+  flex: none;
 }
 .where {
   display: grid;
@@ -315,6 +336,9 @@ input:focus {
   }
   .where {
     min-width: 0;
+  }
+  .brand-mark {
+    display: none;
   }
   .where strong,
   .where .muted {
@@ -1382,82 +1406,107 @@ select {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-/* Manage: sections in three labelled groups. Phones: the groups wrap above
-   the page (nothing hidden off to the side). Tablets: a sidebar. */
+/* Manage: twelve sections in three labelled groups (Money, Stock, Setup).
+   Phones: a card of icon tiles above the page, every section one tap away
+   (nothing hidden off to the side). Tablets: a sticky sidebar card. */
 .subnav {
   display: grid;
-  gap: var(--s2);
+  gap: var(--s3);
   margin-bottom: var(--s4);
-  border-bottom: 1.5px solid var(--steel-deep);
-  padding-bottom: var(--s3);
+  padding: var(--s3) 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
 }
 .subnav-group {
   display: grid;
-  grid-template-columns: 4.2rem minmax(0, 1fr);
-  align-items: start;
-  gap: 6px;
-}
-.subnav-items {
-  display: flex;
-  flex-wrap: wrap;
   gap: 6px;
 }
 .subnav-label {
-  padding-top: 14px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  padding: 0 var(--s1);
+  font-size: 0.72rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   color: var(--ink-soft);
 }
+.subnav-items {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr)); /* Setup, the biggest group, in one row */
+  gap: 4px;
+}
 .subnav button {
-  min-height: 44px;
-  padding: 0 12px;
-  border-color: transparent;
-  box-shadow: var(--shadow);
+  min-height: 58px;
+  padding: 6px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--steel);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  text-align: center;
+}
+.subnav button .icon {
+  color: var(--brand);
+  flex: none;
+}
+.subnav button[aria-pressed='true'] {
+  background: var(--brand);
+  color: var(--paper);
+  box-shadow: 0 4px 12px rgba(59, 20, 104, 0.25);
+}
+.subnav button[aria-pressed='true'] .icon {
+  color: var(--paper);
+}
+@media (hover: hover) {
+  .subnav button:hover:not([aria-pressed='true']) {
+    background: var(--brand-soft);
+  }
 }
 @media (min-width: 820px) {
   .manage {
-    max-width: 1100px;
+    max-width: 1180px;
     display: grid;
-    grid-template-columns: 190px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
     gap: var(--s5);
     align-items: start;
   }
   .subnav {
     position: sticky;
     top: var(--s4);
-    border-bottom: none;
-    padding-bottom: 0;
+    margin-bottom: 0;
     gap: var(--s4);
+    padding: var(--s4) var(--s3);
   }
-  .subnav-group {
-    grid-template-columns: 1fr;
-    gap: 4px;
+  .subnav-label {
+    padding: 0 var(--s3);
   }
   .subnav-items {
     display: grid;
-    gap: 4px;
-  }
-  .subnav-label {
-    padding: 0 var(--s2);
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
   .subnav button {
-    width: 100%;
+    min-height: 44px;
+    padding: 0 var(--s3);
+    flex-direction: row;
     justify-content: flex-start;
-    text-align: left;
-    border-color: transparent;
+    gap: var(--s3);
     background: transparent;
-    box-shadow: none;
+    font-size: 0.95rem;
+    text-align: left;
   }
-  .subnav button:hover {
-    background: var(--brand-soft);
+  .subnav button .icon {
+    color: var(--ink-soft);
   }
-}
-.subnav button[aria-pressed='true'] {
-  background: var(--brand);
-  color: var(--paper);
-  border-color: var(--brand);
 }
 .sop-list,
 .opt-list,
@@ -2544,4 +2593,215 @@ details[open] > .shift-head::after {
 }
 .period-lines .num {
   text-align: right;
+}
+
+/* ---------- login ----------
+   Tablets: the brand on the left, the form on the right. Phones: the brand
+   on top. The chai glass pours, steams and floats once the page opens; all of
+   it is still for reduced motion (and so for the CI screenshots). */
+.login-screen {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  justify-items: center;
+  gap: var(--s5);
+  padding: var(--s5) var(--s4);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(226, 62, 114, 0.35), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(123, 74, 196, 0.45), transparent 50%),
+    linear-gradient(150deg, #2a0e4b, #3b1468 55%, #24093f);
+  background-size: 140% 140%;
+  animation: login-glow 18s ease-in-out infinite alternate;
+}
+.login-hero {
+  color: var(--paper);
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  max-width: 420px;
+  animation: login-rise 0.7s ease-out both;
+}
+.login-hero h1 {
+  font-size: 2.1rem;
+  letter-spacing: -0.02em;
+  margin: var(--s2) 0 var(--s1);
+}
+.login-tagline {
+  color: var(--brand-ink);
+  font-size: 1.02rem;
+  margin: 0;
+}
+.login-points {
+  display: none;
+  list-style: none;
+  padding: 0;
+  margin: var(--s5) 0 0;
+  gap: var(--s3);
+  text-align: left;
+  color: #efe6fa;
+  font-weight: 600;
+}
+.login-points li {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.login-points li::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(226, 62, 114, 0.25);
+  flex: none;
+}
+.login-card {
+  width: min(420px, 100%);
+  background: var(--paper);
+  border-radius: 24px;
+  padding: var(--s6) var(--s5);
+  box-shadow: 0 24px 60px rgba(15, 4, 30, 0.45);
+  animation: login-rise 0.7s 0.12s ease-out both;
+}
+.login-card h2 {
+  margin: 0 0 var(--s1);
+  font-size: 1.4rem;
+}
+.login-card button {
+  width: 100%;
+  margin-top: var(--s2);
+}
+@media (min-width: 900px) {
+  .login-screen {
+    grid-template-columns: minmax(0, 460px) minmax(0, 420px);
+    justify-content: center;
+    align-items: center;
+    gap: 72px;
+  }
+  .login-hero {
+    text-align: left;
+    justify-items: start;
+  }
+  .login-hero h1 {
+    font-size: 2.8rem;
+  }
+  .login-points {
+    display: grid;
+  }
+}
+
+.chai-cup {
+  overflow: visible;
+  animation: cup-float 5s ease-in-out 1.4s infinite;
+}
+.chai-cup .glass {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+.chai-cup .saucer {
+  fill: rgba(255, 255, 255, 0.16);
+}
+.chai-cup .tea {
+  transform-origin: 50% 100%;
+  transform-box: fill-box;
+  animation: tea-pour 1.4s cubic-bezier(0.3, 0.6, 0.3, 1) 0.3s both;
+}
+.chai-cup .tea-wave {
+  animation:
+    tea-pour-wave 1.4s cubic-bezier(0.3, 0.6, 0.3, 1) 0.3s both,
+    tea-wave 2.4s linear 1.7s infinite;
+}
+.chai-cup .steam path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: steam 3s ease-in-out infinite;
+}
+.chai-cup .steam path:nth-child(1) {
+  animation-delay: 1.5s;
+}
+.chai-cup .steam path:nth-child(2) {
+  animation-delay: 2.1s;
+}
+.chai-cup .steam path:nth-child(3) {
+  animation-delay: 2.7s;
+}
+@keyframes tea-pour {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes tea-pour-wave {
+  from {
+    transform: translateY(66px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes tea-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-40px);
+  }
+}
+@keyframes steam {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+}
+@keyframes cup-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes login-glow {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 100% 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-screen,
+  .login-hero,
+  .login-card,
+  .chai-cup,
+  .chai-cup .tea,
+  .chai-cup .tea-wave {
+    animation: none;
+  }
+  .chai-cup .steam path {
+    animation: none;
+    opacity: 0.7;
+  }
 }

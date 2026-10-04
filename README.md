@@ -579,6 +579,12 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - Sheet headers centre the title and **Close** on one line.
 - **Browser tests run with reduced motion,** which the app already honours by turning off its button colour fades. A screenshot taken right after a tap no longer catches a colour halfway (the Floor/Kitchen switch looked greyed out).
 
+### 9.5 Login screen and a tidier Manage
+- **Login is the shop's front door:** jamun background, the app name and three lines on what it does, and a glass of chai that fills, steams and floats. The form slides in beside it on a tablet, below it on a phone. It is all CSS and one inline SVG: no animation library, nothing to download, so it works offline like the rest of the app. With *reduce motion* on, it is a still picture (and so are the CI screenshots).
+- **Manage's sections have icons and sit in one card.** On a phone, each group is one row of icon tiles (five across, so Setup's five fit at 360 px). Every section is still one tap from every other, nothing scrolls sideways, and nothing hides in a menu. On a tablet the sidebar is a sticky card from the top of the page with the current section filled in jamun. The names did not change, so tests and staff find them as before.
+- **Small polish:** a hairline border colour for cards (`--line`), a lighter two-layer shadow, a soft focus ring on inputs, hover states for a mouse, a gradient top bar with the app icon (tablets only: the phone top bar must stay one row).
+- Icons live in one place (`src/app/icons.tsx`), shared by the tab bar and Manage.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.
