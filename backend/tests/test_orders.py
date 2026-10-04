@@ -154,17 +154,26 @@ def test_retries_are_harmless_and_bad_events_refused(client, shop_a, setup):
     assert _sync(client, h, device.device_id, [_ev(oid, "move", {"table_id": None}, 60)]) == [
         ("rejected", "device_clock_ahead")
     ]
-    # Malformed events are refused whole (the app is broken), never half-stored.
+    # A malformed event is refused on its own, with the field that is wrong. It
+    # never blocks the good events sent with it (a tablet that sent one broken
+    # event used to get 422 for the whole batch, forever, and stopped syncing).
     for bad in (
         _ev(oid, "kot", {"kot_no": "C1-1", "lines": [{**_line(cat), "qty": 0}]}),
         _ev(oid, "cancel", {"line_id": str(uuid.uuid4()), "qty": 1}),  # no reason
         _ev(oid, "move", {"table_id": None, "extra": 1}),
         {**_ev(oid, "move", {"table_id": None}), "kind": "teleport"},
     ):
-        r = client.post(
-            f"{API}/sync/orders", json={"device_id": device.device_id, "events": [bad]}, headers=h
-        )
-        assert r.status_code == 422, bad
+        good = _ev(oid, "details", {"covers": 2})
+        got = _sync(client, h, device.device_id, [bad, good])
+        assert got[0][0] == "rejected" and got[0][1].startswith("invalid_event"), (bad, got)
+        assert got[1] == ("accepted", None)
+    # An envelope that is not a list of events at all is still a 422.
+    r = client.post(
+        f"{API}/sync/orders",
+        json={"device_id": device.device_id, "events": [{"no": "id"}]},
+        headers=h,
+    )
+    assert r.status_code == 422
 
 
 def test_another_shops_table_is_dropped_from_the_order(client, shop_a, shop_b, setup):

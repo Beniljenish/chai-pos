@@ -12,6 +12,7 @@ import {
   openOrder,
   pullLive,
   reduce,
+  resetTick,
   sendKot,
   syncOrderEvents,
   type KotLineIn,
@@ -31,6 +32,9 @@ describe('shared order rules (same cases as the server)', () => {
 let db: PosDB;
 beforeEach(() => {
   db = new PosDB(`orders-${Math.random()}`);
+  // Tests use fixed times; without this, an earlier test's real clock (later
+  // than 06:00 UTC on 4 Oct 2026) pushed them out of order.
+  resetTick();
 });
 
 const tea = (qty: number, id = `l-${Math.random()}`): KotLineIn => ({

@@ -1,9 +1,11 @@
 """Restaurant service: dining areas and tables (owner), running orders (everyone)."""
 
+import logging
 import uuid
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.api.common import commit_or_409, get_or_404
@@ -13,6 +15,7 @@ from app.models import Device, DiningArea, DiningTable, Order, OrderEvent, User
 from app.schemas_orders import (
     AreaIn,
     AreaUpdate,
+    OrderEventIn,
     OrderEventResult,
     OrderSyncRequest,
     OrderSyncResponse,
@@ -22,6 +25,7 @@ from app.schemas_orders import (
 from app.services import messages, orders
 
 router = APIRouter(tags=["orders"])
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------- floor
@@ -123,11 +127,35 @@ def sync_orders(body: OrderSyncRequest, caller: Caller = Depends(get_caller)):
         caller_id=caller.user.id,
         staff_ids=frozenset(caller.db.scalars(select(User.id))),
     )
-    results = orders.ingest(ctx, [e.model_dump() for e in body.events])
+    valid: list[dict] = []
+    refused: dict[uuid.UUID, str] = {}
+    for raw in body.events:
+        try:
+            valid.append(OrderEventIn.model_validate(raw.model_dump()).model_dump())
+        except ValidationError as e:
+            refused[raw.id] = _invalid(e)
+    ingested = {i: (i, s, r) for i, s, r in orders.ingest(ctx, valid)}
+    # One answer per event, in the order sent (a refused open makes its later
+    # events "unknown_order", which is the truth: the server has no such order).
+    results = [
+        (raw.id, "rejected", refused[raw.id]) if raw.id in refused else ingested[raw.id]
+        for raw in body.events
+    ]
     messages.deliver_pending(caller.db)  # "your order is ready"; never raises
     return OrderSyncResponse(
         results=[OrderEventResult(id=i, status=s, reason=r) for i, s, r in results]
     )
+
+
+def _invalid(e: ValidationError) -> str:
+    """A short, stable reason naming the first bad field: "invalid_event:data.lines.0.qty".
+    Logged so a stuck tablet can be diagnosed; event data never includes a phone
+    number in the reason (only field names)."""
+    first = e.errors()[0]
+    where = ".".join(str(p) for p in first["loc"]) or "event"
+    reason = f"invalid_event:{where}"[:120]
+    log.warning("order event refused: %s (%s)", reason, first["type"])
+    return reason
 
 
 def _order_out(o: Order) -> dict:

@@ -175,10 +175,19 @@ export class SyncWorker {
     try {
       // Drawer operations first: a bill names its shift, which must already be there.
       await syncShiftOps(this.api, this.db, this.deviceId);
-      // Then orders: a settled bill names its order, which must already be there.
-      await syncOrderEvents(this.api, this.db, this.deviceId);
+      // Then orders: a settled bill names its order, which should already be there.
+      // If orders fail, the bills still go (the server accepts a bill whose order
+      // it lacks): a stuck order event once held back every bill on a tablet.
+      let ordersFailed: unknown = null;
+      try {
+        await syncOrderEvents(this.api, this.db, this.deviceId);
+      } catch (e) {
+        if (e instanceof AuthRequiredError || e instanceof NetworkError) throw e;
+        ordersFailed = e;
+      }
       await syncOnce(this.api, this.db, this.deviceId);
       await pullLive(this.api, this.db); // what the other devices did
+      if (ordersFailed) throw ordersFailed;
       this.failures = 0;
       this.set({ lastError: null, needsLogin: false, lastSyncedAt: new Date().toISOString() });
     } catch (e) {

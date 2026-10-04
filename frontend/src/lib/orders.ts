@@ -266,6 +266,11 @@ async function queue(db: PosDB, ev: OrderEvent & { order_id: string }) {
  * the previous one made here.
  */
 let lastAt = 0;
+/** Tests only: forget the last event time, so a test's fixed clock is not
+ * overtaken by the real clock an earlier test used. */
+export function resetTick() {
+  lastAt = 0;
+}
 export function tick(now: Date): Date {
   lastAt = Math.max(now.getTime(), lastAt + 1);
   return new Date(lastAt);
