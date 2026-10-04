@@ -598,6 +598,19 @@ input:focus {
   gap: var(--s2);
   margin-bottom: var(--s2);
 }
+/* Discount, + Customer: soft jamun pills, quieter than Save but clearly buttons. */
+.till .till-extras button.quiet {
+  min-height: 44px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+/* A chosen option on a line (Large, Less sugar): soft jamun, so it reads
+   differently from the chosen payment mode (solid ink). */
+.till .chip[aria-pressed='true'] {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+}
 .till .payment-note {
   margin: 0 0 var(--s3);
   color: var(--ink);
@@ -704,7 +717,7 @@ button.save {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(29, 39, 48, 0.6);
+  background: rgba(36, 18, 63, 0.55);
   display: grid;
   place-items: center;
   padding: var(--s4);
@@ -885,7 +898,7 @@ button.save {
   background: var(--turmeric-soft);
 }
 .table-tile.running .table-sub {
-  color: #d5e8df;
+  color: #d2f1e1;
 }
 .table-tile.running:active {
   background: var(--leaf-press);
@@ -976,7 +989,7 @@ button.save {
 }
 .lines.ordered li.gone .line-name {
   text-decoration: line-through;
-  color: #7d8892;
+  color: var(--ink-soft);
 }
 button.kot {
   margin-top: var(--s3);
@@ -1391,6 +1404,8 @@ select {
 .subnav button {
   min-height: 44px;
   padding: 0 12px;
+  border-color: transparent;
+  box-shadow: var(--shadow);
 }
 @media (min-width: 820px) {
   .manage {
@@ -1424,15 +1439,16 @@ select {
     text-align: left;
     border-color: transparent;
     background: transparent;
+    box-shadow: none;
   }
   .subnav button:hover {
-    background: var(--steel);
+    background: var(--brand-soft);
   }
 }
 .subnav button[aria-pressed='true'] {
-  background: var(--ink);
+  background: var(--brand);
   color: var(--paper);
-  border-color: var(--ink);
+  border-color: var(--brand);
 }
 .sop-list,
 .opt-list,
@@ -2197,7 +2213,7 @@ details[open] > .shift-head::after {
   font-size: 0.9rem;
 }
 .flag.ok {
-  background: #dff3e8;
+  background: var(--leaf-soft);
   color: var(--leaf);
 }
 
