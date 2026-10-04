@@ -1,0 +1,64 @@
+# Replace staging's data with four weeks of demo data (README, "Demo data").
+# Manual only: Actions -> "Reset staging demo data" -> Run workflow, and type
+# RESET STAGING. Keeps the shop and its logins; deletes everything else.
+#
+# Needs the repository secret STAGING_DATABASE_URL (the owner adds it, in
+# Settings -> Secrets and variables -> Actions): Supabase's "Session pooler"
+# connection string, postgresql://... (not the +psycopg form Vercel uses).
+name: Reset staging demo data
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type RESET STAGING to delete staging's sales, stock and orders and load demo data
+        required: true
+
+concurrency: staging-demo-data
+
+jobs:
+  reset:
+    if: inputs.confirm == 'RESET STAGING'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: chai
+          POSTGRES_PASSWORD: chai
+          POSTGRES_DB: chai_demo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U chai"
+          --health-interval 2s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://chai:chai@localhost:5432/chai_demo
+      JWT_SECRET: demo-build-only-0123456789abcdef0123456789
+      TARGET_URL: ${{ secrets.STAGING_DATABASE_URL }}
+    steps:
+      - name: The secret is set
+        run: |
+          if [ -z "$TARGET_URL" ]; then
+            echo "::error::Add the STAGING_DATABASE_URL repository secret first (see the top of this file)"
+            exit 1
+          fi
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Postgres 17 client (pg_dump must match the build database)
+        run: |
+          sudo apt-get install -y -q postgresql-common > /dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -q postgresql-client-17 > /dev/null
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Install the backend
+        working-directory: backend
+        run: pip install ".[demo]"
+      - name: Build the demo data and replace staging's
+        working-directory: backend
+        run: bash scripts/demo/reset.sh
