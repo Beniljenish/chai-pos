@@ -113,3 +113,27 @@ class ReportOut(BaseModel):
     wastage_by_reason: dict[str, int]
     late_bills: int
     late_bills_explained_paise: int
+
+
+class TrendPointOut(BaseModel):
+    business_date: date
+    adherence_pct: Decimal | None
+
+
+class TrendLineOut(BaseModel):
+    ingredient_id: uuid.UUID
+    name: str
+    base_unit: BaseUnit
+    expected_usage: Decimal
+    actual_usage: Decimal
+    adherence_pct: Decimal | None
+    variance_paise: int  # summed over the closed days
+    points: list[TrendPointOut]
+
+
+class AdherenceOut(BaseModel):
+    start: date
+    end: date
+    closed_days: list[date]
+    overall_pct: Decimal | None  # weighted by value
+    lines: list[TrendLineOut]

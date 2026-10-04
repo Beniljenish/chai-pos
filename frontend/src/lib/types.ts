@@ -273,6 +273,24 @@ export interface DayReport {
   late_bills_explained_paise: number;
 }
 
+/** GET /reports/adherence: SOP adherence over the closed days of a window. */
+export interface AdherenceTrend {
+  start: string;
+  end: string;
+  closed_days: string[];
+  overall_pct: string | null;
+  lines: {
+    ingredient_id: string;
+    name: string;
+    base_unit: BaseUnit;
+    expected_usage: string;
+    actual_usage: string;
+    adherence_pct: string | null;
+    variance_paise: number;
+    points: { business_date: string; adherence_pct: string | null }[];
+  }[];
+}
+
 /** A bill as the server holds it (GET /bills, /bills/{id}). */
 export interface ServerBill {
   id: string;

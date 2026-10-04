@@ -24,12 +24,15 @@ from app.models import (
     WastageEntry,
 )
 from app.schemas_dayend import (
+    AdherenceOut,
     CountsIn,
     ReportLineOut,
     ReportOut,
     SheetItem,
     SheetOut,
     SubmitOut,
+    TrendLineOut,
+    TrendPointOut,
     WastageIn,
     WastageOut,
 )
@@ -259,3 +262,38 @@ def approve(business_date: date, caller: Caller = Depends(require_owner)):
     caller.db.commit()
     email.deliver_pending(caller.db)  # never raises
     return report(business_date, caller)
+
+
+# ---------------------------------------------------------------- adherence trend
+@router.get("/reports/adherence", response_model=AdherenceOut, tags=["reports"])
+def adherence(days: int = 30, end: date | None = None, caller: Caller = Depends(require_owner)):
+    """SOP adherence over the last `days` closed days: is the recipe wrong, or
+    are staff not following it? A steady 90% says the recipe; a drop on some
+    days says the shift."""
+    if not 7 <= days <= 92:
+        raise unprocessable("Choose between 7 and 92 days")
+    last = end or business_date_of(utcnow())
+    first = last - timedelta(days=days - 1)
+    closed, lines = dayend.adherence_trend(caller.db, first, last)
+    return AdherenceOut(
+        start=first,
+        end=last,
+        closed_days=closed,
+        overall_pct=dayend.overall_adherence(lines),
+        lines=[
+            TrendLineOut(
+                ingredient_id=t.ingredient.id,
+                name=t.ingredient.name,
+                base_unit=t.ingredient.base_unit,
+                expected_usage=t.expected_usage,
+                actual_usage=t.actual_usage,
+                adherence_pct=t.adherence_pct,
+                variance_paise=t.variance_paise,
+                points=[
+                    TrendPointOut(business_date=p.business_date, adherence_pct=p.adherence_pct)
+                    for p in t.points
+                ],
+            )
+            for t in lines
+        ],
+    )

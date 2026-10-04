@@ -2403,3 +2403,69 @@ details[open] > .shift-head::after {
 .shift-list > li {
   box-shadow: var(--shadow);
 }
+
+/* Phase 10.1: recipe adherence trend */
+.trend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s3);
+}
+.trend-list > li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s1) var(--s3);
+  align-items: center;
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--steel-deep);
+}
+.trend-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+.trend-verdict,
+.trend-list details {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.trend-verdict {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.trend-verdict.steady,
+.trend-verdict.varies {
+  color: var(--ink);
+}
+.spark-ref {
+  stroke: var(--steel-deep);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.spark-line {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.spark-dot {
+  fill: var(--brand);
+  stroke: var(--paper);
+  stroke-width: 2;
+}
+.spark-hit {
+  fill: transparent;
+}
+.trend-days {
+  list-style: none;
+  margin: var(--s2) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: var(--s1) var(--s3);
+}
+.trend-days li {
+  display: flex;
+  justify-content: space-between;
+}

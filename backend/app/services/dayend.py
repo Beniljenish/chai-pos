@@ -484,6 +484,121 @@ def late_bills_explained(db: Session, dc: DayCount) -> tuple[int, int]:
     return len({r for r, _, _ in rows}), _paise(value)
 
 
+# ---------------------------------------------------------------- adherence trend
+@dataclass
+class TrendPoint:
+    business_date: date
+    expected_usage: Decimal
+    actual_usage: Decimal
+    usage_paise: int  # expected usage at the day's frozen cost
+    actual_paise: int
+
+    @property
+    def adherence_pct(self) -> Decimal | None:
+        return _pct(self.expected_usage, self.actual_usage)
+
+
+def _pct(expected: Decimal, actual: Decimal) -> Decimal | None:
+    if expected <= 0 or actual <= 0:
+        return None
+    return (expected / actual * 100).quantize(Decimal("0.1"))
+
+
+@dataclass
+class TrendLine:
+    ingredient: Ingredient
+    points: list[TrendPoint]
+    variance_paise: int
+
+    @property
+    def expected_usage(self) -> Decimal:
+        return sum((p.expected_usage for p in self.points), ZERO)
+
+    @property
+    def actual_usage(self) -> Decimal:
+        return sum((p.actual_usage for p in self.points), ZERO)
+
+    @property
+    def adherence_pct(self) -> Decimal | None:
+        return _pct(self.expected_usage, self.actual_usage)
+
+
+def adherence_trend(db: Session, start: date, end: date) -> tuple[list[date], list[TrendLine]]:
+    """SOP adherence for every closed (approved) day in [start, end].
+
+    Read only from what approval froze: each line's expected and counted
+    quantity and cost, plus the day's sales and batch rows written before
+    approval (a late bill that arrived after the close is not usage the count
+    could have seen; the day report excludes it the same way)."""
+    days = db.execute(
+        select(DayCount.id, DayCount.business_date, DayCount.approved_at).where(
+            DayCount.status == DayCountStatus.approved,
+            DayCount.business_date >= start,
+            DayCount.business_date <= end,
+        )
+    ).all()
+    if not days:
+        return [], []
+    usage_rows = db.execute(
+        select(
+            StockLedger.business_date, StockLedger.ingredient_id, func.sum(StockLedger.qty_delta)
+        )
+        .join(DayCount, DayCount.business_date == StockLedger.business_date)
+        .where(
+            DayCount.status == DayCountStatus.approved,
+            StockLedger.business_date >= start,
+            StockLedger.business_date <= end,
+            StockLedger.created_at <= DayCount.approved_at,
+            StockLedger.reason.in_([LedgerReason.sale, LedgerReason.void, LedgerReason.prep_out]),
+        )
+        .group_by(StockLedger.business_date, StockLedger.ingredient_id)
+    ).all()
+    usage = {(d, i): -Decimal(q) for d, i, q in usage_rows}  # ledger rows are negative
+    date_of = {dc_id: d for dc_id, d, _ in days}
+    lines = db.scalars(
+        select(DayCountLine).where(
+            DayCountLine.day_count_id.in_(date_of), DayCountLine.expected_qty.is_not(None)
+        )
+    ).all()
+    ingredients = {
+        i.id: i
+        for i in db.scalars(
+            select(Ingredient).where(Ingredient.id.in_({ln.ingredient_id for ln in lines}))
+        )
+    }
+    by_ingredient: dict[uuid.UUID, TrendLine] = {}
+    for ln in lines:
+        d = date_of[ln.day_count_id]
+        expected_usage = usage.get((d, ln.ingredient_id), ZERO)
+        if expected_usage <= 0:
+            continue  # nothing was sold or made from it: no recipe to adhere to
+        actual = expected_usage - (ln.counted_qty - ln.expected_qty)
+        cost = ln.cost_per_unit_paise or ZERO
+        t = by_ingredient.setdefault(
+            ln.ingredient_id, TrendLine(ingredients[ln.ingredient_id], [], 0)
+        )
+        t.points.append(
+            TrendPoint(
+                d, expected_usage, actual, _paise(expected_usage * cost), _paise(actual * cost)
+            )
+        )
+        t.variance_paise += ln.variance_paise or 0
+    for t in by_ingredient.values():
+        t.points.sort(key=lambda p: p.business_date)
+    out = sorted(
+        by_ingredient.values(), key=lambda t: (t.variance_paise, t.ingredient.name.lower())
+    )
+    return sorted(d for _, d, _ in days), out
+
+
+def overall_adherence(lines: list[TrendLine]) -> Decimal | None:
+    """One number for the shop: recipe usage / real usage, weighted by value,
+    so a gram of cardamom does not count the same as a litre of milk."""
+    expected = sum((p.usage_paise for t in lines for p in t.points), 0)
+    actual = sum((p.actual_paise for t in lines for p in t.points), 0)
+    return _pct(Decimal(expected), Decimal(actual))
+
+
 __all__ = [
     "CountIn",
     "DayEndError",
@@ -491,12 +606,16 @@ __all__ = [
     "Movement",
     "ReportLine",
     "SubmitResult",
+    "TrendLine",
+    "TrendPoint",
+    "adherence_trend",
     "approve",
     "find_day",
     "get_or_create_day",
     "late_bill_correction",
     "late_bills_explained",
     "movements",
+    "overall_adherence",
     "record_wastage",
     "report_lines",
     "submit_counts",

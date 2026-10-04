@@ -863,6 +863,14 @@ def simulate(api: Api, keep_people: dict, ids: dict, tables: dict) -> None:
         if is_today:
             last_hour = min(21, now_ist.hour - 1)
         for hour in range(6, last_hour + 1):
+            if hour == 14:
+                # A busy day can outrun the morning's buying: the owner checks
+                # again after lunch and fetches what will not last the evening.
+                api.at(ist(d, 14, 0))
+                have = on_hand()
+                for n in FRUIT + DRY + DISPOSABLES:
+                    if have[n] < use[n] * D(busy) * D("0.6"):
+                        stock_in(n, round_up(n, use[n] * D(busy) - have[n]), "Local shop")
             if hour in (6, 10, 14, 17):
                 make_prep(
                     ist(d, hour, 0), "Tea decoction", D(9000 if hour in (6, 17) else 5000) * D(busy)
