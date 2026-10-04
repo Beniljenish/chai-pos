@@ -30,7 +30,10 @@ export async function buildReport(
   const prefix = `${deviceId}:`;
   const seq_by_fy: Record<string, number> = {};
   for (const c of await db.counters.toArray()) {
-    if (c.key.startsWith(prefix)) seq_by_fy[c.key.slice(prefix.length)] = c.lastSeq;
+    // Invoice series only ("26-27"): the kitchen ticket count ("kot:<date>")
+    // lives in the same store and is not a series.
+    const fy = c.key.slice(prefix.length);
+    if (c.key.startsWith(prefix) && /^\d{2}-\d{2}$/.test(fy)) seq_by_fy[fy] = c.lastSeq;
   }
   const held = await db.bills.where('status').anyOf('pending', 'rejected').toArray();
   const held_seqs_by_fy: Record<string, number[]> = {};

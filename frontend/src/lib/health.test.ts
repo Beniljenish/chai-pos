@@ -30,6 +30,9 @@ describe('what the tablet holds', () => {
     await db.bills.update(a.id, { status: 'synced' });
     await db.bills.update(c.id, { status: 'rejected', reason: 'bill_too_old' });
     await db.counters.put({ key: 'other-device:26-27', lastSeq: 99 }); // not ours
+    // The kitchen ticket count shares the store; it is not an invoice series
+    // (sending it made the server refuse every report from this tablet).
+    await db.counters.put({ key: 'dev:kot:2026-10-03', lastSeq: 7 });
 
     const r = await buildReport(db, 'dev', true, 'abc1234');
     expect(r.seq_by_fy).toEqual({ '26-27': 3 });

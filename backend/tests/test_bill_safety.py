@@ -115,3 +115,20 @@ def test_daily_email_warns_about_tablets(client, shop_a, device):
         f"Counter 1 (C1): 1 printed bill(s) never reached the server (first: C1/{fy}/000001)",
         "Counter 1 (C1): 1 bill(s) waiting to send for over 2 hours",
     ]
+
+
+def test_a_report_with_other_counters_is_still_taken(client, shop_a, device):
+    """Tablets keep their kitchen-ticket counter next to the invoice counters
+    (`kot:<date>`). An older app sent it in seq_by_fy; the report used to be
+    refused whole (422), so the owner never heard from that tablet again."""
+    fy = financial_year(business_date(utcnow()))
+    _report(
+        client,
+        shop_a.cashier_h,
+        device.device_id,
+        seq_by_fy={fy: 4, "kot:2026-10-04": 7},
+        pending_bills=30,
+        held_seqs_by_fy={fy: [3, 4], "kot:2026-10-04": [1]},
+    )
+    (t,) = _health(client, shop_a.owner_h).values()
+    assert t["pending_bills"] == 30
