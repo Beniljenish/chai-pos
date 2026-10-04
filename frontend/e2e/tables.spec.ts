@@ -11,6 +11,21 @@ const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
+
+/** Phone layout guard (the top bar broke twice): the screen tabs sit in one
+ * row at the bottom of the screen, and the top bar is a single row with the
+ * sync badge in it. */
+async function expectPhoneBars(page: Page) {
+  const vh = page.viewportSize()?.height ?? 844;
+  const tabs = await page.locator('.tabs').boundingBox();
+  expect(tabs).not.toBeNull();
+  expect(Math.abs(tabs!.y + tabs!.height - vh)).toBeLessThan(2); // pinned to the bottom
+  expect(tabs!.height).toBeLessThan(90); // one row
+  const bar = await page.locator('.topbar').boundingBox();
+  const badge = await page.locator('.sync-badge').boundingBox();
+  expect(bar!.height).toBeLessThan(80); // one row
+  expect(badge!.y).toBeLessThan(bar!.y + bar!.height);
+}
 const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 async function lastPrinted(page: Page): Promise<string> {
@@ -58,12 +73,10 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
   await sheet(page).getByRole('button', { name: 'Add 2 tables' }).click();
   await expect(family).toContainText('2 tables');
 
-  // ---- The floor: on a phone the four tabs and the sync badge still fit one row ----
+  // ---- The floor: on a phone the tabs sit at the bottom, the top bar is one row ----
   await tab(page, 'Tables').click();
   await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
-  const tabsBox = await page.locator('.tabs').boundingBox();
-  const badgeBox = await page.locator('.sync-badge').boundingBox();
-  expect(Math.abs((tabsBox?.y ?? 0) - (badgeBox?.y ?? 100))).toBeLessThan(12);
+  await expectPhoneBars(page);
   const f1 = page.getByRole('region', { name: 'Family' }).getByRole('button', { name: /^Table F1,/ });
   await expect(f1).toHaveAccessibleName('Table F1, free');
   await shot(page, '90-floor');
