@@ -29,7 +29,7 @@ test('owner stock: opening count, stock-in, batch, history', async ({ page }) =>
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
   await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
-  // Manage opens on Sales (what the owner checks most); Stock is one tap away.
+  // On a phone Manage opens on its list; Stock is one tap away.
   // The first load fails (a network blip): the screen says so and reloads in place.
   await page.route('**/api/v1/stock', (r) => r.abort('internetdisconnected'));
   await openSection(page, 'Stock');

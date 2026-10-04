@@ -88,6 +88,7 @@ test('owner adds a cashier who sets their own password; lockout and reset', asyn
   // ---- Owner: Ravi's sale is under his name; unlock with a reset ----
   await logIn(page, OWNER, PASSWORD);
   await tab(page, 'Manage').click();
+  await openSection(page, 'Sales'); // a phone opens Manage on its list
   await expect(page.locator('.mode-split li', { hasText: 'Ravi' })).toContainText('₹');
   await openSection(page, 'Staff');
   const ravi = page.locator('.staff-list li', { hasText: 'Ravi' });
