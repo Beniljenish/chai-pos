@@ -2010,6 +2010,7 @@ details[open] > .shift-head::after {
   gap: var(--s2);
   margin-left: auto;
   font-weight: 700;
+  white-space: nowrap;
 }
 .shift-list p {
   margin: var(--s1) 0 var(--s2);

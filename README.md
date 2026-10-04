@@ -526,6 +526,13 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **No visual redesign.** The screens already share one stylesheet and tokens; the pilot shop's feedback should drive the next round, not guesses.
 - **Lint warnings** (`set-state-in-effect`) are left as they are: they flag the load-on-mount pattern every screen uses. Moving to a data-fetching library is a bigger change than it is worth before the pilot.
 
+## Phase 9: UI and UX pass
+
+### 9.2 Sales: one row per cash drawer
+- **Each drawer is one row:** who, which tablet, when, what should be in it, and its state (*Not counted*, *Matched*, *₹20 short*). Tap it for the sums (float, cash sales, paid in/out, counted). On a busy day with nine tablets this section was most of a 3,500 px page on a phone.
+- **A drawer that was counted and does not match opens by itself.** The owner should not have to hunt for the one that is short. Matched and still-open drawers stay folded.
+- Uses the browser's own `<details>`: keyboard and screen readers work with no extra code.
+
 ## Phase 6: discounts, split payment, customers and khata, split bill
 
 **At the till:**

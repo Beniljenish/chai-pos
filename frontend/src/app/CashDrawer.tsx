@@ -17,7 +17,7 @@ const time = (iso: string) =>
 
 function Difference({ paise }: { paise: number | null }) {
   if (paise === null)
-    return <span className="flag wait">Not ended: cash not counted</span>;
+    return <span className="flag wait">Not counted</span>;
   if (paise === 0) return <span className="flag ok">Matched</span>;
   return (
     <span className={`flag ${paise < 0 ? "bad" : "wait"}`}>
