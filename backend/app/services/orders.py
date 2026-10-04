@@ -56,6 +56,8 @@ def empty_state() -> dict:
         "covers": 0,
         "customer_name": "",
         "customer_phone": "",
+        # The customer agreed to messages (receipt, "order ready") on that number.
+        "message_ok": False,
         "note": "",
         "status": "open",
         "opened_at": None,
@@ -90,6 +92,7 @@ def reduce(events: list[dict]) -> dict:
             s["covers"] = int(d.get("covers") or 0)
             for k in ("customer_name", "customer_phone", "note"):
                 s[k] = d.get(k) or ""
+            s["message_ok"] = bool(d.get("message_ok")) and bool(s["customer_phone"])
             s["opened_at"], s["opened_by"] = at, by
         elif kind == "kot":
             new_ids = []
@@ -148,9 +151,18 @@ def reduce(events: list[dict]) -> dict:
         elif kind == "details":
             if "covers" in d:
                 s["covers"] = int(d["covers"] or 0)
+            phone_before = s["customer_phone"]
             for k in ("customer_name", "customer_phone", "note"):
                 if k in d:
                     s[k] = d[k] or ""
+            # Consent belongs to the number it was given for: a new number without
+            # a fresh "yes" is not messaged.
+            if "message_ok" in d:
+                s["message_ok"] = bool(d["message_ok"])
+            elif s["customer_phone"] != phone_before:
+                s["message_ok"] = False
+            if not s["customer_phone"]:
+                s["message_ok"] = False
         elif kind == "bill_printed":
             s["bill_prints"] += 1
             s["status"] = "billed"
@@ -256,8 +268,10 @@ def ingest(ctx: OrderContext, events: list[dict]) -> list[tuple[uuid.UUID, str, 
         except IntegrityError:
             savepoint.rollback()
             out.append((ev["id"], "rejected", "id_conflict"))
+    from app.services import messages  # local: messages imports models only
+
     for oid in touched:
-        recompute(ctx.db, oid)
+        messages.order_changed(ctx.db, recompute(ctx.db, oid))
     ctx.db.commit()
     return out
 

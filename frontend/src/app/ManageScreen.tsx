@@ -2,6 +2,9 @@
 import { useState } from 'react';
 import { DayEndScreen } from './DayEndScreen';
 import { FloorSetup } from './FloorSetup';
+import { MessagesScreen } from './MessagesScreen';
+import { PurchasesScreen } from './PurchasesScreen';
+import { ReportsScreen } from './ReportsScreen';
 import { RecipesScreen } from './RecipesScreen';
 import { SalesScreen } from './SalesScreen';
 import { ShopScreen } from './ShopScreen';
@@ -9,15 +12,29 @@ import { StaffScreen } from './StaffScreen';
 import { TabletsScreen } from './TabletsScreen';
 import { StockScreen } from './StockScreen';
 
-type Section = 'sales' | 'stock' | 'dayend' | 'recipes' | 'shop' | 'staff' | 'tablets' | 'floor';
+type Section =
+  | 'sales'
+  | 'stock'
+  | 'dayend'
+  | 'recipes'
+  | 'shop'
+  | 'staff'
+  | 'tablets'
+  | 'floor'
+  | 'reports'
+  | 'purchases'
+  | 'messages';
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'sales', label: 'Sales' },
+  { id: 'reports', label: 'Reports' },
   { id: 'stock', label: 'Stock' },
+  { id: 'purchases', label: 'Purchases' },
   { id: 'dayend', label: 'Day end' },
   { id: 'recipes', label: 'Recipes' },
   { id: 'shop', label: 'Shop & GST' },
   { id: 'floor', label: 'Floor' },
   { id: 'staff', label: 'Staff' },
+  { id: 'messages', label: 'Messages' },
   { id: 'tablets', label: 'Tablets' },
 ];
 
@@ -34,6 +51,10 @@ export function ManageScreen() {
       </nav>
       {section === 'sales' ? (
         <SalesScreen />
+      ) : section === 'reports' ? (
+        <ReportsScreen />
+      ) : section === 'purchases' ? (
+        <PurchasesScreen />
       ) : section === 'stock' ? (
         <StockScreen />
       ) : section === 'dayend' ? (
@@ -46,6 +67,8 @@ export function ManageScreen() {
         <FloorSetup />
       ) : section === 'staff' ? (
         <StaffScreen />
+      ) : section === 'messages' ? (
+        <MessagesScreen />
       ) : (
         <TabletsScreen />
       )}

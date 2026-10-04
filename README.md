@@ -522,3 +522,95 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 ### Not done (and why)
 - **No visual redesign.** The screens already share one stylesheet and tokens; the pilot shop's feedback should drive the next round, not guesses.
 - **Lint warnings** (`set-state-in-effect`) are left as they are: they flag the load-on-mount pattern every screen uses. Moving to a data-fetching library is a bigger change than it is worth before the pilot.
+
+## Phase 7: reports and inventory
+
+**Manage → Reports** (owner):
+- **Sales over time:** any range up to 92 days, with quick picks (last 7 days, this week, this month, last month). Shows totals, payment modes, a bar per day, items sold and a bar per hour of the day. Days and items download as CSV.
+- **GST for a month,** in the shape of GSTR-1:
+  - B2C (small) by rate;
+  - HSN summary;
+  - invoices issued per tablet series: from, to, cancelled, issued, and any numbers that never reached the server.
+
+  Each table downloads as a CSV for the accountant.
+- **Stock value:** what is on the shelf at the latest purchase price, with a CSV.
+
+**Manage → Purchases** (owner):
+- **Suppliers.**
+- **Purchase orders.** **Fill from reorder levels** proposes everything below its level. **Receive into stock** records what actually came and what it cost, and enters it as stock.
+
+**Stock → an item → Reorder below** sets the level. Stock marks items under it.
+
+### Decisions and trade-offs
+- **Reports are computed when asked, not stored.** A quarter of a busy tea shop is a few tens of thousands of bills: well within one query. Pre-computed totals would need keeping in step with voids and late bills, and would be one more thing that can disagree with the invoices. The 92-day limit keeps every request quick on a serverless function.
+- **All sales are B2C (small) and intra-state.** Customers of a tea shop are unregistered and local, so every sale is CGST + SGST, with the place of supply being the shop's state. Nil-rated (0%) sales are a separate total, not a rate row. A shop that sells to registered businesses (B2B invoices with the buyer's GSTIN) would need more; that is not built. Composition and unregistered shops see the totals with a note that GSTR-1 is not their return.
+- **HSN codes come from each item as it is today.** Bills did not keep a copy of the code. Changing an item's code changes how past sales are grouped in the summary; the screen says so. Snapshotting the code on each bill line is the fix, if this ever matters.
+- **Invoice series count numbers, not rows.** "Total" is the span from the first to the last number. "Not on the server" is the gap. That is the lost-bill signal from Tablets, shown again where the accountant will see it.
+- **CSV files are made in the browser** from the report already on screen. No second endpoint means no download link that needs the login token in a URL. Files have a BOM so Excel shows names correctly, and amounts in plain rupees (`19.04`) so they sum in a spreadsheet.
+- **Stock value uses the latest purchase price,** the same cost the day-end variance uses (a batch item: its ingredients' cost per batch). It is not FIFO or weighted average. For a tea shop, stock turns over within days and the difference is small; the owner gets one consistent number. Negative stock counts as worth nothing and is listed so it gets fixed.
+- **Receiving an order is an ordinary stock-in.** The ledger stays the one place stock moves. The purchase price updates as for a stock-in typed by hand. Each order line links to the receipt it made. What came can be less than, or different from, what was ordered; the order keeps both. An order is received once. Anything that comes later is a normal stock-in.
+- **"Fill from reorder levels" orders up to twice the level.** It is predictable and easy to explain, and the owner edits the quantities before saving. A forecast from past usage would be smarter, but harder to trust.
+- **Owner only,** like stock-in: buying for the shop and entering stock are the owner's.
+- **Not done:** sending the order to the supplier (WhatsApp or SMS comes with Phase 8b's providers), supplier bills and payments owed to suppliers, and stock valuation on a past date.
+
+## Phase 8c (design only): Swiggy/Zomato, and more than one outlet
+
+Not built: the owner has no partner accounts yet. What it would take, so the decisions are on paper.
+
+**Swiggy and Zomato orders**
+- **How orders arrive.** Both platforms send orders to a restaurant's POS only through approved integration partners (or their own partner APIs, with onboarding), not through a public API. Plan on a partner aggregator, or the platform's own POS integration once the shop is approved. Either way: a webhook to the API with a signature to verify, then an acknowledgement within the platform's time limit.
+- **Where they go.** An aggregator order becomes a running order of type `delivery`, with its platform and platform order id (unique per shop, which makes the webhook idempotent). It is posted as `open` + `kot` events from a "platform" device, so it shows on the Tables screen and the kitchen view like any other order, prints a KOT, and settles into an ordinary invoice. Status updates (accepted, ready, picked up) go back to the platform from the existing `ready` and `settle` events, through an outbox like email.
+- **Money.** The platform collects the payment, so the invoice's payment mode would be the platform (a new payment part, `swiggy` or `zomato`), and the platform's commission and payouts are reconciled separately against its settlement report. On food sold through an e-commerce operator, the **operator** pays the GST under section 9(5) (restaurant services, since 2022). Those invoices must be marked so the shop does not report that tax again in its own GSTR-1. Confirm with the CA before building.
+- **Menu sync.** Prices often differ on the apps (to cover commission). Keep a per-platform price on the menu item rather than a separate menu, and push changes through the partner API.
+
+**More than one outlet**
+- **Today, a shop is the tenant**: every table carries `shop_id` and the tenancy layer filters by it. The smallest change that works is a `business` above shops: one login, a picker, owner reports across shops, and the shop still the unit of stock, invoice series, GST registration and day end.
+- **What changes.**
+  - A user can belong to several shops (a membership table), and the token names the shop chosen at login.
+  - Owner reports gain a "business" view that reads several shops in one system-flagged session.
+  - The menu can be shared (copied per shop, so each outlet's prices and recipes can still differ).
+  - Stock moves between outlets as a transfer: an `out` row in one shop's ledger and an `in` row in the other's, linked.
+- **What does not change:** each outlet keeps its own invoice series and, if registered separately, its own GSTIN; tenant isolation still holds per shop. The tenant gate and RLS tests extend to "a user of shop A can see shop B only if a member of both".
+- **Cost:** most of the work is the membership and shop-switch plumbing and the cross-shop reports. The billing, stock and order engines stay as they are.
+
+## Phase 8a: online payments through Razorpay (test mode)
+
+**On the till:** pick UPI or Card, tick **Collect through Razorpay**, and tap **Save and collect**. The bill is saved as usual. The till sends it to the server, asks Razorpay for an order for the bill's total, and shows **Open payment page**. The customer pays on that page. The till watches the server and shows **Paid** when the money has arrived, then prints the receipt. If anything fails, **Took the payment another way** prints the receipt anyway.
+
+**For the owner:** **Manage → Sales → Online payments** lists each bill collected online with its Razorpay payment id. It flags *Not paid online*, *Paid a different amount*, and *Paid, then voided: refund due*.
+
+**Server settings (Vercel env, API project):** `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` (test-mode keys), and `RAZORPAY_WEBHOOK_SECRET` (the secret you type when creating the webhook in Razorpay's dashboard). Without the key id and secret, the option does not appear on the till. The webhook URL is `https://chai-pos-api.vercel.app/api/v1/payments/razorpay/webhook`, with events `payment.captured` and `payment.failed`.
+
+### Decisions and trade-offs
+- **Checkout runs on a page served by the API, not inside the app.** The app's security policy allows no third-party script. That policy is what makes keeping the refresh token in the browser acceptable: a script that can run in the app can read it. Razorpay's `checkout.js` is a third-party script, so it runs on `GET /payments/razorpay/checkout`, on the API's address, where no token is stored. The app opens that page in a new tab and polls `GET /payments/razorpay/status`. The cost: a tab switch for the cashier, and the page needs internet to load Razorpay. The alternative (letting Razorpay's script into the app) would make every Razorpay script update a path to every shop's login.
+- **The bill comes first; the payment is a separate record.** The invoice is saved, numbered and printable on the tablet before any payment is attempted, as with every bill. The `payments` table (RLS on, tenant-scoped) links to it. A payment never changes a bill. A different amount, a bill left unpaid, or a paid bill that was later voided is flagged for the owner, the same way device-versus-server totals are.
+- **Only a signature marks a bill paid.** Checkout's result is checked with HMAC-SHA256 of `order_id|payment_id` under the key secret. The webhook is checked with HMAC-SHA256 of the raw body under its own secret. Both comparisons are constant-time. The "attempt failed" call from the page is unsigned, so it can only ever record a failure, never a payment, and a later success still wins.
+- **Idempotent.** One row per Razorpay order (unique order id), one Razorpay payment per row (unique payment id). Asking for an order twice reuses it. A webhook delivered twice, or verify called twice, changes nothing. Paid is final; a late failure of an earlier attempt does not undo it.
+- **Webhook events for orders this server never made are acknowledged and ignored.** Razorpay retries anything that is not a 2xx, and one Razorpay account may serve other apps.
+- **Payment mode stays `upi` or `card` on the bill.** No new Postgres enum value: "online" is the existence of a payment row. Plain strings with check constraints in `payments` keep later providers a one-line change.
+- **UPI and card each get their own Checkout.** The page shows only the method the cashier picked, using Checkout's `config.display` blocks with `show_default_blocks: false`. The first version used `prefill.method`, which Razorpay treats as a hint and ignores unless the customer's phone and email are also prefilled; that is why "Card" could open the full Checkout. UPI offers a QR (for a customer at the counter), collect (typing a UPI id) and intent (this phone's UPI app).
+- **The server confirms with Razorpay and captures.** After the signature checks out, the server fetches the payment from Razorpay. It checks that the payment belongs to this order, captures it if it is only `authorized`, and records the amount Razorpay actually took. Without this, a Razorpay account set to capture manually would leave payments authorized, and Razorpay refunds those after a few days. If Razorpay cannot be reached at that moment, the signature (which only Razorpay can make) is enough to show the bill paid, and the webhook (`payment.authorized`, `payment.captured`, `payment.failed`, `order.paid`) confirms it later. A capture that fails inside the webhook answers 503, so Razorpay sends it again.
+- **Keys are read without stray spaces or newlines** (a common paste mistake that makes Razorpay refuse every call). **Shop & GST → Online payments (Razorpay) → Check connection** shows whether the keys are set, test or live, accepted by Razorpay, and whether the webhook secret is set. It never shows a key.
+- **Tests never call Razorpay.** `services/payments.set_client` swaps the HTTP call for a recorder; signatures are computed with test secrets in the tests. The browser test answers the three payment calls itself, because CI has no keys.
+- **Not done yet:** refunds from the app (the owner refunds in Razorpay's dashboard; the report says when one is due), collecting online for a bill from Today after the fact, and live mode (switching keys is all it needs, after a real-money test).
+- **Unverified from here:** the checkout page against Razorpay itself. This environment cannot reach Razorpay, so the first real test-mode payment is the check (see HANDOFF).
+
+## Phase 8b: customer messages by iMessage (Inkbox)
+
+**Taking a number:** the takeaway/delivery sheet and the order's **Customer** sheet show, once a 10-digit number is typed, *Customer agrees to get the receipt and "order ready" on this number by iMessage*. It is off by default.
+
+**What is sent, only to customers who agreed:**
+- **Order ready** (takeaway), when the kitchen has marked everything left on the order ready.
+- **Receipt link**, when a settled order's invoice reaches the server. The link opens the customer's copy of the bill without logging in.
+
+**For the owner:** **Manage → Messages** lists every message with the number masked (`••••••3210`), its status and any error. **Send waiting now** retries; every sync and the daily cron retry too.
+
+**Server settings (Vercel env, API project):** `INKBOX_API_KEY` (secret) turns sending on. `INKBOX_IDENTITY_ID` is needed only with an organisation-wide key, to name the sender. `PUBLIC_API_URL` defaults to the staging API, where receipt links point. Without a key, messages are written to the outbox and marked *Not sent (no provider)*; nothing leaves the server.
+
+### Decisions and trade-offs
+- **Inkbox has an app-side API** (`POST https://inkbox.ai/api/v1/imessage/messages`, `X-API-Key`, `Idempotency-Key`). I read its shape from Inkbox's published SDK, because its docs site is blocked from this environment. The catch is **Inkbox's shared iMessage service only lets you message people who messaged you first**. A customer who has never texted the shop's Inkbox identity gets a refusal, which shows as *Failed* with the reason. Messaging new customers needs a **dedicated Inkbox line**, which is an account decision for the owner (see HANDOFF). The code works the same either way.
+- **Consent is per number, on the order.** `message_ok` lives in the order's event history next to the number, in both reducers, pinned by `shared/order_cases.json`. Changing the number without a fresh "yes" switches consent off, on the server and on the device, so a mistyped number that gets corrected is not messaged on the old consent. Dine-in customers can also agree, for the receipt.
+- **Phone numbers are not copied anywhere.** The `messages` outbox has no phone column (a test checks the table). The number is read from the order at the moment of sending, so a number corrected before sending is used and nothing else keeps it. Errors are scrubbed of anything that looks like a number before they are stored or shown. The owner's screen masks numbers. Nothing logs them.
+- **Same outbox pattern as email.** A message is a row written in the same transaction as its event, delivered after, never raising into billing or orders. It is retried up to 5 times, and it is exactly-once per shop by its key (`ready:<order>`, `receipt:<bill>`), which is also sent to Inkbox as the idempotency key.
+- **The receipt link is signed, not stored.** The token is the bill id plus an HMAC of it, using a key derived from `JWT_SECRET`. It needs no table, and ids cannot be guessed or walked. The page shows the bill as printed (GSTIN, lines, GST, total, payment mode; "VOIDED" if voided) and never the customer's number. It sends `noindex`, `no-store` and a strict CSP. Rotating `JWT_SECRET` invalidates old links, which is acceptable for receipts.
+- **Not done:** SMS and WhatsApp (the same `Transport` slot; the owner wants them later), messages for counter bills (they carry no customer number), and a customer opt-out reply ("STOP"). For now the owner can untick consent on the order.

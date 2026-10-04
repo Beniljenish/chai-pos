@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { HttpError } from '../lib/api';
 import { formatDelta, formatQty, packsPayload, packsToBase } from '../lib/qty';
 import type { Ingredient, LedgerRow, StockRow } from '../lib/types';
+import { buyUnit, fromBaseQty, toBaseQty } from '../lib/reports';
 import { api } from './apiClient';
 import { Sheet } from './Sheet';
 import { explainError } from './errors';
@@ -116,6 +117,7 @@ export function ItemSheet({ row, ingredient, onClose, onChanged }: Props) {
           {!canStockIn && (
             <p className="muted">Made here: it goes up when a batch is logged, not by stock-in.</p>
           )}
+          <ReorderLevel ingredient={ingredient} onSaved={onChanged} />
           <h3>History</h3>
           {ledger === null ? (
             <p className="muted">Loading…</p>
@@ -197,5 +199,37 @@ export function ItemSheet({ row, ingredient, onClose, onChanged }: Props) {
         </p>
       )}
     </Sheet>
+  );
+}
+
+/** Phase 7: below this, Stock marks the item and Purchases suggests ordering it. */
+function ReorderLevel({ ingredient, onSaved }: { ingredient: Ingredient; onSaved(): void }) {
+  const unit = ingredient.base_unit;
+  const initial = ingredient.reorder_level ? fromBaseQty(ingredient.reorder_level, unit) : '';
+  const [value, setValue] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const base = value.trim() === '' ? null : toBaseQty(value, unit);
+  async function save() {
+    try {
+      await api.patch(`/ingredients/${ingredient.id}`, { reorder_level: base });
+      setSaved(value);
+      setError(null);
+      onSaved();
+    } catch (e) {
+      setError(explainError(e));
+    }
+  }
+  return (
+    <div className="reorder-level">
+      <label>
+        Reorder below ({buyUnit(unit)})
+        <input inputMode="decimal" value={value} placeholder="not set" onChange={(e) => setValue(e.target.value)} />
+      </label>
+      <button disabled={value === saved || base === ''} onClick={() => void save()}>
+        Save
+      </button>
+      {error && <p className="error">{error}</p>}
+    </div>
   );
 }

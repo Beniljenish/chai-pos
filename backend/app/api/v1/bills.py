@@ -11,7 +11,7 @@ from app.core.time import business_date
 from app.models import Bill, BillLine, BillVoid, Device, Role, Shop, User
 from app.schemas import DeviceReportIn
 from app.schemas_billing import BillOut, SyncRequest, SyncResponse, SyncResultOut, VoidIn
-from app.services import billing, email, health, voids
+from app.services import billing, email, health, messages, voids
 from app.services import shifts as shift_service
 from app.services.sales import sales_report
 
@@ -37,6 +37,7 @@ def sync_bills(body: SyncRequest, caller: Caller = Depends(get_caller)):
     )
     results = billing.ingest_batch(ctx, [_as_received(b) for b in body.bills])
     email.deliver_pending(caller.db)  # bill emails, if switched on; never raises
+    messages.deliver_pending(caller.db)  # customers' receipt links; never raises
     return SyncResponse(
         results=[
             SyncResultOut(

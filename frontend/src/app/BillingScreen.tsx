@@ -4,6 +4,7 @@ import type { LocalBill } from '../lib/db';
 import { db } from '../lib/db';
 import { formatRupees, GstError } from '../lib/gst';
 import { formatPriceDelta } from '../lib/options';
+import { OnlinePayment } from './OnlinePayment';
 import { Receipt } from './Receipt';
 import { PAYMENT_LABELS } from '../lib/sales';
 import { shiftsOn } from '../lib/shift';
@@ -27,6 +28,9 @@ export function BillingScreen() {
   const [category, setCategory] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentMode>('cash');
   const [saved, setSaved] = useState<LocalBill | null>(null);
+  // Razorpay (test mode): offered only when the server has keys and for UPI/card.
+  const [online, setOnline] = useState(false);
+  const [collect, setCollect] = useState<{ bill: LocalBill; method: 'upi' | 'card' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [tillOpen, setTillOpen] = useState(false); // phones: the till is a bottom sheet
@@ -101,9 +105,12 @@ export function BillingScreen() {
         cashierId: user?.id,
         shiftId: shiftsOn(catalogue.shop.cash_shifts) ? shiftId : undefined,
       });
-      setSaved(bill);
+      const onlineNow = canCollectOnline && online;
+      if (onlineNow) setCollect({ bill, method: payment as 'upi' | 'card' });
+      else setSaved(bill);
       setCart([]);
       setPayment('cash');
+      setOnline(false);
       setTillOpen(false);
       void worker?.kick(); // send now if online; otherwise it waits in the outbox
     } catch (e) {
@@ -114,6 +121,7 @@ export function BillingScreen() {
   }
 
   const itemCount = cart.reduce((n, l) => n + l.qty, 0);
+  const canCollectOnline = Boolean(catalogue?.shop.online_payments) && (payment === 'upi' || payment === 'card');
 
   return (
     <div className="billing">
@@ -157,7 +165,7 @@ export function BillingScreen() {
           {/* Phones: the usual sale (a tea, paid as before) without opening the bill. */}
           {!tillOpen && itemCount > 0 && totals && (
             <button className="primary quick-save" disabled={saving} onClick={() => void save()}>
-              Save · {PAYMENT_LABELS[payment]}
+              {canCollectOnline && online ? 'Collect' : 'Save'} · {PAYMENT_LABELS[payment]}
             </button>
           )}
         </div>
@@ -222,15 +230,31 @@ export function BillingScreen() {
                 </button>
               ))}
             </div>
+            {canCollectOnline && (
+              <label className="check online-toggle">
+                <input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} />
+                Collect through Razorpay (needs internet)
+              </label>
+            )}
             {error && <p className="error" role="alert">{error}</p>}
             <button className="primary save" onClick={() => void save()} disabled={saving || cart.length === 0}>
-              {saving ? 'Saving…' : 'Save and print'}
+              {saving ? 'Saving…' : canCollectOnline && online ? 'Save and collect' : 'Save and print'}
             </button>
           </div>
         </div>
       </aside>
 
       {saved && <Receipt bill={saved} onClose={() => setSaved(null)} autoPrint />}
+      {collect && (
+        <OnlinePayment
+          bill={collect.bill}
+          method={collect.method}
+          onDone={() => {
+            setSaved(collect.bill); // the receipt, printed as for any bill
+            setCollect(null);
+          }}
+        />
+      )}
       {askShift && (
         <StartShiftSheet
           onClose={() => setAskShift(false)}
