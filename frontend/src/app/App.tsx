@@ -1,15 +1,40 @@
-import { useState } from 'react';
-import { BillingScreen } from './BillingScreen';
-import { BillsScreen } from './BillsScreen';
-import { DeviceSetupScreen } from './DeviceSetupScreen';
-import { LoginScreen } from './LoginScreen';
-import { AccountButton, SetPasswordScreen } from './PasswordForm';
-import { ManageScreen } from './ManageScreen';
-import { DayEndScreen } from './DayEndScreen';
-import { useSession } from './session';
-import { TablesScreen } from './TablesScreen';
-import { hasTables } from '../lib/table';
+import { useState } from "react";
+import { BillingScreen } from "./BillingScreen";
+import { BillsScreen } from "./BillsScreen";
+import { DeviceSetupScreen } from "./DeviceSetupScreen";
+import { LoginScreen } from "./LoginScreen";
+import { AccountButton, SetPasswordScreen } from "./PasswordForm";
+import { ManageScreen } from "./ManageScreen";
+import { DayEndScreen } from "./DayEndScreen";
+import { useSession } from "./session";
+import { TablesScreen } from "./TablesScreen";
+import { hasTables } from "../lib/table";
 
+/** Tab icons (phone bar only; tablets show the words alone). Decorative: the
+ * button's text names it. */
+const ICON = {
+  bill: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6",
+  tables: "M3 8h18v4H3zM6 12v8M18 12v8",
+  today: "M4 5h16v16H4zM4 10h16M9 3v4M15 3v4",
+  manage: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+};
+function TabIcon({ d }: { d: string }) {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={d} />
+    </svg>
+  );
+}
 
 function SyncBadge() {
   const { sync, worker } = useSession();
@@ -17,41 +42,48 @@ function SyncBadge() {
   // Long text for tablets, short for phones (CSS picks one).
   let text: string;
   let short: string;
-  let tone: 'ok' | 'wait' | 'bad';
+  let tone: "ok" | "wait" | "bad";
   if (sync.rejected > 0) {
-    text = `${sync.rejected} bill${sync.rejected > 1 ? 's' : ''} need the owner`;
-    short = `${sync.rejected} problem${sync.rejected > 1 ? 's' : ''}`;
-    tone = 'bad';
+    text = `${sync.rejected} bill${sync.rejected > 1 ? "s" : ""} need the owner`;
+    short = `${sync.rejected} problem${sync.rejected > 1 ? "s" : ""}`;
+    tone = "bad";
   } else if (sync.pending > 0) {
-    text = sync.syncing ? `Sending ${sync.pending}…` : `${sync.pending} waiting to send`;
+    text = sync.syncing
+      ? `Sending ${sync.pending}…`
+      : `${sync.pending} waiting to send`;
     short = `${sync.pending} waiting`;
-    tone = 'wait';
+    tone = "wait";
   } else {
-    text = 'All bills sent';
-    short = 'Sent';
-    tone = 'ok';
+    text = "All bills sent";
+    short = "Sent";
+    tone = "ok";
   }
   return (
     <button
       className={`sync-badge ${tone}`}
       onClick={() => void worker?.kick()}
-      title={sync.lastError ?? 'Tap to send now'}
+      title={sync.lastError ?? "Tap to send now"}
       aria-label={sync.lastError ? `${text}. ${sync.lastError}` : text}
       aria-live="polite"
     >
       <span className="dot" aria-hidden="true" />
-      <span className="long" aria-hidden="true">{text}</span>
-      <span className="short" aria-hidden="true">{short}</span>
+      <span className="long" aria-hidden="true">
+        {text}
+      </span>
+      <span className="short" aria-hidden="true">
+        {short}
+      </span>
     </button>
   );
 }
 
 export function App() {
   const { phase, user } = useSession();
-  if (phase === 'loading') return <main className="centered" aria-busy="true" />;
-  if (phase === 'login') return <LoginScreen />;
-  if (phase === 'password') return <SetPasswordScreen />;
-  if (phase === 'device') return <DeviceSetupScreen />;
+  if (phase === "loading")
+    return <main className="centered" aria-busy="true" />;
+  if (phase === "login") return <LoginScreen />;
+  if (phase === "password") return <SetPasswordScreen />;
+  if (phase === "device") return <DeviceSetupScreen />;
   // Keyed by person: whoever logs in next starts on New bill, not on the
   // screen the previous person left open (often the owner's Manage).
   return <Shell key={user?.id} />;
@@ -59,36 +91,53 @@ export function App() {
 
 function Shell() {
   const { user, device, catalogue, sync, notice, logout } = useSession();
-  const [tab, setTab] = useState<'bill' | 'tables' | 'today' | 'stock'>('bill');
+  const [tab, setTab] = useState<"bill" | "tables" | "today" | "stock">("bill");
 
-  const isOwner = user?.role === 'owner';
+  const isOwner = user?.role === "owner";
   const tables = hasTables(catalogue);
 
   return (
     <div className="app">
       <header className="topbar">
         <div className="where">
-          <strong>{catalogue?.shop.name ?? 'Chai POS'}</strong>
+          <strong>{catalogue?.shop.name ?? "Chai POS"}</strong>
           <span className="muted">
             {device?.name} ({device?.code}), <AccountButton />
           </span>
         </div>
         <nav className="tabs" aria-label="Screens">
-          <button aria-pressed={tab === 'bill'} onClick={() => setTab('bill')} aria-label="New bill">
+          <button
+            aria-pressed={tab === "bill"}
+            onClick={() => setTab("bill")}
+            aria-label="New bill"
+          >
+            <TabIcon d={ICON.bill} />
             <span className="long">New bill</span>
             <span className="short">Bill</span>
           </button>
           {tables && (
-            <button aria-pressed={tab === 'tables'} onClick={() => setTab('tables')}>
+            <button
+              aria-pressed={tab === "tables"}
+              onClick={() => setTab("tables")}
+            >
+              <TabIcon d={ICON.tables} />
               Tables
             </button>
           )}
-          <button aria-pressed={tab === 'today'} onClick={() => setTab('today')}>
+          <button
+            aria-pressed={tab === "today"}
+            onClick={() => setTab("today")}
+          >
+            <TabIcon d={ICON.today} />
             Today
           </button>
           {/* Cashiers: batches, wastage and the blind count. They never see stock levels. */}
-          <button aria-pressed={tab === 'stock'} onClick={() => setTab('stock')}>
-            {isOwner ? 'Manage' : 'Stock'}
+          <button
+            aria-pressed={tab === "stock"}
+            onClick={() => setTab("stock")}
+          >
+            <TabIcon d={ICON.manage} />
+            {isOwner ? "Manage" : "Stock"}
           </button>
         </nav>
         <SyncBadge />
@@ -101,11 +150,11 @@ function Shell() {
           {notice ?? sync?.lastError}
         </p>
       )}
-      {tab === 'bill' ? (
+      {tab === "bill" ? (
         <BillingScreen />
-      ) : tab === 'tables' && tables ? (
+      ) : tab === "tables" && tables ? (
         <TablesScreen />
-      ) : tab === 'today' ? (
+      ) : tab === "today" ? (
         <BillsScreen />
       ) : isOwner ? (
         <ManageScreen />
