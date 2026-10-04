@@ -240,46 +240,73 @@ input {
   display: none;
 }
 
-/* Phones: one compact row under the shop name. */
+/* Phones: the screen tabs are a bar along the bottom (thumb reach, one-handed
+   at the counter); the top bar is one row: shop, sync badge, Log out. */
+:root {
+  --nav-h: 0px;
+}
 @media (max-width: 600px) {
+  :root {
+    --nav-h: calc(64px + env(safe-area-inset-bottom));
+  }
+  .app {
+    padding-bottom: var(--nav-h);
+  }
   .topbar {
     gap: var(--s2);
     padding: var(--s2) var(--s3);
+    flex-wrap: nowrap;
   }
   .where {
-    flex-basis: 100%;
+    min-width: 0;
+  }
+  .where strong,
+  .where .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .topbar button {
     padding: 0 10px;
     min-height: 44px;
+    flex: none;
   }
-  .tabs,
-  .subnav {
+  .topbar .quiet {
+    padding: 0 var(--s2);
+  }
+  .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     gap: 6px;
+    box-sizing: border-box;
+    height: var(--nav-h);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    background: var(--paper);
+    border-top: 1.5px solid var(--steel-deep);
+    box-shadow: 0 -4px 12px rgba(29, 39, 48, 0.06);
   }
-  .subnav button {
-    padding: 0 10px;
-    min-height: 44px;
+  .tabs button {
+    min-height: 48px;
+    border-color: transparent;
+    font-weight: 700;
+  }
+  /* The till and the order drawer sit on top of the tab bar, not under it
+     (".app" so this wins over the base .till rule further down). */
+  .app .till {
+    bottom: var(--nav-h);
+    padding-bottom: 0;
   }
   .sync-badge .long {
     display: none;
   }
   .sync-badge .short {
     display: inline;
-  }
-  /* Log out sits beside the shop name, so the tabs and sync badge keep one row. */
-  .topbar {
-    position: relative;
-  }
-  .where {
-    padding-right: 80px;
-  }
-  .topbar .quiet {
-    position: absolute;
-    top: var(--s1);
-    right: var(--s2);
-    min-height: 40px;
-    padding: 0 var(--s2);
   }
 }
 
@@ -1238,12 +1265,74 @@ select {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+/* Manage: sections in three labelled groups. Phones: the groups wrap above
+   the page (nothing hidden off to the side). Tablets: a sidebar. */
 .subnav {
-  display: flex;
+  display: grid;
   gap: var(--s2);
   margin-bottom: var(--s4);
   border-bottom: 1.5px solid var(--steel-deep);
   padding-bottom: var(--s3);
+}
+.subnav-group {
+  display: grid;
+  grid-template-columns: 4.2rem minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+}
+.subnav-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.subnav-label {
+  padding-top: 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+.subnav button {
+  min-height: 44px;
+  padding: 0 12px;
+}
+@media (min-width: 820px) {
+  .manage {
+    max-width: 1100px;
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: var(--s5);
+    align-items: start;
+  }
+  .subnav {
+    position: sticky;
+    top: var(--s4);
+    border-bottom: none;
+    padding-bottom: 0;
+    gap: var(--s4);
+  }
+  .subnav-group {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .subnav-items {
+    display: grid;
+    gap: 4px;
+  }
+  .subnav-label {
+    padding: 0 var(--s2);
+  }
+  .subnav button {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+    border-color: transparent;
+    background: transparent;
+  }
+  .subnav button:hover {
+    background: var(--steel);
+  }
 }
 .subnav button[aria-pressed='true'] {
   background: var(--ink);
@@ -1448,12 +1537,6 @@ label.check.email-switch input {
 }
 
 /* ---------- day end ---------- */
-.subnav {
-  overflow-x: auto;
-}
-.subnav button {
-  flex: none;
-}
 .segmented {
   display: flex;
   gap: var(--s2);

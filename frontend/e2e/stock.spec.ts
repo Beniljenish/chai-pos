@@ -77,4 +77,11 @@ test('owner stock: opening count, stock-in, batch, history', async ({ page }) =>
   await page.setViewportSize({ width: 1280, height: 800 });
   await row(page, 'Milk').click();
   await shot(page, '14-tablet-sheet');
+  await page.keyboard.press('Escape');
+  // Tablets: Manage's sections are a sidebar in three groups.
+  const nav = page.getByRole('navigation', { name: 'Manage' });
+  await expect(nav.getByRole('group', { name: 'Money' })).toBeVisible();
+  const navBox = await nav.boundingBox();
+  expect(navBox!.width).toBeLessThan(260);
+  await shot(page, '15-tablet-manage');
 });

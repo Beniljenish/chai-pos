@@ -526,6 +526,13 @@ Other settings: paper width (58 mm = 32 characters, 80 mm = 48), auto-print on s
 - **No visual redesign.** The screens already share one stylesheet and tokens; the pilot shop's feedback should drive the next round, not guesses.
 - **Lint warnings** (`set-state-in-effect`) are left as they are: they flag the load-on-mount pattern every screen uses. Moving to a data-fetching library is a bigger change than it is worth before the pilot.
 
+## Phase 9: UI and UX pass
+
+### 9.1 Navigation
+- **Phones: the screen tabs are a bar along the bottom.** A counter phone is used one-handed, and the top of a phone is the hardest place to reach. The top bar is now one row: shop and tablet, sync badge, Log out. The till and the table-order drawer sit on top of the tab bar (`--nav-h`), never under it. A shared e2e guard (`expectPhoneBars`) checks that the bar is pinned to the bottom in one row and the top bar stays one row; the phone top bar had broken twice before.
+- **Manage's twelve sections are grouped:** Money (Sales, Reports, Khata), Stock (Stock, Purchases, Day end, Recipes), Setup (Shop & GST, Staff, Floor, Tablets, Messages). On a phone the groups wrap above the page; the old single row scrolled sideways and hid most sections. On a tablet they become a left sidebar, and Manage pages use the full width instead of a 760 px column.
+- **Not changed:** section and tab names, so staff who know the app find everything where its name says.
+
 ## Phase 6: discounts, split payment, customers and khata, split bill
 
 **At the till:**
