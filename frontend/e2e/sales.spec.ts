@@ -5,14 +5,13 @@
  * Other specs sell on the same day, so totals are checked as differences.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { saveAndPrint } from './helpers';
+import { saveAndPrint, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 const rupees = (s: string | null) => Number((s ?? '').replace(/[^0-9.]/g, ''));
 
 async function sellTeas(page: Page, n: number): Promise<string> {
@@ -42,7 +41,7 @@ test('owner voids a bill billed twice; the sales report leaves it out', async ({
 
   // ---- Manage opens on Sales ----
   await tab(page, 'Manage').click();
-  await expect(sub(page, 'Sales')).toHaveAttribute('aria-pressed', 'true');
+  await openSection(page, 'Sales'); // a phone opens Manage on its list; Sales is first
   await expect(page.getByRole('heading', { name: 'Sales', exact: true })).toBeVisible();
   await expect(page.locator('.day-now')).toHaveText('Today');
   const before = rupees(await page.locator('.sales-total .big').textContent());
@@ -73,7 +72,7 @@ test('owner voids a bill billed twice; the sales report leaves it out', async ({
   await shot(page, '32-sales-after-void');
 
   // ---- Stock came back: 2 teas of decoction (100 ml each, or 120 after the recipes spec's v2) ----
-  await sub(page, 'Stock').click();
+  await openSection(page, 'Stock');
   await page.locator('.stock-list li', { hasText: 'Tea decoction' }).click();
   const top = sheet(page).locator('.ledger li').first();
   await expect(top).toContainText('Bill cancelled');

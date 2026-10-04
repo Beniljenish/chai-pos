@@ -3,7 +3,7 @@
  * check the sale deducted by the NEW version. Plus packaging and new ingredients.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { expectPhoneBars, saveAndPrint } from './helpers';
+import { expectPhoneBars, saveAndPrint, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -11,7 +11,6 @@ const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screensh
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
 
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 test('owner recipes: new version is what the next sale deducts', async ({ page }) => {
   test.setTimeout(90_000);
@@ -25,7 +24,7 @@ test('owner recipes: new version is what the next sale deducts', async ({ page }
 
   await tab(page, 'Manage').click();
   await expectPhoneBars(page);
-  await sub(page, 'Recipes').click();
+  await openSection(page, 'Recipes');
   await expect(page.getByRole('heading', { name: 'Recipes', exact: true })).toBeVisible();
   await expect(page.locator('.sop-list li', { hasText: 'Masala tea' })).toBeVisible();
   await shot(page, '20-recipes');
@@ -71,7 +70,7 @@ test('owner recipes: new version is what the next sale deducts', async ({ page }
   await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
 
   await tab(page, 'Manage').click();
-  await sub(page, 'Stock').click();
+  await openSection(page, 'Stock');
   await page.locator('.stock-list li', { hasText: 'Tea decoction' }).click();
   await expect(sheet(page).locator('.ledger li').first()).toContainText('Sold');
   await expect(sheet(page).locator('.ledger li').first()).toContainText('−120 ml');

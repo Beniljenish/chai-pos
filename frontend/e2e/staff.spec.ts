@@ -4,7 +4,7 @@
  * wrong passwords lock them out until the owner resets it.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { expectPhoneBars, saveAndPrint } from './helpers';
+import { expectPhoneBars, saveAndPrint, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -12,7 +12,6 @@ const RAVI = '9876500001';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 async function logIn(page: Page, phone: string, password: string) {
   await page.getByLabel('Mobile number').fill(phone);
@@ -35,7 +34,7 @@ test('owner adds a cashier who sets their own password; lockout and reset', asyn
 
   // ---- Owner adds Ravi; the first password is shown once ----
   await tab(page, 'Manage').click();
-  await sub(page, 'Staff').click();
+  await openSection(page, 'Staff');
   await page.getByRole('button', { name: '+ Add staff' }).click();
   await sheet(page).getByLabel('Name').fill('Ravi');
   await sheet(page).getByLabel('Mobile number (they log in with it)').fill(RAVI);
@@ -90,7 +89,7 @@ test('owner adds a cashier who sets their own password; lockout and reset', asyn
   await logIn(page, OWNER, PASSWORD);
   await tab(page, 'Manage').click();
   await expect(page.locator('.mode-split li', { hasText: 'Ravi' })).toContainText('₹');
-  await sub(page, 'Staff').click();
+  await openSection(page, 'Staff');
   const ravi = page.locator('.staff-list li', { hasText: 'Ravi' });
   await expect(ravi).toContainText('Locked');
   await ravi.click();

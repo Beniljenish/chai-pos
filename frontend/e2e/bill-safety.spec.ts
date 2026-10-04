@@ -5,14 +5,13 @@
  * the owner's Tablets screen must name the missing invoice.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { saveAndPrint } from './helpers';
+import { saveAndPrint, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const TABLET = 'E2E safety phone';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 async function logIn(page: Page) {
   await page.getByLabel('Mobile number').fill(OWNER);
@@ -75,7 +74,7 @@ test('a printed bill lost in a browser wipe is named, and its number is never re
 
   // ---- The owner is told exactly which bill is missing ----
   await tab(page, 'Manage').click();
-  await sub(page, 'Tablets').click();
+  await openSection(page, 'Tablets');
   const card = page.locator('.tablet-list > li', { hasText: TABLET });
   await expect(card).toContainText('1 printed bill never reached the server');
   await expect(card).toContainText(lost);

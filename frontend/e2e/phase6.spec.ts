@@ -5,13 +5,13 @@
  * Tickets print through RawBT so no print dialog is in the way.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 async function startShiftIfAsked(page: Page) {
   const start = page.getByRole('dialog', { name: 'Start shift' });
@@ -100,9 +100,9 @@ test('discount, split payment, credit and the khata', async ({ page }) => {
 
   // ---- The owner: Khata and Sales ----
   await tab(page, 'Manage').click();
-  await sub(page, 'Khata').click();
+  await openSection(page, 'Khata');
   await expect(page.locator('.khata-list li', { hasText: 'Lakshmi' })).toContainText('₹30');
-  await sub(page, 'Sales').click();
+  await openSection(page, 'Sales');
   const dc = page.getByRole('region', { name: 'Discounts and credit' });
   await expect(dc).toContainText('Regular customer');
   await expect(dc).toContainText('₹50 given on credit');

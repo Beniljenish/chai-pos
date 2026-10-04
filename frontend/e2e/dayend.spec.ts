@@ -5,7 +5,7 @@
  * approval is exercised on yesterday (a quiet day: everything exact).
  */
 import { expect, test, type Page } from '@playwright/test';
-import { saveAndPrint } from './helpers';
+import { saveAndPrint, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const CASHIER = process.env.E2E_CASHIER ?? '9000000002';
@@ -40,10 +40,10 @@ test('owner: wastage, reconcile against the balance, variance, approval', async 
   await tab(page, 'Manage').click();
   // One decoction batch (+2.2 L) before counting: counting zero is then ~2.2 L
   // short, far outside tolerance however many teas the other specs sold today.
-  await page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true }).click();
+  await openSection(page, 'Stock');
   await page.getByRole('button', { name: 'Log 1 batch' }).click();
   await expect(page.getByRole('status')).toContainText('Logged: 1 batch of Tea decoction');
-  await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
+  await openSection(page, 'Day end');
   await expect(page.getByRole('heading', { name: 'Day end' })).toBeVisible();
 
   // ---- Wastage: one tea spilled ----
@@ -143,7 +143,7 @@ test('phase 10: adherence trend, a large wastage for the owner, a handover count
 
   // ---- 10.1: the trend sits under the day's report ----
   await tab(page, 'Manage').click();
-  await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
+  await openSection(page, 'Day end');
   await expect(page.getByRole('heading', { name: 'Recipe adherence, last 30 days' })).toBeVisible();
 
   // ---- 10.2: any cashier wastage now waits for the owner ----
@@ -172,7 +172,7 @@ test('phase 10: adherence trend, a large wastage for the owner, a handover count
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Log in' }).click();
   await tab(page, 'Manage').click();
-  await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
+  await openSection(page, 'Day end');
   const waiting = pending.locator('.ledger li', { hasText: 'Masala tea' });
   await expect(waiting).toContainText('₹');
   await shot(page, '47-wastage-to-check');
@@ -180,7 +180,7 @@ test('phase 10: adherence trend, a large wastage for the owner, a handover count
   await expect(pending).toContainText('Nothing waiting for you.');
 
   // ---- 10.3: milk is counted at each shift change ----
-  await page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true }).click();
+  await openSection(page, 'Stock');
   await page.locator('.stock-list li', { hasText: 'Milk' }).click();
   await sheet().getByRole('radio', { name: 'Every shift' }).click();
   await expect(sheet()).toContainText('Counted at each shift change');
@@ -205,7 +205,7 @@ test('phase 10: adherence trend, a large wastage for the owner, a handover count
   await sheet().getByRole('button', { name: 'Done' }).click();
 
   await tab(page, 'Manage').click();
-  await page.locator('.subnav').getByRole('button', { name: 'Day end' }).click();
+  await openSection(page, 'Day end');
   const periods = page.locator('.handover-report');
   await expect(periods.getByRole('heading', { name: 'Shift handovers' })).toBeVisible();
   await expect(periods.locator('.period-lines li', { hasText: 'Milk' }).first()).toBeVisible();

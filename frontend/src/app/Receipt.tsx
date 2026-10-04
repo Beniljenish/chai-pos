@@ -68,8 +68,22 @@ export function Receipt({
   }, [autoPrint]);
 
   return (
-    <div className="overlay" role="dialog" aria-modal="true" aria-label={`Bill ${bill.invoiceNo}`}>
+    <div className={`overlay ${autoPrint ? 'just-saved' : ''}`} role="dialog" aria-modal="true" aria-label={`Bill ${bill.invoiceNo}`}>
       <div className="receipt-wrap">
+        {/* Phones, right after Save: a clear "done" before the receipt. */}
+        {autoPrint && (
+          <div className="saved-head no-print" role="status">
+            <span className="saved-tick" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+            </span>
+            <strong className="num">{formatRupees(p.totals.total)} saved</strong>
+            <span>
+              {p.payment_parts?.length ? 'Split' : p.payment_mode === 'credit' ? 'Khata' : PAYMENT[p.payment_mode]} · {bill.invoiceNo}
+            </span>
+          </div>
+        )}
         <article className="receipt">
           {voided && <p className="void-stamp">VOIDED: not a valid bill</p>}
           <header>

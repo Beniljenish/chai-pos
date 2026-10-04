@@ -602,6 +602,28 @@ Mockups of six screens went to Benil first. He chose the light till (a dark till
 - **Every card has a hairline:** it is part of the shared `--shadow` token, so the look is one change, not forty.
 - **Not in this round** (new features, each to be done on its own): searching the menu, sales by hour against last week, stock level bars and stock value, counts of things waiting on the Manage sidebar, a Counter/Takeaway switch on the till.
 
+### 9.8 Mobile first: the phone flow, end to end
+Benil asked for the phone to come first and chose all four parts from ten phone mockups. Tablets are unchanged.
+- **Selling with one thumb.**
+  - The login form sits at the bottom, under the brand.
+  - A tile already on the bill shows **− 2**: one tap takes one off, without opening the bill. This works on tablets too; the button is named "Take one *item* off the bill".
+  - The open bill is a sheet with a handle over a dimmed page. The closed bill bar has an up-arrow to say it opens.
+- **"₹65 saved"** replaces the receipt pop-up on phones, right after Save. It shows a tick, the amount, the payment and the bill number, then the receipt, with Print again and New bill at the bottom. A reprint from Today still shows the plain receipt. It is the same dialog with the same buttons, so printing and the tests are unchanged.
+- **Manage on a phone is a list, like the phone's Settings.** A section fills the screen with **‹ Manage** to go back. This replaces the tile grid that sat on top of every page.
+  - *Trade-off:* Manage on a phone no longer opens straight on Sales. It opens on the list, with Sales as the first row, one tap away. Tablets still open on Sales, with the sidebar.
+  - The browser tests reach a section through a shared helper (`openSection` in `e2e/helpers.ts`) that goes back to the list first when it needs to.
+- **Today and Tables:**
+  - Shift buttons are equal pills.
+  - Floor and Kitchen are a segmented switch, and "+ Takeaway" and "+ Delivery" are soft pills.
+  - Tables are three across on a phone.
+- **The day-end count is guided**:
+  - "3 of 7 counted" with a bar, which stays at the top while scrolling;
+  - the item to count now is ringed and marked **Now**, and counted items turn green;
+  - big + and − buttons;
+  - a bar fixed above the tab bar with **Next item** (it scrolls to the next one not yet counted) and **Send count**.
+
+  Every item stays on the page, unlike the mockup, which folded counted items away. A cashier can still scroll back and fix one, and nothing hides a control the count needs. It is still blind for cashiers: no expected amounts.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

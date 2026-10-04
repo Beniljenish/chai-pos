@@ -103,6 +103,11 @@ export function BillingScreen() {
     setCart((c) => (qty <= 0 ? c.filter((l) => l.key !== key) : c.map((l) => (l.key === key ? { ...l, qty } : l))));
   }
 
+  function takeOne(menuItemId: string) {
+    const line = [...cart].reverse().find((l) => l.menuItemId === menuItemId);
+    if (line) setQty(line.key, line.qty - 1);
+  }
+
   function toggleModifier(key: string, modifierId: string) {
     setCart((c) =>
       c.map((l) =>
@@ -201,7 +206,8 @@ export function BillingScreen() {
             .map((i) => {
               const inCart = cart.filter((l) => l.menuItemId === i.id).reduce((n, l) => n + l.qty, 0);
               return (
-                <button key={i.id} className={`tile ${inCart > 0 ? 'in-bill' : ''}`} onClick={() => add(i.id)}>
+                <div key={i.id} className="tile-wrap">
+                <button className={`tile ${inCart > 0 ? 'in-bill' : ''}`} onClick={() => add(i.id)}>
                   <span className={`tile-badge tone-${badge(i.name).tone}`} aria-hidden="true">
                     {badge(i.name).text}
                   </span>
@@ -216,6 +222,13 @@ export function BillingScreen() {
                   </span>
                   {inCart > 0 && <span className="tile-count" aria-label={`${inCart} in bill`}>{inCart}</span>}
                 </button>
+                {/* Undo a tap without opening the bill: takes one off the last line of this item. */}
+                {inCart > 0 && (
+                  <button className="tile-less" aria-label={`Take one ${i.name} off the bill`} onClick={() => takeOne(i.id)}>
+                    −
+                  </button>
+                )}
+                </div>
               );
             })}
         </div>

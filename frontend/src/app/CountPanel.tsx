@@ -94,6 +94,13 @@ export function CountPanel({
   const set = (id: string, patch: Partial<Entry>) =>
     setEntries((e) => ({ ...e, [id]: { ...entry(id), ...patch, touched: true } }));
   const missing = shown.filter((i) => (recounting || mustCount(i.count_frequency)) && !entry(i.ingredient_id).touched);
+  // Guided count: progress over the items that must be counted, and the next one to do.
+  const required = shown.filter((i) => recounting || mustCount(i.count_frequency));
+  const countedSoFar = required.length - missing.length;
+  const current = missing[0]?.ingredient_id ?? null;
+  function goToNext() {
+    if (current) document.getElementById(`count-${current}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   async function submit() {
     setBusy(true);
@@ -144,6 +151,19 @@ export function CountPanel({
           internet first: the count must include every bill.
         </p>
       )}
+      {required.length > 0 && (
+        <div className="count-progress" aria-live="polite">
+          <span>
+            <strong className="num">
+              {countedSoFar} of {required.length}
+            </strong>{' '}
+            counted
+          </span>
+          <span className="count-bar" aria-hidden="true">
+            <i style={{ width: `${(countedSoFar / required.length) * 100}%` }} />
+          </span>
+        </div>
+      )}
       <ul className="count-list">
         {shown.map((i) => {
           const e = entry(i.ingredient_id);
@@ -152,7 +172,11 @@ export function CountPanel({
           const expected = i.expected !== undefined ? Number(i.expected) : null;
           const diff = expected !== null && e.touched ? Math.round((total - expected) * 1000) / 1000 : null;
           return (
-            <li key={i.ingredient_id} className={e.touched ? 'done' : ''}>
+            <li
+              key={i.ingredient_id}
+              id={`count-${i.ingredient_id}`}
+              className={e.touched ? 'done' : i.ingredient_id === current ? 'current' : ''}
+            >
               {expected !== null && (
                 <div className="balance">
                   <span>
@@ -173,6 +197,7 @@ export function CountPanel({
               )}
               <div className="count-head">
                 <strong>{i.name}</strong>
+                {i.ingredient_id === current && <span className="now-tag">Now</span>}
                 <span className="muted">
                   {!mustCount(i.count_frequency) && !recounting && 'weekly · optional'}
                   {i.counted && !e.touched && !recounting && ' counted'}
@@ -203,13 +228,20 @@ export function CountPanel({
       {missing.length > 0 && (
         <p className="muted">Still to count: {missing.map((m) => m.name).join(', ')}</p>
       )}
-      <button
-        className="primary"
-        disabled={busy || pending > 0 || missing.length > 0 || !shown.some((i) => entry(i.ingredient_id).touched)}
-        onClick={() => void submit()}
-      >
-        {recounting ? 'Send recount' : 'Send count'}
-      </button>
+      <div className="count-send">
+        {missing.length > 0 && (
+          <button onClick={goToNext}>
+            Next item
+          </button>
+        )}
+        <button
+          className="primary"
+          disabled={busy || pending > 0 || missing.length > 0 || !shown.some((i) => entry(i.ingredient_id).touched)}
+          onClick={() => void submit()}
+        >
+          {recounting ? 'Send recount' : 'Send count'}
+        </button>
+      </div>
       {error && (
         <p className="error" role="alert">
           {error}

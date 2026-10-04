@@ -29,3 +29,11 @@ export async function expectPhoneBars(page: Page) {
   expect(bar!.height).toBeLessThan(80); // one row
   expect(badge!.y).toBeLessThan(bar!.y + bar!.height);
 }
+
+/** Manage: open a section. On a phone Manage is a list, and an open section
+ * has a back button to it; on a tablet the sidebar is always there. */
+export async function openSection(page: Page, name: string) {
+  const back = page.getByRole('button', { name: 'Back to Manage' });
+  if (await back.isVisible()) await back.click();
+  await page.locator('.subnav').getByRole('button', { name, exact: true }).click();
+}
