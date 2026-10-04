@@ -1,6 +1,7 @@
 """Order events as devices send them (POST /sync/orders), validated per kind."""
 
 import uuid
+from decimal import Decimal
 from typing import Annotated, Any
 
 from pydantic import AwareDatetime, BaseModel, Field, model_validator
@@ -19,7 +20,9 @@ class ModifierSnap(_Strict):
     modifier_id: uuid.UUID
     name: Annotated[str, Field(max_length=40)]
     price_delta_paise: Annotated[int, Field(ge=-100_00, le=100_00)]
-    scale_factor: Annotated[str, Field(max_length=12)]
+    # As bills take it (schemas_billing.ModifierSnap): the catalogue sends it as
+    # a JSON number and the tablet copies it as it got it. Stored as text.
+    scale_factor: Annotated[Decimal, Field(gt=0, le=10, max_digits=6, decimal_places=3)]
     lines: Annotated[list[dict[str, Any]], Field(max_length=20)] = []
 
 
