@@ -6,36 +6,36 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 
 | Thing | State |
 | --- | --- |
-| `main` | Phases 0–5.4 merged (PRs #24 kitchen + service report, #25 UI polish, #27 Tablets crash fix, #29 parallel migration heads). Deployed on merge. |
-| Supabase `alembic_version` | `3e72290e9f62`. Nothing on `main` needs a newer revision. |
-| Open PRs, each **with a migration**, waiting for Benil | #26 Razorpay test mode (`59c516ec02c9`), #28 customer messages by iMessage/Inkbox (`feebafd74402`), #30 Phase 6 discounts/split payment/khata/split bill (`159f8fea95a7`), #31 Phase 7 reports/GST summary/purchases (`1dedecb97caa`). CI green on each. |
-| Not built (design note only) | Phase 8c: Swiggy/Zomato and multiple outlets (README, "Phase 8c (design only)"). Lands with #31. |
+| `main` | Phases 0–5.4, 7, 8a (Razorpay test mode, #26), 8b (iMessage via Inkbox, #28) merged and deployed. |
+| Supabase `alembic_version` | Three rows, one per parallel head: `59c516ec02c9` (payments), `feebafd74402` (messages), `1dedecb97caa` (Phase 7). RLS on and no `anon`/`authenticated` grants on every new table. |
+| Open PR **with a migration**, waiting for Benil | #30 Phase 6 discounts/split payment/khata/split bill (`159f8fea95a7`). CI green, `main` merged in. |
+| Not built (design note only) | Phase 8c: Swiggy/Zomato and multiple outlets (README, "Phase 8c (design only)"). |
 
 ## Order of work (status)
 
-1. Phase 5.3: done (#24). Flaky sales spec fixed in the app (sync badge race).
-2. Phase 5.4 UI polish: done (#25). Also found and fixed: sheets losing the cursor on refresh; the Tablets screen crashing when a tablet had waiting bills (#27).
-3. Phase 8a Razorpay (test mode): **#26, waiting for Benil** (migration, keys, webhook, one real test payment).
-4. Phase 8b iMessage through Inkbox: **#28, waiting for Benil** (migration, API key, decide on a dedicated iMessage line).
-5. Phase 6: **#30, waiting for Benil** (migration; CA question on discounts and GST).
-6. Phase 7: **#31, waiting for Benil** (migration; accountant to check one month's GST summary).
+1. Phase 5.3: done (#24).
+2. Phase 5.4 UI polish: done (#25, plus the Tablets crash fix #27).
+3. Phase 8a Razorpay (test mode): **merged (#26)**. UPI and card each open their own Checkout; the server confirms the payment with Razorpay and captures it. Waiting for one real test payment (below).
+4. Phase 8b iMessage through Inkbox: **merged (#28)**. Messages are written to Manage → Messages until an Inkbox key is set.
+5. Phase 6: **#30, waiting for Benil** (apply its SQL; CA question on discounts and GST).
+6. Phase 7: **merged (#31)**. Accountant to check one month's GST summary.
 7. Phase 8c: design note written; not built until the accounts exist.
 - Follow-ups noted in the README: keep pay-first takeaway orders on the kitchen screen after settling (Phase 5.3); discounts at the table; B2B invoices; snapshot HSN on bill lines.
 
-## How to land the four open PRs (any order)
+## Landing #30 (Phase 6)
 
-`main` now runs Alembic with parallel heads (README, Hosting, "Parallel migrations"), so the four migrations do not depend on each other. For each PR:
-1. Apply its SQL (in the PR description) to Supabase in one transaction. **The last line depends on what is already applied:** if `alembic_version` still holds only `3e72290e9f62`, use the `UPDATE` line as written. If any of the other three is already applied, use `INSERT INTO alembic_version (version_num) VALUES ('<this PR's revision>');` instead. `alembic_version` then has one row per applied PR; that is expected.
-2. Check RLS is on for the new tables and that `anon`/`authenticated` have no grants.
-3. Merge. After the first one, the others will show text conflicts (README sections, `main.py` router list, `config.py` settings, `models/__init__.py`, `styles.css`, `order_cases.json`): ask a Claude session to "merge main into <branch> and resolve". Keep both sides; they are additions. Wait for CI to be green, then merge.
+Its migration replaces the `uq_bills_order_id` index (same name, adds `order_part`). The Supabase connector holds every `DROP` for a confirmation that a cloud session cannot give, so it could not be applied from here.
+1. In the Supabase SQL editor, run the SQL from the PR description inside `BEGIN; … COMMIT;`, with the last line as `INSERT INTO alembic_version (version_num) VALUES ('159f8fea95a7');` (the other three heads are already applied).
+2. Check RLS is on for `customers` and `credit_repayments`, and that `anon`/`authenticated` have no grants.
+3. Merge #30. If `main` has moved, ask a session to "merge main into phase6-discounts-split-khata and resolve" first.
 
 ## Waiting for Benil
 
-- **The four PRs above:** apply SQL, then merge (see "How to land").
-- **Razorpay (#26):** the code reads `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` from the `chai-pos-api` Vercel project. Create a test-mode webhook to `https://chai-pos-api.vercel.app/api/v1/payments/razorpay/webhook` for `payment.captured` and `payment.failed`. Then make one test payment: on the till pick UPI, tick "Collect through Razorpay", Save and collect, and pay with Razorpay's test UPI id `success@razorpay`. Check that the till says Paid and that Sales lists the payment. This session could not reach Razorpay.
-- **Inkbox (#28):** add `INKBOX_API_KEY` (and `INKBOX_IDENTITY_ID` if the key is organisation-wide) to the API project. **Decide on a dedicated Inkbox iMessage line:** on the shared service, only customers who have messaged the shop's identity first can be messaged. Until a key is set, messages are written to Manage → Messages and not sent.
+- **#30 Phase 6:** apply SQL, then merge (see above).
+- **Razorpay:** keys and webhook secret are set in the `chai-pos-api` project. In Razorpay's dashboard (test mode), create a webhook to `https://chai-pos-api.vercel.app/api/v1/payments/razorpay/webhook` with events `payment.authorized`, `payment.captured`, `payment.failed` and `order.paid`, using the same secret as `RAZORPAY_WEBHOOK_SECRET`. Then, as owner, open **Manage → Shop & GST → Online payments (Razorpay) → Check connection**: it should say test mode, connected. Then on the till: UPI, tick "Collect through Razorpay", Save and collect, pay with `success@razorpay`; and once more with Card using Razorpay's test card. The till should say Paid each time and Sales should list both payments. This session cannot reach Razorpay.
+- **Inkbox:** add `INKBOX_API_KEY` (and `INKBOX_IDENTITY_ID` if the key is organisation-wide) to the API project. **Decide on a dedicated Inkbox iMessage line:** on the shared service, only customers who have messaged the shop's identity first can be messaged.
 - **Your CA (#30):** is sharing a bill discount across items in proportion to their value, then taxing each item on its reduced amount, how they want GST worked out?
-- **Your accountant (#31):** check one month's GST summary and the three CSVs before filing from them.
+- **Your accountant (Phase 7):** check one month's GST summary and the three CSVs before filing from them.
 - Make the repo private, and set up backups (Supabase Pro or a nightly export with its own secrets).
 - Upgrade to Vercel Pro and Supabase Pro before real sales.
 - Pilot shop details: tables and areas, kitchen setup, printer model, menu language.
