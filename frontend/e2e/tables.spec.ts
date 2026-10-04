@@ -194,6 +194,10 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Takeaway: Priya' })).toBeVisible();
   await page.locator('.tile', { hasText: 'Masala tea' }).click();
   await page.locator('.till-handle').click();
+  // A real option, not a note: options reach the kitchen as part of the KOT, and
+  // the server once refused every KOT with one (staging, 4 Oct 2026). The badge
+  // check at the end fails if any event was refused.
+  await page.getByRole('button', { name: 'Less sugar', exact: true }).click();
   await page.getByRole('button', { name: 'Send to kitchen (1)' }).click();
   await sheet(page).getByRole('button', { name: 'Done' }).click();
   const takeaway = page.locator('.order-list li', { hasText: 'Takeaway: Priya' });
