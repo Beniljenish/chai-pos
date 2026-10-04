@@ -3,6 +3,7 @@
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -308,3 +309,55 @@ def test_owner_sees_cancellations_and_bills_changed_after_printing(client, shop_
         "1 order(s) cancelled",
         "1 order(s) not settled: T1",
     ]
+
+
+def test_a_kot_with_options_is_taken_as_the_catalogue_sends_them(client, shop_a, setup):
+    """Options reach the tablet from the catalogue with `scale_factor` as a JSON
+    number (1.0, 1.5). The tablet copies the option into the KOT exactly as it got
+    it. Orders used to accept only text there, so every table or takeaway order
+    with an option was refused (found on staging, tablet C2, 4 Oct 2026)."""
+    cat, device, t1, _ = setup
+    h = shop_a.owner_h
+    large = client.post(
+        f"{API}/modifiers",
+        json={"name": "Large", "price_delta_paise": 1000, "scale_factor": "1.5"},
+        headers=h,
+    ).json()
+    catalogue = client.get(f"{API}/catalogue", headers=shop_a.cashier_h).json()
+    mods = {m["name"]: m for m in catalogue["modifiers"]}
+
+    def snap(m):
+        return {
+            "modifier_id": m["id"],
+            "name": m["name"],
+            "price_delta_paise": m["price_delta_paise"],
+            "scale_factor": m["scale_factor"],
+            "lines": [
+                {"ingredient_id": x["ingredient_id"], "qty_delta": x["qty_delta"]}
+                for x in m["lines"]
+            ],
+        }
+
+    oid = str(uuid.uuid4())
+    line = {**_line(cat), "modifiers": [snap(mods["Less sugar"]), snap(mods[large["name"]])]}
+    got = _sync(
+        client,
+        shop_a.cashier_h,
+        device.device_id,
+        [
+            _ev(oid, "open", {"order_type": "dine_in", "table_id": t1["id"]}, -3),
+            _ev(oid, "kot", {"kot_no": "C1-1", "lines": [line]}, -2),
+        ],
+    )
+    assert got == [("accepted", None), ("accepted", None)]
+    (kot,) = [o for o in _live(client, h)[oid]["events"] if o["kind"] == "kot"]
+    scales = [m["scale_factor"] for m in kot["data"]["lines"][0]["modifiers"]]
+    assert [Decimal(str(s)) for s in scales] == [Decimal(1), Decimal("1.5")]
+    # Nonsense is still refused, on its own.
+    bad = {**_line(cat), "modifiers": [{**snap(mods["Less sugar"]), "scale_factor": "lots"}]}
+    assert _sync(
+        client,
+        shop_a.cashier_h,
+        device.device_id,
+        [_ev(oid, "kot", {"kot_no": "C1-2", "lines": [bad]})],
+    )[0][1].startswith("invalid_event")
