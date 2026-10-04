@@ -6,9 +6,9 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 
 | Thing | State |
 | --- | --- |
-| `main` | Phases 0–5.4, 7, 8a (Razorpay test mode, #26), 8b (iMessage via Inkbox, #28) merged and deployed. |
-| Supabase `alembic_version` | Three rows, one per parallel head: `59c516ec02c9` (payments), `feebafd74402` (messages), `1dedecb97caa` (Phase 7). RLS on and no `anon`/`authenticated` grants on every new table. |
-| Open PR **with a migration**, waiting for Benil | #30 Phase 6 discounts/split payment/khata/split bill (`159f8fea95a7`). CI green, `main` merged in. |
+| `main` | Phases 0–7, 8a (Razorpay test mode), 8b (iMessage via Inkbox) merged and deployed. Sync fixes #33, #34 and Razorpay method fix #35 (4 Oct). |
+| Supabase `alembic_version` | Four rows, one per parallel head: `59c516ec02c9` (payments), `feebafd74402` (messages), `1dedecb97caa` (Phase 7), `159f8fea95a7` (Phase 6). RLS on and no `anon`/`authenticated` grants on every new table. |
+| Open PRs | None. |
 | Not built (design note only) | Phase 8c: Swiggy/Zomato and multiple outlets (README, "Phase 8c (design only)"). |
 
 ## Order of work (status)
@@ -17,21 +17,13 @@ For a new Claude Code session picking up chai-pos. Read `CLAUDE.md` first (rules
 2. Phase 5.4 UI polish: done (#25, plus the Tablets crash fix #27).
 3. Phase 8a Razorpay (test mode): **merged (#26)**. UPI and card each open their own Checkout; the server confirms the payment with Razorpay and captures it. Waiting for one real test payment (below).
 4. Phase 8b iMessage through Inkbox: **merged (#28)**. Messages are written to Manage → Messages until an Inkbox key is set.
-5. Phase 6: **#30, waiting for Benil** (apply its SQL; CA question on discounts and GST).
+5. Phase 6: **merged (#30)**. CA question on discounts and GST still open.
 6. Phase 7: **merged (#31)**. Accountant to check one month's GST summary.
 7. Phase 8c: design note written; not built until the accounts exist.
 - Follow-ups noted in the README: keep pay-first takeaway orders on the kitchen screen after settling (Phase 5.3); discounts at the table; B2B invoices; snapshot HSN on bill lines.
 
-## Landing #30 (Phase 6)
-
-Its migration replaces the `uq_bills_order_id` index (same name, adds `order_part`). The Supabase connector holds every `DROP` for a confirmation that a cloud session cannot give, so it could not be applied from here.
-1. In the Supabase SQL editor, run the SQL from the PR description inside `BEGIN; … COMMIT;`, with the last line as `INSERT INTO alembic_version (version_num) VALUES ('159f8fea95a7');` (the other three heads are already applied).
-2. Check RLS is on for `customers` and `credit_repayments`, and that `anon`/`authenticated` have no grants.
-3. Merge #30. If `main` has moved, ask a session to "merge main into phase6-discounts-split-khata and resolve" first.
-
 ## Waiting for Benil
 
-- **#30 Phase 6:** apply SQL, then merge (see above).
 - **Razorpay:** keys and webhook secret are set in the `chai-pos-api` project. In Razorpay's dashboard (test mode), create a webhook to `https://chai-pos-api.vercel.app/api/v1/payments/razorpay/webhook` with events `payment.authorized`, `payment.captured`, `payment.failed` and `order.paid`, using the same secret as `RAZORPAY_WEBHOOK_SECRET`. Then, as owner, open **Manage → Shop & GST → Online payments (Razorpay) → Check connection**: it should say test mode, connected. Then on the till: UPI, tick "Collect through Razorpay", Save and collect, pay with `success@razorpay`; and once more with Card using Razorpay's test card. The till should say Paid each time and Sales should list both payments. This session cannot reach Razorpay.
 - **Inkbox:** add `INKBOX_API_KEY` (and `INKBOX_IDENTITY_ID` if the key is organisation-wide) to the API project. **Decide on a dedicated Inkbox iMessage line:** on the shared service, only customers who have messaged the shop's identity first can be messaged.
 - **Your CA (#30):** is sharing a bill discount across items in proportion to their value, then taxing each item on its reduced amount, how they want GST worked out?
