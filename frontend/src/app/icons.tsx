@@ -18,6 +18,8 @@ export const ICON = {
   tablets: 'M6 2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2',
   messages: 'M4 4h16v12H8l-4 4zM8 9h8M8 12h5',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  back: 'M15 6l-6 6 6 6',
+  chevron: 'M9 6l6 6-6 6',
   cash: 'M3 7h18v10H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   upi: 'M7 3h10v18H7zM11 18h2',
   card: 'M3 6h18v12H3zM3 10h18',

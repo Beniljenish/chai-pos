@@ -7,6 +7,7 @@
  * Other specs bill on the same day, so the owner's report is read for this tablet.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -81,6 +82,7 @@ test('a shift from opening float to blind count; the owner sees whether it match
 
   // ---- Owner: Sales -> Cash drawer, this tablet's two shifts ----
   await tab(page, 'Manage').click();
+  await openSection(page, 'Sales'); // a phone opens Manage on its list
   const mine = page.locator('.shift-list > li', { hasText: TABLET });
   await expect(mine).toHaveCount(2);
   const first = mine.nth(0);

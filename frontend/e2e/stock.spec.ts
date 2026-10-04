@@ -4,6 +4,7 @@
  * milk out), and the history behind the number. Screenshots for review.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -28,19 +29,15 @@ test('owner stock: opening count, stock-in, batch, history', async ({ page }) =>
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
   await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
-  // Manage opens on Sales (what the owner checks most); Stock is one tap away.
+  // On a phone Manage opens on its list; Stock is one tap away.
   // The first load fails (a network blip): the screen says so and reloads in place.
   await page.route('**/api/v1/stock', (r) => r.abort('internetdisconnected'));
-  await page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true }).click();
+  await openSection(page, 'Stock');
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.getByText('Loading…')).toHaveCount(0);
   await page.unroute('**/api/v1/stock');
   await page.getByRole('alert').getByRole('button', { name: 'Reload' }).click();
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(page.locator('.subnav').getByRole('button', { name: 'Stock', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
   await expect(page.getByRole('heading', { name: 'Stock', exact: true })).toBeVisible();
   await expect(row(page, 'Milk')).toContainText('Not counted');
   await shot(page, '10-stock-list');

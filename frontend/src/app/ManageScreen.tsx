@@ -1,5 +1,5 @@
 /** Owner-only: the shop's records. */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon, type IconName } from "./icons";
 import { DayEndScreen } from "./DayEndScreen";
 import { FloorSetup } from "./FloorSetup";
@@ -65,10 +65,44 @@ const GROUPS: {
     },
   ];
 
+const PHONE = "(max-width: 600px)";
+
+/** True on a phone-sized screen, and kept up to date if the window is resized. */
+function usePhone(): boolean {
+  const [query] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia ? window.matchMedia(PHONE) : null,
+  );
+  const [phone, setPhone] = useState(() => query?.matches ?? false);
+  useEffect(() => {
+    if (!query) return;
+    const update = () => setPhone(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, [query]);
+  return phone;
+}
+
 export function ManageScreen() {
-  const [section, setSection] = useState<Section>("sales");
+  // Phones: Manage opens as a list (like the phone's own Settings) and a
+  // section fills the screen with a way back. Tablets: the sidebar and Sales.
+  const phone = usePhone();
+  const [chosen, setSection] = useState<Section | null>(null);
+  const section: Section | null = chosen ?? (phone ? null : "sales");
+  if (phone && section !== null) {
+    return (
+      <main className="manage manage-section">
+        <button className="manage-back" aria-label="Back to Manage" onClick={() => setSection(null)}>
+          <Icon name="back" size={20} />
+          <span>Manage</span>
+        </button>
+        <div className="manage-body">
+          <SectionBody section={section} />
+        </div>
+      </main>
+    );
+  }
   return (
-    <main className="manage">
+    <main className={`manage ${section === null ? "manage-home" : ""}`}>
       <nav className="subnav" aria-label="Manage">
         {GROUPS.map((g) => (
           <div
@@ -89,39 +123,49 @@ export function ManageScreen() {
                 >
                   <Icon name={s.id} size={20} />
                   <span>{s.label}</span>
+                  <span className="subnav-chevron" aria-hidden="true">
+                    <Icon name="chevron" size={18} />
+                  </span>
                 </button>
               ))}
             </div>
           </div>
         ))}
       </nav>
-      <div className="manage-body">
-        {section === "sales" ? (
-          <SalesScreen />
-        ) : section === "reports" ? (
-          <ReportsScreen />
-        ) : section === "purchases" ? (
-          <PurchasesScreen />
-        ) : section === "stock" ? (
-          <StockScreen />
-        ) : section === "dayend" ? (
-          <DayEndScreen />
-        ) : section === "recipes" ? (
-          <RecipesScreen />
-        ) : section === "shop" ? (
-          <ShopScreen />
-        ) : section === "floor" ? (
-          <FloorSetup />
-        ) : section === "khata" ? (
-          <KhataScreen />
-        ) : section === "staff" ? (
-          <StaffScreen />
-        ) : section === "messages" ? (
-          <MessagesScreen />
-        ) : (
-          <TabletsScreen />
-        )}
-      </div>
+      {section !== null && (
+        <div className="manage-body">
+          <SectionBody section={section} />
+        </div>
+      )}
     </main>
   );
+}
+
+function SectionBody({ section }: { section: Section }) {
+  switch (section) {
+    case "sales":
+      return <SalesScreen />;
+    case "reports":
+      return <ReportsScreen />;
+    case "purchases":
+      return <PurchasesScreen />;
+    case "stock":
+      return <StockScreen />;
+    case "dayend":
+      return <DayEndScreen />;
+    case "recipes":
+      return <RecipesScreen />;
+    case "shop":
+      return <ShopScreen />;
+    case "floor":
+      return <FloorSetup />;
+    case "khata":
+      return <KhataScreen />;
+    case "staff":
+      return <StaffScreen />;
+    case "messages":
+      return <MessagesScreen />;
+    case "tablets":
+      return <TabletsScreen />;
+  }
 }

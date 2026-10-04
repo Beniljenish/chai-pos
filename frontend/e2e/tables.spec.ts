@@ -5,7 +5,7 @@
  * Printing goes through RawBT so the test can read every ticket.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { expectPhoneBars } from './helpers';
+import { expectPhoneBars, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -13,7 +13,6 @@ const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screensh
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
 
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 async function lastPrinted(page: Page): Promise<string> {
   return page.evaluate(() => {
@@ -49,7 +48,7 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
 
   // ---- Its own area, so the spec does not depend on others ----
   await tab(page, 'Manage').click();
-  await sub(page, 'Floor').click();
+  await openSection(page, 'Floor');
   await page.getByRole('button', { name: '+ Area' }).click();
   await sheet(page).getByLabel('Name', { exact: true }).fill('Family');
   await sheet(page).getByRole('button', { name: 'Add area' }).click();
@@ -215,7 +214,7 @@ test('a table orders in rounds, gets its bill, and pays', async ({ page }) => {
 
   // ---- The owner's report under Sales: the cancelled tea and the cancelled takeaway ----
   await tab(page, 'Manage').click();
-  await sub(page, 'Sales').click();
+  await openSection(page, 'Sales');
   const service = page.getByRole('region', { name: 'Table service' });
   await expect(service).toContainText('1 table order');
   await expect(service).toContainText('1 × Masala tea');

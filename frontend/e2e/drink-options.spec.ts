@@ -4,14 +4,13 @@
  * Large and check the stock went down by the scaled recipe.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { saveAndPrint } from './helpers';
+import { saveAndPrint, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 test('new drink with its recipe and options, sold Large', async ({ page }) => {
   test.setTimeout(90_000);
@@ -24,7 +23,7 @@ test('new drink with its recipe and options, sold Large', async ({ page }) => {
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
   await tab(page, 'Manage').click();
-  await sub(page, 'Recipes').click();
+  await openSection(page, 'Recipes');
 
   // ---- + New drink goes straight on to its recipe ----
   await page.getByRole('button', { name: '+ New drink' }).click();
@@ -82,7 +81,7 @@ test('new drink with its recipe and options, sold Large', async ({ page }) => {
   await expect(page.locator('.sync-badge')).toHaveAttribute('aria-label', 'All bills sent', { timeout: 15_000 });
 
   await tab(page, 'Manage').click();
-  await sub(page, 'Stock').click();
+  await openSection(page, 'Stock');
   await page.locator('.stock-list li', { hasText: 'Tea decoction' }).click();
   await expect(sheet(page).locator('.ledger li').first()).toContainText('Sold');
   await expect(sheet(page).locator('.ledger li').first()).toContainText('−150 ml');

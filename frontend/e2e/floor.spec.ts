@@ -1,12 +1,12 @@
 /** The owner sets up the dining floor on a phone: areas, bulk-added tables, edits. */
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 test('owner sets up areas and tables', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -17,7 +17,7 @@ test('owner sets up areas and tables', async ({ page }) => {
   await page.getByLabel('Tablet name').fill('E2E floor phone');
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
   await tab(page, 'Manage').click();
-  await sub(page, 'Floor').click();
+  await openSection(page, 'Floor');
   await expect(page.locator('.empty-card')).toContainText('No tables yet');
 
   // ---- An area, then six tables in one go ----

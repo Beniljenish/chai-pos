@@ -4,7 +4,7 @@
  * the GSTIN and the CGST/SGST rates.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { saveAndPrint } from './helpers';
+import { saveAndPrint, openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -24,7 +24,7 @@ test('owner GST: mistyped GSTIN refused, regular GST prints a tax invoice', asyn
   await page.getByRole('button', { name: 'Set up as a new tablet' }).click();
 
   await tab(page, 'Manage').click();
-  await page.locator('.subnav').getByRole('button', { name: 'Shop & GST' }).click();
+  await openSection(page, 'Shop & GST');
   await expect(page.getByRole('heading', { name: 'Shop & GST' })).toBeVisible();
 
   await page.getByRole('radio', { name: /Regular GST/ }).check();

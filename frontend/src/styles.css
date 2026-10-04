@@ -3499,3 +3499,386 @@ button.save {
     width: 100%;
   }
 }
+
+/* =====================================================================
+   Mobile first (Oct 2026): the phone flow Benil chose from the mockups.
+   Everything that finishes a job sits in thumb reach at the bottom.
+   ===================================================================== */
+
+/* ---------- a tile on the bill: "− 2", one tap to undo (all sizes) ---------- */
+.tile-wrap {
+  position: relative;
+  display: grid;
+}
+.tile-less {
+  position: absolute;
+  top: 12px;
+  right: 40px;
+  min-height: 28px;
+  height: 28px;
+  width: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 9px 0 0 9px;
+  background: var(--brand);
+  color: var(--paper);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.25);
+}
+.tile-wrap:has(.tile-less) .tile-count {
+  border-radius: 0 9px 9px 0;
+}
+.tile-less:active:not(:disabled) {
+  background: var(--brand-press);
+  transform: none;
+}
+
+/* ---------- the "saved" moment: phones, right after Save ---------- */
+.saved-head {
+  display: none;
+}
+@media (max-width: 600px) {
+  .overlay.just-saved {
+    background: var(--steel);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    align-items: start;
+    padding: var(--s6) var(--s4) var(--s4);
+  }
+  .just-saved .receipt-wrap {
+    width: 100%;
+    min-height: calc(100dvh - 64px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+  }
+  .just-saved .saved-head {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    text-align: center;
+    animation: pop 0.25s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  }
+  .saved-tick {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--leaf-soft);
+    color: var(--leaf);
+    box-shadow: 0 0 0 12px rgba(19, 134, 90, 0.06);
+    margin-bottom: var(--s3);
+  }
+  .saved-head strong {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .saved-head span:last-child {
+    color: var(--ink-faint);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .just-saved .receipt {
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow);
+    font-size: 13px;
+    align-self: stretch;
+  }
+  .just-saved .receipt-actions {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 10px;
+  }
+  .just-saved .receipt-actions button {
+    min-height: 56px;
+  }
+  .just-saved .printer-link {
+    margin-top: 0;
+    color: var(--ink-soft);
+  }
+}
+
+@media (max-width: 600px) {
+  /* ---------- login: the brand on top, the form at the bottom ---------- */
+  .login-screen {
+    align-content: stretch;
+    grid-template-rows: 1fr auto;
+    padding: var(--s6) var(--s3) calc(var(--s3) + env(safe-area-inset-bottom));
+  }
+  .login-hero {
+    align-self: center;
+  }
+  .login-card {
+    align-self: end;
+    padding: var(--s5) var(--s4);
+  }
+
+  /* ---------- the open bill: a sheet with a handle over a dimmed page ---------- */
+  .till.open {
+    z-index: 6;
+    border-radius: 26px 26px 0 0;
+    box-shadow: 0 0 0 100vmax rgba(30, 12, 54, 0.45);
+  }
+  .till.open .till-bar {
+    position: relative;
+    padding-top: 10px;
+  }
+  .till.open .till-bar::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 40px;
+    height: 5px;
+    margin-left: -20px;
+    border-radius: 99px;
+    background: var(--steel-deep);
+  }
+  .till:not(.open) .till-handle::before {
+    content: '';
+    width: 26px;
+    height: 26px;
+    margin-right: 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12) center / 14px no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 15l6-6 6 6'/%3E%3C/svg%3E");
+    flex: none;
+  }
+  .till:not(.open) .till-handle {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  .till:not(.open) .till-handle strong {
+    margin-left: auto;
+  }
+  .payment {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Manage on a phone: a list, then one section at a time ---------- */
+.subnav-chevron {
+  display: none;
+}
+.manage-back {
+  display: none;
+}
+@media (max-width: 600px) {
+  .manage-home .subnav {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    gap: var(--s4);
+    margin: 0;
+  }
+  .manage-home .subnav-label {
+    padding: 0 var(--s2);
+    font-size: 0.72rem;
+  }
+  .manage-home .subnav-items {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    background: var(--paper);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .manage-home .subnav button {
+    min-height: 60px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 0 var(--s4) 0 var(--s3);
+    border-radius: 0;
+    background: var(--paper);
+    font-size: 1rem;
+    text-align: left;
+    letter-spacing: 0;
+  }
+  .manage-home .subnav button + button {
+    box-shadow: inset 0 1px 0 var(--line);
+  }
+  .manage-home .subnav button .icon {
+    width: 38px;
+    height: 38px;
+    padding: 8px;
+    border-radius: 11px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    box-sizing: border-box;
+  }
+  .manage-home .subnav-chevron {
+    display: block;
+    margin-left: auto;
+    color: var(--ink-faint);
+  }
+  .manage-home .subnav button .subnav-chevron .icon {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: none;
+    color: var(--ink-faint);
+  }
+  .manage-section .manage-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 44px;
+    padding: 0 var(--s2) 0 0;
+    margin-bottom: var(--s2);
+    border: none;
+    background: none;
+    color: var(--brand);
+    font-weight: 700;
+  }
+}
+
+/* ---------- Today and Tables ---------- */
+/* Tiles without the badge row (a waiter's order screen) keep the price at the foot. */
+.tile > .tile-price {
+  margin-top: auto;
+}
+.shift-panel .shift-actions button {
+  border-radius: 999px;
+}
+.view-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.view-switch button {
+  min-height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-soft);
+}
+.view-switch button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.floor-actions button {
+  min-height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+@media (max-width: 600px) {
+  .shift-panel .shift-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .shift-panel .shift-actions .muted {
+    grid-column: 1 / -1;
+  }
+  .shift-panel .shift-actions button {
+    min-height: 44px;
+    padding: 0 6px;
+  }
+  .view-switch {
+    display: flex;
+  }
+  .view-switch button {
+    flex: 1;
+  }
+  .floor-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .bills-head .manage-head {
+    align-items: flex-start;
+  }
+}
+
+/* ---------- the day-end count, guided: progress, the item to count now, a send bar ---------- */
+.count-progress {
+  display: grid;
+  gap: 6px;
+  margin: var(--s3) 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.count-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.count-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+  transition: width 0.25s ease;
+}
+.count-list li.current {
+  box-shadow: 0 0 0 2px var(--brand), 0 0 0 6px var(--brand-soft);
+}
+.count-list li.done {
+  box-shadow: 0 0 0 1.5px #bfe6d0;
+}
+.now-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  margin-left: var(--s2);
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.count-send {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s3);
+}
+.count-send button {
+  flex: 1;
+}
+@media (max-width: 600px) {
+  .count-progress {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: var(--s2) 0;
+    background: var(--steel);
+  }
+  /* Send sits above the tab bar, always in reach. */
+  .count-send {
+    position: sticky;
+    bottom: var(--nav-h);
+    z-index: 2;
+    margin: var(--s3) calc(-1 * var(--s4)) 0;
+    padding: var(--s3) var(--s4);
+    background: var(--paper);
+    box-shadow: 0 -1px 0 var(--line);
+  }
+  .count-send button {
+    min-height: 56px;
+  }
+  .count .pack-row button,
+  .count .stepper button {
+    width: 48px;
+    min-height: 48px;
+    border-radius: 14px;
+    background: var(--brand-soft);
+    border-color: transparent;
+    color: var(--brand);
+    font-size: 1.4rem;
+  }
+}

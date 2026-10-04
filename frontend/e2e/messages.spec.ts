@@ -5,13 +5,13 @@
  * written there and not sent (backend/tests/test_messages.py covers sending).
  */
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const sheet = (page: Page) => page.getByRole('dialog');
 const tab = (page: Page, name: string) => page.locator('.tabs').getByRole('button', { name, exact: true });
-const sub = (page: Page, name: string) => page.locator('.subnav').getByRole('button', { name, exact: true });
 
 test('a takeaway customer who agreed hears that the order is ready', async ({ page }) => {
   test.setTimeout(90_000);
@@ -51,7 +51,7 @@ test('a takeaway customer who agreed hears that the order is ready', async ({ pa
   await expect(page.locator('.sync-badge')).toHaveAccessibleName(/All bills sent/, { timeout: 20_000 });
 
   await tab(page, 'Manage').click();
-  await sub(page, 'Messages').click();
+  await openSection(page, 'Messages');
   await expect(page.getByText(/Sending is not set up yet/)).toBeVisible();
   const msg = page.locator('.message-list li', { hasText: 'Meena' });
   await expect(msg).toContainText('Order ready');
