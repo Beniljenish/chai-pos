@@ -358,7 +358,7 @@ export interface OnlinePaymentRow {
   paid_paise: number | null;
   provider_payment_id: string | null;
   error: string;
-  problem: 'not_paid' | 'amount_mismatch' | 'refund_due' | null;
+  problem: 'not_paid' | 'amount_mismatch' | 'refund_due' | 'paid_other_way' | null;
 }
 
 export interface ShiftReport {

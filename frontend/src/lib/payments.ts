@@ -77,6 +77,8 @@ export const PROBLEM_LABELS: Record<string, string> = {
   not_paid: 'Not paid online',
   amount_mismatch: 'Paid a different amount',
   refund_due: 'Paid, then voided: refund due',
+  // The customer used the other method Checkout offered (README, Phase 8a).
+  paid_other_way: 'Paid by the other method: the bill says otherwise',
 };
 
 export interface RazorpayHealth {

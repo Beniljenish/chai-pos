@@ -350,24 +350,41 @@ def test_webhook_authorized_payment_is_captured(client, shop_a, device, rzp):
 
 
 @pytest.mark.parametrize("method", ["upi", "card"])
-def test_checkout_shows_only_the_chosen_method(client, shop_a, device, rzp, method):
-    """The chosen method stays on Razorpay's own default list, with every other
-    method hidden. An earlier version allowed only listed UPI flows (QR, collect,
-    intent); on a desktop browser with collect retired and QR not switched on,
-    none was available and Checkout said "No appropriate payment method found"
-    (staging, 4 Oct 2026). Razorpay now shows whichever UPI flows the account has."""
+def test_checkout_puts_the_chosen_method_first_and_never_dead_ends(
+    client, shop_a, device, rzp, method
+):
+    """The cashier's method comes first; the other (UPI or card) stays as a way
+    out. Showing only one method left the customer at "No appropriate payment
+    method found" whenever the Razorpay account could not offer it on that
+    device (UPI on a desktop browser, staging, 4 Oct 2026)."""
     bill = _synced_bill(device)
     oid = _order(client, shop_a.cashier_h, bill, method=method).json()["razorpay_order_id"]
     page = client.get(f"{API}/payments/razorpay/checkout?order_id={oid}").text
     start = page.index("const o = ") + len("const o = ")
     options = json.loads(page[start : page.index(";\n", start)])
     display = options["config"]["display"]
-    assert "blocks" not in display and "sequence" not in display
-    assert display["preferences"] == {"show_default_blocks": True}
-    hidden = {h["method"] for h in display["hide"]}
-    assert method not in hidden
-    assert {"upi", "card", "netbanking", "wallet", "emi", "paylater"} - {method} <= hidden
+    other = "card" if method == "upi" else "upi"
+    assert display["sequence"] == [f"block.{method}", f"block.{other}"]
+    assert [display["blocks"][b]["instruments"] for b in (method, other)] == [
+        [{"method": method}],
+        [{"method": other}],
+    ]
+    # Only UPI and card: netbanking, wallets, EMI and pay-later stay hidden.
+    assert display["preferences"] == {"show_default_blocks": False}
     assert "flows" not in json.dumps(display)  # never limit which UPI flows show
+
+
+def test_a_upi_bill_paid_by_card_is_recorded_and_flagged(client, shop_a, device, rzp):
+    """The customer may take the way out: the server records what Razorpay says
+    was used, and the owner sees the bill's mode differs from the payment."""
+    bill = _synced_bill(device)
+    oid = _order(client, shop_a.cashier_h, bill).json()["razorpay_order_id"]
+    rzp.pay(oid, "pay_CARD", bill["totals"]["total"], method="card")
+    assert _verify(client, oid, "pay_CARD").json()["status"] == "paid"
+    rep = client.get(f"{API}/reports/sales", headers=shop_a.owner_h).json()
+    (online,) = rep["online_payments"]
+    assert online["method"] == "card"
+    assert online["problem"] == "paid_other_way"
 
 
 def test_owner_can_check_the_razorpay_connection(client, shop_a, rzp, monkeypatch):
