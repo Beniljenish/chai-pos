@@ -283,6 +283,31 @@ Environment variables (set in Vercel, never in the repo):
 - **Cold starts accepted for staging.** The first request after idle takes a few seconds. The app does not care: bills are saved on the device first and the sync worker retries.
 - **Migrations are not run on deploy.** They are applied to Supabase deliberately after a PR merges (see the Supabase section), so a deploy can never change the schema by surprise.
 
+### Demo data
+
+**Actions → Reset staging demo data → Run workflow**, typing `RESET STAGING`, replaces staging's data with four weeks of a busy tea and juice shop ending at the moment it runs. Run it again any time to bring the data up to today.
+
+What it makes (all invented, names and numbers placeholders):
+- **Menu:** 20 items in Tea, Coffee, Juice and Snacks, with recipes, two decoctions made in batches, fresh-fruit juices by yield, and six options (Less sugar, Large, Extra ginger, ...). 24 ingredients with pack sizes and reorder levels.
+- **Sales:** about 5,000 bills on two counters, with morning and evening peaks, more on weekends, juices in the afternoon. Cash, UPI, card, split and khata; a few discounts with reasons, a void most days.
+- **Tables:** 13 tables in three areas; waiter-phone orders with KOTs in one or two rounds. Right now: tables eating, one with its bill printed, takeaways in the kitchen.
+- **Money:** a drawer shift per counter (a change of cashier at 3 pm), pay-outs, counts that are mostly right, sometimes ₹10-50 short or a little over. Ten khata customers, some paying back.
+- **Stock:** opening counts, milk and bakery every morning, fruit three times a week, dry goods and cups by purchase order, a local-shop top-up when something runs low; wastage; a blind count every night, approved by the owner the next morning. **Yesterday's count is left for the owner to approve.**
+- **Staff:** Ravi, Priya and Arun (waiter) are added. They must set a password: give each one a temporary password in **Staff** first.
+
+**Kept:** the shop and every existing login and password. The shop is renamed *Jamun Tea & Juice (demo)*, regular GST with a synthetic GSTIN, cash shifts on (Shop & GST changes it back). Its email settings are not touched. **Deleted:** everything else, including the tablets. Each phone or tablet that used staging must **clear the site's data** (browser settings) and be set up again, or it keeps trying to sync bills from tablets that no longer exist.
+
+**Setup, once:** add the repository secret `STAGING_DATABASE_URL` with Supabase's *Session pooler* connection string (`postgresql://...`, port 5432). The owner types it in GitHub; it is not in the repo or the code.
+
+#### Decisions and trade-offs
+- **Made through the real API, with the clock moved.** `scripts/demo_data.py` runs the app in-process and uses `time-machine` to step through each day, so every bill, KOT, shift, count and stock movement passes the same checks and services as the tablets: GST per line, deductions by recipe version, the append-only ledger, variance. Writing rows directly would be faster to build and easy to get subtly wrong (a bill whose stock never moved, a drawer that cannot balance). `tests/test_demo_data.py` runs two days of it in CI, so an API change that breaks it fails there, not on the button.
+- **Built on the runner, loaded in one transaction.** The data is built in a throwaway Postgres on the GitHub runner (two minutes) and copied with `pg_dump`/`psql`: about 15 MB of rows, one round trip per 500. Building straight into Supabase would take thousands of queries from the US to Seoul. `scripts/demo/reset.sh` wipes and loads with `--single-transaction`, so staging gets all of it or none of it.
+- **It checks before it deletes:** the target's migrations must match the code (`alembic_version`), and there must be exactly one shop.
+- **The ledger is cleared with `TRUNCATE`.** Its triggers forbid row `UPDATE` and `DELETE`, which is the rule for the app. Resetting a staging database is not a correction to stock, so the wipe is a separate, explicit step, and the triggers stay as they are.
+- **No session settings reach the pooler.** `pg_dump` output starts with `SET search_path = ''` and timeouts. On a pooled connection they could outlast the load and reach the app's next queries, so they are removed (the dump is schema-qualified).
+- **No email or iMessage is sent.** The email and message outboxes are not copied, and settings that send email are left as the owner set them. A reset never mails 5,000 bills.
+- **Not for production.** It deletes a shop's sales. The workflow runs only by hand, only with the typed confirmation, and only against the secret's database.
+
 ## Phase 3a: owner stock screen
 
 The owner's **Stock** tab (cashiers see **Prep** instead): stock on hand, stock-in by pack, a one-time opening count, logging decoction batches, and the history behind every number.
