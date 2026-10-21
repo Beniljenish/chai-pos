@@ -691,6 +691,25 @@ Chosen from a mockup. No migration: every number is worked out from records the 
 - **Manage counts:** an **Alerts** badge ("3 new") counts alerts to act on or look at. Waiting wastage and price news are left out of it: Day end already shows the first, and the second is not a problem.
 - **Demo data note:** the demo generator moves a fake clock, but a void is stamped with the real time, so a freshly generated demo shows all its voids as one burst. That is the generator, not the rule.
 
+### 9.11 Food courts: customers scan one QR and order from any outlet
+Chosen from a mockup. Several shops (outlets) share one food court. A customer scans the court's QR, picks an outlet, picks dishes, gives a name and phone, and gets a token. The outlet sees the order on its own Tables screen. **Payment is at the counter** in this version.
+- **How an order travels.** The customer's order is an ordinary takeaway `Order`, written as the same events a till writes (`open`, `kot`) by a stand-in "Online ordering" device and user. So the outlet gets, with no new code on its side: the kitchen screen, the "your order is ready" message (when the customer agreed), billing with GST and an invoice number, the receipt message, and the reports.
+  - *Trade-off:* the stand-in user and device (code `ON`) are hidden from the Staff and Tablets lists. The token is written at the front of the customer's name ("JT-17 Ravi") because the order rules are pinned to the app by shared test cases; adding a field there would change both.
+  - The customer's page says **Received → Ready → Collected**. There is no "Preparing" step: the order machinery has no such event, and adding one would change those pinned rules.
+- **Setup** (Manage → Food court). The host makes the court and gets a join code. Another outlet's owner types the code to join; nothing is shared until then. Each outlet switches **Taking online orders** itself (off until it does), and the host can remove an outlet.
+- **What a customer can reach (`/api/v1/public/...`, no login).** The outlet list (names and open/closed), one outlet's menu (dish names, categories, prices, sold out), placing an order, and reading that one order back. Nothing else.
+  - The shop a request touches comes from the food court's own outlet list, never from anything the customer sends. A dish id from another outlet, or an outlet from another court, is refused.
+  - The order link is signed (HMAC over the shop and order ids): changing one character, or pairing one shop's id with another's order, finds nothing.
+  - Limits: 5 orders per hour per phone number, 40 open online orders per outlet, 20 of one dish, 15 dishes, 40 items in all. A double tap is one order (the page sends one id per order).
+  - `FoodCourt` and `FoodCourtOutlet` belong to no single shop, so they are not tenant-scoped: every function that reads them is given the shop id from the token and checks the rest by hand. All three new tables have row-level security on.
+- **Sold out.** A switch beside each dish under Menu prices & GST. It switches itself back on in the daily cron, so a forgotten switch never hides a dish for good.
+- **Migration** `027da6efe82c`: three new tables and one column with a default, nothing removed. Apply it to Supabase by hand before this code is merged (README, "Parallel migrations").
+- **Not built, on purpose:**
+  - **Online payment.** Today every shop shares one Razorpay account (its keys are server settings, not per shop), so online payment would put every outlet's money in one account. Per-outlet payment needs each outlet's keys stored encrypted and its own webhook. That is a project of its own.
+  - **One cart across outlets.** One outlet per order keeps each invoice, stock deduction and refund inside one shop.
+  - **A phone check (OTP).** The phone number is typed, not proved. For pickup orders the worst case is a message to a wrong number, which is why the customer ticks "message me" and why orders per number are limited.
+  - **A sound or push when an order arrives.** The Tables screen shows "Online orders (n)" first and refreshes with the other live orders.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

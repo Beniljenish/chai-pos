@@ -100,6 +100,7 @@ class MenuItemUpdate(BaseModel):
     gst_rate_bp: GstRate | None = None
     tax_inclusive: bool | None = None
     is_active: bool | None = None
+    is_sold_out: bool | None = None
 
 
 class MenuItemOut(ORM):
@@ -111,6 +112,7 @@ class MenuItemOut(ORM):
     tax_inclusive: bool
     hsn_sac: str
     is_active: bool
+    is_sold_out: bool = False
 
 
 class ModifierIdsIn(BaseModel):

@@ -17,6 +17,8 @@ export interface MenuItem {
   tax_inclusive: boolean;
   hsn_sac: string;
   is_active: boolean;
+  /** Run out for today: shown, but customers ordering online cannot pick it. */
+  is_sold_out?: boolean;
   recipe: { id: string; version: number; lines: RecipeLine[] } | null;
   modifier_ids: string[];
 }
@@ -45,6 +47,8 @@ export interface Catalogue {
     max_discount_bp?: number;
     /** Razorpay keys are set on the server (README, Phase 8a). */
     online_payments?: boolean;
+    /** This shop is an outlet of a food court (customers order from their phones). */
+    online_ordering?: boolean;
   };
   menu_items: MenuItem[];
   modifiers: Modifier[];
@@ -457,4 +461,17 @@ export interface MarginItem {
   margin_pct: number | null;
   status: 'ok' | 'incomplete' | 'no_recipe';
   missing: string[];
+}
+
+export interface FoodCourtView {
+  court: null | {
+    id: string;
+    name: string;
+    slug: string;
+    role: 'host' | 'member';
+    /** Only the host is given the code. */
+    join_code: string | null;
+  };
+  accepting_orders?: boolean;
+  outlets?: { id: string; name: string; accepting_orders: boolean; is_me: boolean; is_host: boolean }[];
 }

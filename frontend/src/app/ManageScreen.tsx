@@ -5,6 +5,7 @@ import { badgesFor } from "../lib/attention";
 import type { Attention } from "../lib/attention";
 import { DayEndScreen } from "./DayEndScreen";
 import { FloorSetup } from "./FloorSetup";
+import { FoodCourtScreen } from "./FoodCourtScreen";
 import { AlertsScreen } from "./AlertsScreen";
 import { KhataScreen } from "./CustomersUI";
 import { MarginScreen } from "./MarginScreen";
@@ -29,6 +30,7 @@ type Section =
   | "staff"
   | "tablets"
   | "floor"
+  | "foodcourt"
   | "reports"
   | "purchases"
   | "khata"
@@ -67,6 +69,7 @@ const GROUPS: {
         { id: "shop", label: "Shop & GST" },
         { id: "staff", label: "Staff" },
         { id: "floor", label: "Floor" },
+        { id: "foodcourt", label: "Food court" },
         { id: "tablets", label: "Tablets" },
         { id: "messages", label: "Messages" },
       ],
@@ -180,6 +183,8 @@ function SectionBody({ section, go }: { section: Section; go: (s: Section) => vo
       return <ShopScreen />;
     case "floor":
       return <FloorSetup />;
+    case "foodcourt":
+      return <FoodCourtScreen />;
     case "khata":
       return <KhataScreen />;
     case "staff":

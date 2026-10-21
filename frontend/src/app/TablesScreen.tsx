@@ -18,7 +18,8 @@ import { formatPriceDelta } from '../lib/options';
 import { act, liveOrders, minutesOpen, nextKotNo, openOrder, sendKot, type LiveOrder, type OpenInput, type OrderLine } from '../lib/orders';
 import { loadPrinter } from '../lib/printer';
 import { shiftsOn } from '../lib/shift';
-import { CANCEL_REASONS, floorModel, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder, splitOrderLines, type FloorTable } from '../lib/table';
+import { CANCEL_REASONS, floorModel, kitchenTickets, kotLinesFromCart, onlineToken,
+  orderLabel, priceOrder, splitOrderLines, type FloorTable } from '../lib/table';
 import type { Catalogue, SyncBillLine } from '../lib/types';
 import { KitchenView } from './KitchenView';
 import { Receipt } from './Receipt';
@@ -114,6 +115,9 @@ export function TablesScreen() {
   }
 
   const toMake = kitchenTickets(catalogue, orders ?? [], now).length;
+  // Customers' own orders (from the food court QR) first: they are waiting on a phone.
+  const online = floor.other.filter((o) => onlineToken(o.state));
+  const otherOrders = floor.other.filter((o) => !onlineToken(o.state));
 
   return (
     <main className="floor" aria-busy={orders === null}>
@@ -146,6 +150,33 @@ export function TablesScreen() {
           <p className="floor-legend" aria-hidden="true">
             <span className="dot free" /> Free <span className="dot running" /> Eating <span className="dot billed" /> Bill printed
           </p>
+
+          {online.length > 0 && (
+            <section className="floor-area online-orders" aria-label="Online orders">
+              <h2>Online orders ({online.length})</h2>
+              <ul className="order-list">
+                {online.map((o) => {
+                  const lines = o.state.lines.filter((ln) => ln.qty > 0);
+                  const ready = lines.length > 0 && lines.every((ln) => ln.ready);
+                  return (
+                    <li key={o.id}>
+                      <button
+                        className={o.state.status}
+                        onClick={() => setTarget({ orderId: o.id, start: { orderType: o.state.order_type } })}
+                      >
+                        <strong>{onlineToken(o.state)}</strong>
+                        <span>
+                          {o.state.customer_name.slice((onlineToken(o.state) ?? '').length + 1)}
+                          <span className="muted"> · {lines.map((ln) => `${ln.qty} × ${ln.name}`).join(', ')}</span>
+                        </span>
+                        <span className={`flag ${ready ? '' : 'bad'}`}>{ready ? 'Ready' : 'New'}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
 
           {floor.areas.map((a) => (
             <section key={a.id} className="floor-area" aria-label={a.name}>
@@ -187,11 +218,11 @@ export function TablesScreen() {
 
           <section className="floor-area" aria-label="Takeaway and delivery">
             <h2>Takeaway and delivery</h2>
-            {floor.other.length === 0 ? (
+            {otherOrders.length === 0 ? (
               <p className="muted">None running.</p>
             ) : (
               <ul className="order-list">
-                {floor.other.map((o) => {
+                {otherOrders.map((o) => {
                   let total = 0;
                   try {
                     total = priceOrder(o.state, catalogue).totals?.total ?? 0;

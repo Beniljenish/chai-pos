@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { billSummaryRows, kotRows } from './escpos';
 import { reduce, type LiveOrder, type OrderEvent } from './orders';
-import { floorModel, hasTables, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder, splitOrderLines } from './table';
+import { floorModel, hasTables, onlineToken, kitchenTickets, kotLinesFromCart, orderLabel, priceOrder, splitOrderLines } from './table';
 import { buildLines } from './billing';
 import { testCatalogue } from './test-fixtures';
 import type { Catalogue } from './types';
@@ -127,6 +127,8 @@ describe('the floor', () => {
     expect(orderLabel(catalogue, s({ order_type: 'delivery' }, true))).toBe('Delivery #C1-9');
     expect(hasTables(catalogue)).toBe(true);
     expect(hasTables({ ...catalogue, areas: [] })).toBe(false);
+    // customers ordering online: their orders land on this screen, floor or no floor
+    expect(hasTables({ ...catalogue, areas: [], shop: { ...catalogue.shop, online_ordering: true } })).toBe(true);
   });
 });
 
@@ -252,5 +254,17 @@ describe('split bill', () => {
     expect(() => splitOrderLines(lines, [[1], [0]], 'regular')).toThrow(/every item/);
     expect(() => splitOrderLines(lines, [[2], [1]], 'regular')).toThrow(/every item/);
     expect(() => splitOrderLines(lines, [[2], [0]], 'regular')).toThrow(/empty/);
+  });
+});
+
+describe('onlineToken', () => {
+  it('reads the token the food court QR order carries', () => {
+    expect(onlineToken({ customer_name: 'JT-17 Ravi' })).toBe('JT-17');
+    expect(onlineToken({ customer_name: 'O-3 Meena' })).toBe('O-3');
+  });
+  it('is null for ordinary orders', () => {
+    for (const name of ['', 'Ravi', 'jt-17 Ravi', 'JT-17', 'ABC-1 Raj', 'Ravi JT-17']) {
+      expect(onlineToken({ customer_name: name })).toBeNull();
+    }
   });
 });

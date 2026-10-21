@@ -100,6 +100,10 @@ export class Api {
     return (await this.request<T>('PATCH', path, body)).data;
   }
 
+  async delete<T>(path: string): Promise<T> {
+    return (await this.request<T>('DELETE', path)).data;
+  }
+
   /** Authenticated request: refreshes the access token once on 401, then retries. */
   async request<T>(
     method: string,

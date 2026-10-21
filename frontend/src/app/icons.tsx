@@ -17,6 +17,7 @@ export const ICON = {
   shop: 'M3 9l1.5-5h15L21 9M3 9v11h18V9M3 9h18M9 20v-6h6v6',
   staff: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7M22 21v-1a6 6 0 0 0-4-5.6',
   floor: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  foodcourt: 'M4 10h16l-1.5-5h-13zM5 10v10h14V10M9 20v-5h6v5M3 10c0 1.7 1.3 3 3 3s3-1.3 3-3M9 10c0 1.7 1.3 3 3 3s3-1.3 3-3M15 10c0 1.7 1.3 3 3 3s3-1.3 3-3',
   tablets: 'M6 2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2',
   messages: 'M4 4h16v12H8l-4 4zM8 9h8M8 12h5',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',

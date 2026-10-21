@@ -4230,3 +4230,326 @@ button.save {
   background: var(--turmeric-soft);
   color: var(--turmeric);
 }
+
+/* Food court: the customer's pages (/order/<court>) */
+.cx {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 var(--s4) 120px;
+}
+.cx-hero {
+  margin: 0 calc(var(--s4) * -1) var(--s4);
+  padding: var(--s6) var(--s4) var(--s5);
+  background: linear-gradient(160deg, #4a1a82, #2a0e4b);
+  color: #fff;
+}
+.cx-hero small {
+  opacity: 0.75;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cx-hero h1 {
+  margin: var(--s1) 0;
+  font-size: 1.6rem;
+}
+.cx-hero p {
+  margin: 0;
+  opacity: 0.85;
+}
+.cx-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4) 0 var(--s2);
+}
+.cx-top h1 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.cx-back {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  border: none;
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-radius: 12px;
+}
+.cx-list {
+  list-style: none;
+  margin: 0 0 var(--s4);
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.cx-outlet {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  text-align: left;
+  padding: var(--s3) var(--s4);
+  border: none;
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.cx-logo {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 800;
+}
+.cx-tag {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.cx-tag.open {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+}
+.cx-tag.shut {
+  background: var(--steel);
+  color: var(--ink-soft);
+}
+.cx-dish {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.cx-dish > div {
+  flex: 1;
+}
+.cx-dish.gone {
+  opacity: 0.5;
+}
+.cx-add,
+.cx-step button {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.cx-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 800;
+}
+.cx-bar {
+  position: fixed;
+  left: var(--s3);
+  right: var(--s3);
+  bottom: var(--s3);
+  max-width: 496px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 18px;
+  font-weight: 800;
+  box-shadow: var(--shadow-lift);
+}
+.cx-note {
+  padding: var(--s3) var(--s4);
+  background: var(--turmeric-soft);
+  color: #7a4d06;
+  border-radius: var(--radius-control);
+}
+.cx-summary {
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.cx-summary li {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--s1) 0;
+}
+.cx-summary .cx-total {
+  margin-top: var(--s2);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+.cx-form {
+  display: grid;
+  gap: var(--s3);
+}
+.cx-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.cx-token {
+  margin: var(--s4) 0;
+  padding: var(--s5);
+  text-align: center;
+  background: var(--paper);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+.cx-token small {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.cx-token strong {
+  display: block;
+  font-size: 3.4rem;
+  letter-spacing: 0.02em;
+  color: var(--brand);
+}
+.cx-token.ready strong {
+  color: var(--leaf);
+}
+.cx-token.declined strong {
+  color: var(--chilli);
+}
+.cx-token h2 {
+  margin: var(--s3) 0 var(--s1);
+}
+.cx-steps {
+  display: flex;
+  gap: 6px;
+  margin: var(--s3) 0;
+}
+.cx-steps i {
+  flex: 1;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--line);
+}
+.cx-steps i.on {
+  background: var(--leaf);
+}
+
+/* Manage -> Food court */
+.fc-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.fc-toggle {
+  flex: none;
+  width: 56px;
+  min-height: 32px;
+  padding: 3px;
+  border: none;
+  border-radius: 999px;
+  background: #cfc9dc;
+  display: flex;
+  align-items: center;
+}
+.fc-toggle span {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.fc-toggle.on {
+  background: var(--leaf);
+}
+.fc-toggle.on span {
+  transform: translateX(24px);
+}
+.fc-qr-card {
+  margin: var(--s3) 0;
+  padding: var(--s4);
+  display: grid;
+  justify-items: center;
+  gap: var(--s1);
+  text-align: center;
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.fc-qr {
+  width: min(240px, 70vw);
+  height: auto;
+}
+.fc-qr-card code {
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+}
+.fc-outlet {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.fc-code {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  margin: var(--s2) 0;
+}
+.sold-toggle {
+  flex: none;
+}
+.sop-list li:has(> .sold-toggle) {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.sop-list li:has(> .sold-toggle) > button:first-child {
+  flex: 1;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .fc-qr-card,
+  .fc-qr-card * {
+    visibility: visible;
+  }
+  .fc-qr-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+  }
+}
+
+.online-orders .order-list button {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  text-align: left;
+}
+.online-orders .order-list button > span:nth-child(2) {
+  flex: 1;
+}

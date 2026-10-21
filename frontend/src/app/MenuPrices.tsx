@@ -44,6 +44,18 @@ export function MenuPrices() {
     void load();
   }, [load]);
 
+  // "Sold out today": customers ordering online cannot pick it. It switches itself
+  // back on overnight, so a forgotten switch never hides a dish for good.
+  async function toggleSoldOut(m: MenuItem) {
+    try {
+      await api.patch(`/menu-items/${m.id}`, { is_sold_out: !m.is_sold_out });
+      await load();
+      void reloadCatalogue();
+    } catch (e) {
+      setError(explainError(e));
+    }
+  }
+
   return (
     <section aria-labelledby="menu-title">
       <h2 id="menu-title">Menu prices &amp; GST</h2>
@@ -56,11 +68,20 @@ export function MenuPrices() {
               <span className="sop-name">
                 <strong>{m.name}</strong> <span className="muted">· {m.category}</span>
                 {!m.is_active && <span className="flag wait"> Off the menu</span>}
+                {m.is_sold_out && <span className="flag bad"> Sold out</span>}
               </span>
               <span className="sop-lines num">
                 {formatRupees(m.price_paise)} · GST {formatRate(m.gst_rate_bp)}{' '}
                 {m.tax_inclusive ? 'included' : 'added on top'}
               </span>
+            </button>
+            <button
+              className="quiet sold-toggle"
+              aria-pressed={Boolean(m.is_sold_out)}
+              aria-label={`${m.name}: sold out today`}
+              onClick={() => void toggleSoldOut(m)}
+            >
+              {m.is_sold_out ? 'Back on' : 'Sold out'}
             </button>
           </li>
         ))}

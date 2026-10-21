@@ -153,7 +153,18 @@ export function orderLabel(catalogue: Catalogue, state: OrderState): string {
   return state.kots[0] ? `${kind} #${state.kots[0].kot_no}` : kind;
 }
 
+/** The Tables screen is where table orders and takeaways live, so a shop gets it
+ * with a dining floor, or when customers can order online (their orders arrive there). */
+/** The token on a customer's own order from the food court QR ("JT-17 Ravi" -> "JT-17").
+ * The server writes it at the front of the customer's name, so the kitchen and the
+ * counter read the same word the customer is holding. */
+export function onlineToken(state: { customer_name: string }): string | null {
+  const m = /^([A-Z]{1,2}-\d{1,4}) /.exec(state.customer_name);
+  return m ? m[1] : null;
+}
+
 export const hasTables = (catalogue: Catalogue | null) =>
+  Boolean(catalogue?.shop.online_ordering) ||
   Boolean(catalogue?.areas?.some((a) => a.is_active && a.tables.some((t) => t.is_active)));
 
 /** Reasons offered as one tap when a sent item is cancelled (the person can type their own). */

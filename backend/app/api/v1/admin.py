@@ -27,6 +27,7 @@ from app.schemas import (
 )
 from app.services import auth as auth_service
 from app.services import email, reports
+from app.services.online import ONLINE_DEVICE_CODE, ONLINE_USER_NAME
 
 router = APIRouter()
 
@@ -99,7 +100,10 @@ def send_test_email(caller: Caller = Depends(require_owner)) -> dict:
 # ---------------- users ----------------
 @router.get("/users", response_model=list[UserOut], tags=["users"])
 def list_users(caller: Caller = Depends(require_owner)):
-    return caller.db.scalars(select(User).order_by(User.created_at)).all()
+    # The stand-in author of customers' food court orders is not a person to manage.
+    return caller.db.scalars(
+        select(User).where(User.name != ONLINE_USER_NAME).order_by(User.created_at)
+    ).all()
 
 
 @router.post("/users", response_model=UserOut, status_code=201, tags=["users"])
@@ -170,7 +174,9 @@ def update_user(user_id: uuid.UUID, body: UserUpdate, caller: Caller = Depends(r
 # ---------------- devices ----------------
 @router.get("/devices", response_model=list[DeviceOut], tags=["devices"])
 def list_devices(caller: Caller = Depends(get_caller)):
-    return caller.db.scalars(select(Device).order_by(Device.code)).all()
+    return caller.db.scalars(
+        select(Device).where(Device.code != ONLINE_DEVICE_CODE).order_by(Device.code)
+    ).all()
 
 
 @router.post("/devices", response_model=DeviceOut, status_code=201, tags=["devices"])

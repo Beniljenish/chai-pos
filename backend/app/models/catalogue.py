@@ -114,6 +114,8 @@ class MenuItem(IdMixin, TimestampMixin, TenantScoped, Base):
     gst_rate_bp: Mapped[int] = mapped_column(Integer, default=500)  # 500 = 5%
     tax_inclusive: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Run out for today: still on the menu, but customers ordering online cannot pick it.
+    is_sold_out: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
 
 class Recipe(IdMixin, TenantScoped, Base):

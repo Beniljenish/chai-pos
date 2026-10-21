@@ -414,6 +414,9 @@ def catalogue(
                 "max_discount_bp": shop.max_discount_bp,
                 # Razorpay keys are set on the server: the till may offer online payment.
                 "online_payments": payments_service.enabled(),
+                # In a food court that takes orders: the till shows the Tables screen
+                # (where customers' orders arrive) even without a dining floor.
+                "online_ordering": _in_food_court(caller.ctx.shop_id),
             },
             "menu_items": [
                 {
@@ -440,3 +443,15 @@ def catalogue(
         # Device already has this exact catalogue: send nothing.
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
     return Response(content=body, media_type="application/json", headers={"ETag": etag})
+
+
+def _in_food_court(shop_id) -> bool:
+    """Whether this shop is an outlet of a food court (not tenant-scoped: by shop id)."""
+    from app.models import FoodCourtOutlet
+    from app.services import online
+
+    with online.system_session() as sysdb:
+        return (
+            sysdb.scalar(select(FoodCourtOutlet.id).where(FoodCourtOutlet.shop_id == shop_id))
+            is not None
+        )
