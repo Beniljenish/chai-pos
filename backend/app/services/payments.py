@@ -12,6 +12,7 @@ RAZORPAY_WEBHOOK_SECRET); with no key id and secret, online payments are off.
 import hashlib
 import hmac
 import logging
+import secrets
 import uuid
 from typing import Protocol
 
@@ -106,8 +107,53 @@ class _Http:
         self._call("GET", "/orders?count=1")
 
 
+class _LocalFake:
+    """Pretend Razorpay for local testing (FAKE_PAYMENTS). Stateless: the amount travels inside
+    the ids, so it survives a restart. It is only ever picked when the setting is on, which
+    the settings refuse against anything but a local database."""
+
+    def create_order(self, body: dict) -> dict:
+        amount = int(body["amount"])
+        return {"id": f"order_L{amount}x{secrets.token_hex(4)}", "amount": amount}
+
+    def fetch_payment(self, payment_id: str) -> dict:
+        order_id = "order_" + payment_id[4:]  # pay_L600xab12 <-> order_L600xab12
+        amount = int(order_id[len("order_L") :].split("x")[0])
+        return {
+            "id": payment_id,
+            "order_id": order_id,
+            "amount": amount,
+            "currency": "INR",
+            "status": "captured",
+            "method": "upi",
+        }
+
+    def capture(self, payment_id: str, amount: int) -> dict:
+        return self.fetch_payment(payment_id)
+
+    def refund(self, payment_id: str, amount: int) -> dict:
+        return {"id": "rfnd_local", "amount": amount}
+
+    def ping(self) -> None:
+        return None
+
+
+def fake_on() -> bool:
+    return get_settings().fake_payments
+
+
+def online_enabled() -> bool:
+    """Whether a food court customer may be offered "pay online": real keys, or the local
+    pretend mode. (The till's own online payment still needs real keys: `enabled()`.)"""
+    return enabled() or fake_on()
+
+
 def _client() -> RazorpayApi:
-    return _override if _override is not None else _Http(*keys())
+    if _override is not None:
+        return _override
+    if fake_on() and not enabled():
+        return _LocalFake()
+    return _Http(*keys())
 
 
 def client() -> RazorpayApi:

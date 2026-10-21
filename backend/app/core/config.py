@@ -52,16 +52,22 @@ class Settings(BaseSettings):
     # to start unless the database is on this computer (or the compose "db"
     # service), so a copy of this setting can never switch it on against Supabase.
     dev_login: bool = False
+    # LOCAL TESTING ONLY: customers can "pay online" with pretend money, so the whole ordering
+    # flow can be tried without Razorpay keys. Same guard as DEV_LOGIN: never with a remote
+    # database or ENV=prod, so it can never reach real customers.
+    fake_payments: bool = False
 
     @model_validator(mode="after")
-    def dev_login_only_with_a_local_database(self):
-        if self.dev_login:
-            host = make_url(self.database_url).host or ""
-            if self.env == "prod" or host not in LOCAL_DB_HOSTS:
+    def local_test_modes_only_with_a_local_database(self):
+        host = make_url(self.database_url).host or ""
+        for on, name, what in (
+            (self.dev_login, "DEV_LOGIN", "lets anyone in without a password"),
+            (self.fake_payments, "FAKE_PAYMENTS", "accepts pretend payments"),
+        ):
+            if on and (self.env == "prod" or host not in LOCAL_DB_HOSTS):
                 raise ValueError(
-                    "DEV_LOGIN lets anyone in without a password: it is only allowed "
-                    "with a database on this computer (localhost or the compose 'db'), "
-                    "and never with ENV=prod"
+                    f"{name} {what}: it is only allowed with a database on this computer "
+                    "(localhost or the compose 'db'), and never with ENV=prod"
                 )
         return self
 

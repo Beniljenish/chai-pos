@@ -3,7 +3,9 @@
  * a court and adds outlets; the outlet owner opens for orders; a customer signs up, picks
  * the food court, puts dishes from two outlets in one cart and gets a token per outlet;
  * the outlet sees its order, marks it ready, and the customer's page says so; the customer
- * sees both in My orders, and a forgotten password is reset by the admin. Screenshots for review.
+ * sees both in My orders, and a forgotten password is reset by the admin. Then the same customer
+ * pays online (pretend money, FAKE_PAYMENTS: Razorpay's real checkout cannot run in CI) and the
+ * outlet and the admin see the money. Screenshots for review.
  */
 import { expect, test, type Page } from '@playwright/test';
 
@@ -132,6 +134,9 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
 
   await expect(customer.getByRole('region', { name: 'E2E Anna Biryani' })).toContainText('1 × Masala tea');
   await expect(customer.getByText('Ordering as')).toContainText('Ravi');
+  // when pretend online payment is on, the cart offers a choice: this run pays at the counters
+  const counter = customer.getByLabel(/Pay at the counters/);
+  if (await counter.count()) await counter.check();
   await expect(customer.getByText('You pay ₹120 at the counters')).toBeVisible();
   await shot(customer, 'foodcourt-6-cart');
   await customer.getByRole('button', { name: 'Place 2 orders' }).click();
@@ -197,6 +202,57 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await customer.getByLabel('New password').fill('ravi-new-secret-88');
   await customer.getByRole('button', { name: 'Save and continue' }).click();
   await expect(customer.getByRole('heading', { name: 'Where are you eating?' })).toBeVisible();
+
+  // ---- now the same customer pays online (pretend money): the cart offers it, a payment page
+  // opens in its own tab, and the page moves on by itself to a token marked paid
+  await customer.getByRole('button', { name: /E2E Food Court/ }).click();
+  await tabs.getByRole('tab').filter({ hasNotText: 'E2E Anna Biryani' }).click();
+  await customer.getByLabel('Add Masala tea').click();
+  await customer.getByLabel('Add one more Masala tea').click();
+  await customer.getByRole('button', { name: 'View cart' }).click();
+  await expect(customer.getByText('How do you want to pay?')).toBeVisible();
+  await expect(customer.getByLabel(/Pay online/)).toBeChecked(); // the default when it is on
+  await expect(customer.getByText('Nothing is sent to the kitchen until your payment goes through.')).toBeVisible();
+  await shot(customer, 'foodcourt-10-pay-choice');
+  const [payTab] = await Promise.all([
+    customer.context().waitForEvent('page'),
+    customer.getByRole('button', { name: /^Pay ₹/ }).click(),
+  ]);
+  await expect(customer.getByText('Waiting for your payment')).toBeVisible();
+  await expect(payTab.getByText('pretend money')).toBeVisible();
+  await payTab.getByRole('button', { name: /^Pay .* \(test\)$/ }).click();
+  await expect(payTab.getByText('Paid (test)')).toBeVisible();
+  await expect(customer.getByRole('heading', { name: '1 token' })).toBeVisible({ timeout: 30_000 });
+  await expect(customer.getByText(/^Paid ₹/).first()).toBeVisible();
+  const paidToken = (await customer.locator('.cx-token strong').first().textContent()) ?? '';
+  await expect(customer.getByText('Paid online')).toBeVisible(); // not "Pay at the counter"
+  await shot(customer, 'foodcourt-11-paid-token');
+
+  // ---- the outlet's till says it was paid, and what the outlet is owed shows on its own screen
+  await page.getByRole('button', { name: /^Floor/ }).click(); // back from the kitchen view
+  await expect(online).toContainText(paidToken, { timeout: 30_000 });
+  await expect(online).toContainText('Paid online ₹40');
+  await shot(page, 'foodcourt-12-till-paid');
+  await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
+  await page.locator('.subnav').getByRole('button', { name: 'Food court', exact: true }).click();
+  const mine = page.getByRole('region', { name: 'Online payments' });
+  await expect(mine).toContainText('Still due to you');
+  await expect(mine).toContainText('₹40');
+
+  // ---- the admin records paying the outlet part of it
+  await admin.reload();
+  const money = admin.getByRole('region', { name: 'Online money' });
+  await expect(money).toContainText('Owed ₹40');
+  await money.getByRole('button', { name: 'Record payment to outlet', disabled: false }).click();
+  await money.getByLabel(/Amount paid to/).fill('15');
+  await money.getByRole('button', { name: 'Record payment', exact: true }).click();
+  await expect(money).toContainText('Owed ₹25');
+  await shot(admin, 'foodcourt-13-admin-money');
+
+  // leave the kitchen as we found it: the paid order is made and marked ready
+  await page.locator('.tabs').getByRole('button', { name: 'Tables', exact: true }).click();
+  await page.getByRole('button', { name: /^Kitchen/ }).click();
+  await page.getByRole('button', { name: 'Masala tea ready' }).click();
 
   await customer.context().close();
   await admin.context().close();

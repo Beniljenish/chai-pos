@@ -334,6 +334,72 @@ _PAGE_HEADERS = {
 }
 
 
+_LOCAL_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test payment {amount_text}</title>
+<style nonce="{nonce}">
+body{{font-family:system-ui,sans-serif;margin:0;padding:24px 16px;background:#f3f4f6;
+text-align:center}}
+main{{max-width:420px;margin:0 auto;background:#fff;border-radius:16px;padding:24px 16px}}
+.amt{{font-size:2.4rem;font-weight:800;margin:12px 0}} #msg{{min-height:1.5em;font-weight:700}}
+button{{font:inherit;font-weight:700;font-size:1.1rem;border:0;border-radius:12px;padding:14px 20px;
+background:#3b1468;color:#fff;width:100%;margin-top:8px}} button.alt{{background:#eee;color:#333}}
+.warn{{background:#fff4de;color:#7a4d06;border-radius:10px;padding:8px;font-size:.9rem}}
+</style></head>
+<body><main>
+<h1>{court}</h1>
+<p class="warn">Local test mode. This is pretend money: nothing is charged.</p>
+<p class="amt">{amount_text}</p>
+<p id="msg" role="status"></p>
+<button id="pay">Pay {amount_text} (test)</button>
+<button id="fail" class="alt">Make the payment fail</button>
+</main>
+<script nonce="{nonce}">
+const orderId = {order_id};
+const msg = document.getElementById('msg');
+function post(path, body) {{
+  return fetch(path, {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }},
+    body: JSON.stringify(body) }}).then(function (r) {{ return r.json(); }});
+}}
+document.getElementById('pay').onclick = function () {{
+  msg.textContent = 'Paying…';
+  post('local-pay', {{ order_id: orderId }}).then(function (x) {{
+    msg.textContent = x.status === 'paid'
+      ? 'Paid (test). Go back to the food court page for your tokens.'
+      : 'Could not confirm.';
+  }});
+}};
+document.getElementById('fail').onclick = function () {{
+  post('failed', {{ razorpay_order_id: orderId, reason: 'Test payment failed' }})
+    .then(function () {{
+    msg.textContent = 'Payment failed (test). Go back and try again.';
+  }});
+}};
+</script>
+</body></html>"""
+
+
+class LocalPayIn(BaseModel):
+    order_id: str = Field(max_length=40)
+
+
+@router.post("/local-pay")
+def local_pay(body: LocalPayIn) -> dict:
+    """LOCAL TESTING ONLY (FAKE_PAYMENTS): the test payment page's "Pay" button. With the setting
+    off (always, outside a local database) this does not exist."""
+    if not (payments.fake_on() and not payments.enabled()):
+        raise HTTPException(404, "Not found")
+    with SessionLocal() as db:
+        db = mark_system(db)
+        op = _online_by_order(db, body.order_id)
+        if op is None:
+            raise HTTPException(404, "Not found")
+        payments.confirm(op, "pay_" + op.provider_order_id[len("order_") :])
+        _after_paid(db, op)
+        return {"status": op.status}
+
+
 @router.get("/customer-checkout", response_class=HTMLResponse)
 def customer_checkout(order_id: str = Query(max_length=40)) -> HTMLResponse:
     """The same page for a food court customer paying online. Public, like the till's: the
@@ -343,7 +409,7 @@ def customer_checkout(order_id: str = Query(max_length=40)) -> HTMLResponse:
     with SessionLocal() as db:
         mark_system(db)
         op = _online_by_order(db, order_id)
-        if op is None or not payments.enabled():
+        if op is None or not payments.online_enabled():
             return HTMLResponse("<!doctype html><title>Not found</title>Not found", 404)
         if op.status == "paid":
             return HTMLResponse(
@@ -352,6 +418,16 @@ def customer_checkout(order_id: str = Query(max_length=40)) -> HTMLResponse:
             )
         court = db.get(FoodCourt, op.court_id)
         nonce = secrets.token_urlsafe(16)
+        if payments.fake_on() and not payments.enabled():
+            return HTMLResponse(
+                _LOCAL_PAGE.format(
+                    nonce=nonce,
+                    court=html.escape(court.name),
+                    amount_text=html.escape(rupees(op.amount_paise)),
+                    order_id=_js(op.provider_order_id),
+                ),
+                headers=_PAGE_HEADERS,
+            )
         options = {
             "key": payments.keys()[0],
             "amount": op.amount_paise,

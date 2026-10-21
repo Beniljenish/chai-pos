@@ -144,7 +144,7 @@ def public_court(sysdb: Session, slug: str) -> dict:
         "name": court.name,
         "location": court.location,
         # Whether the customer may be offered "pay online" (the Razorpay keys are set).
-        "online_payment": payments.enabled(),
+        "online_payment": payments.online_enabled(),
         "outlets": [{"id": o.id, "name": name, "open": o.accepting_orders} for o, name in rows],
     }
 

@@ -77,7 +77,7 @@ def start(
         if existing.customer_id != account.id:
             raise OnlineError("not_found", "No such payment", 404)
         return existing
-    if not payments.enabled():
+    if not payments.online_enabled():
         raise OnlineError("online_payments_off", _PAYMENT_WORDS["online_payments_off"][0], 503)
     court = online._court(db, slug)
     if not orders:

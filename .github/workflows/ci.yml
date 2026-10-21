@@ -84,6 +84,7 @@ jobs:
       DATABASE_URL: postgresql+psycopg://chai:chai@localhost:5432/chai_pos
       JWT_SECRET: ci-only-secret-0123456789abcdef0123456789
       CORS_ORIGINS: '["http://localhost:4173"]'
+      FAKE_PAYMENTS: 'true'  # pretend online payment, so the browser tests can pay (local database only)
       SEED_PASSWORD: e2e-password-123
     steps:
       - uses: actions/checkout@v5
