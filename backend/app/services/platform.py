@@ -111,12 +111,22 @@ def list_courts(db: Session) -> list[dict]:
                     "accepting_orders": o.accepting_orders,
                 }
             )
-        out.append({"id": court.id, "name": court.name, "slug": court.slug, "outlets": outlets})
+        out.append(
+            {
+                "id": court.id,
+                "name": court.name,
+                "slug": court.slug,
+                "location": court.location,
+                "outlets": outlets,
+            }
+        )
     return out
 
 
-def create_court(db: Session, admin_id: uuid.UUID, name: str) -> FoodCourt:
-    court = FoodCourt(name=name.strip(), slug=_slug(name), created_by=admin_id)
+def create_court(db: Session, admin_id: uuid.UUID, name: str, location: str = "") -> FoodCourt:
+    court = FoodCourt(
+        name=name.strip(), slug=_slug(name), location=location.strip(), created_by=admin_id
+    )
     db.add(court)
     db.commit()
     return court

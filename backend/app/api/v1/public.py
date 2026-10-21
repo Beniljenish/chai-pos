@@ -35,6 +35,14 @@ def _no_store(response: Response) -> None:
     response.headers["Cache-Control"] = "no-store"
 
 
+@router.get("/courts")
+def courts(response: Response, c: Customer = Depends(current_customer)):
+    """The food courts to choose from. Signed-in customers only: the list is the way in
+    for someone who did not scan a QR."""
+    _no_store(response)
+    return {"courts": online.public_courts(c.db)}
+
+
 @router.get("/courts/{slug}")
 def court(slug: str, response: Response, db: Session = Depends(system_db)):
     _no_store(response)

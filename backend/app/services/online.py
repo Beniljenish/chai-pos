@@ -142,8 +142,30 @@ def public_court(sysdb: Session, slug: str) -> dict:
     ).all()
     return {
         "name": court.name,
+        "location": court.location,
         "outlets": [{"id": o.id, "name": name, "open": o.accepting_orders} for o, name in rows],
     }
+
+
+def public_courts(sysdb: Session) -> list[dict]:
+    """Every food court that has at least one outlet, for a signed-in customer to pick
+    from. Names and counts only: the outlets themselves come from public_court."""
+    courts = []
+    for court in sysdb.scalars(select(FoodCourt).order_by(FoodCourt.name)):
+        flags = sysdb.scalars(
+            select(FoodCourtOutlet.accepting_orders).where(FoodCourtOutlet.court_id == court.id)
+        ).all()
+        if flags:
+            courts.append(
+                {
+                    "name": court.name,
+                    "slug": court.slug,
+                    "location": court.location,
+                    "outlets": len(flags),
+                    "open": sum(1 for f in flags if f),
+                }
+            )
+    return courts
 
 
 def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:

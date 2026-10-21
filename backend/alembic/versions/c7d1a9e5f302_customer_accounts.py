@@ -1,6 +1,6 @@
 """customer accounts, and whose order an online order is
 
-Additive only (a new table with row-level security, one nullable column), so it can be
+Additive only (a new table with row-level security, a nullable column, a column with a default), so it can be
 applied to Supabase before the code that uses it.
 
 Revision ID: c7d1a9e5f302
@@ -38,6 +38,7 @@ def upgrade() -> None:
     sa.UniqueConstraint('phone')
     )
     op.execute("ALTER TABLE customer_accounts ENABLE ROW LEVEL SECURITY")
+    op.add_column('food_courts', sa.Column('location', sa.String(length=120), server_default='', nullable=False))
     op.add_column('online_orders', sa.Column('customer_id', sa.UUID(), nullable=True))
     op.create_index(op.f('ix_online_orders_customer_id'), 'online_orders', ['customer_id'], unique=False)
     op.create_foreign_key(
@@ -50,4 +51,5 @@ def downgrade() -> None:
     op.drop_constraint('fk_online_orders_customer', 'online_orders', type_='foreignkey')
     op.drop_index(op.f('ix_online_orders_customer_id'), table_name='online_orders')
     op.drop_column('online_orders', 'customer_id')
+    op.drop_column('food_courts', 'location')
     op.drop_table('customer_accounts')

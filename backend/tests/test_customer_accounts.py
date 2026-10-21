@@ -216,3 +216,33 @@ def test_rename_keeps_old_orders_as_placed(client, shop_a, court):  # noqa: F811
     names = [o["state"]["customer_name"] for o in _live(client, shop_a)]
     assert f"{token} Ravi" in names
     _ = build_catalogue  # keep the shared import used
+
+
+def test_a_signed_in_customer_can_list_food_courts_to_choose_from(client, shop_a, court):  # noqa: F811
+    # a court with no outlets is not offered
+    client.post(
+        f"{API}/platform/courts",
+        json={"name": "Empty Court", "location": "Nowhere"},
+        headers=court["admin"],
+    ).raise_for_status()
+    r = client.get(f"{API}/public/courts", headers=court["customer"])
+    assert r.status_code == 200
+    rows = r.json()["courts"]
+    assert [c["name"] for c in rows] == ["Marina Food Court"]
+    assert set(rows[0]) == {"name", "slug", "location", "outlets", "open"}
+    assert rows[0]["outlets"] == 2 and rows[0]["open"] == 2
+    # not for guests, nor for staff tokens
+    assert client.get(f"{API}/public/courts").status_code == 401
+    assert client.get(f"{API}/public/courts", headers=shop_a.owner_h).status_code == 401
+
+
+def test_a_court_has_a_location_the_customer_sees(client, court):  # noqa: F811
+    made = client.post(
+        f"{API}/platform/courts",
+        json={"name": "Beach Court", "location": " Marina Beach, Chennai "},
+        headers=court["admin"],
+    ).json()["courts"]
+    beach = next(c for c in made if c["name"] == "Beach Court")
+    assert beach["location"] == "Marina Beach, Chennai"
+    pub = client.get(f"{API}/public/courts/{beach['slug']}").json()
+    assert pub["location"] == "Marina Beach, Chennai"

@@ -33,6 +33,8 @@ class FoodCourt(IdMixin, Base):
 
     name: Mapped[str] = mapped_column(String(80))
     slug: Mapped[str] = mapped_column(String(60), unique=True)  # the public address
+    # Where it is ("Marina Beach, Chennai"): what a customer picks a court by.
+    location: Mapped[str] = mapped_column(String(120), default="", server_default="")
     # RETIRED: outlets were first invited by a code, before the super admin existed.
     # Kept (unused) so removing it can be a later, separate step.
     join_code: Mapped[str | None] = mapped_column(String(12))

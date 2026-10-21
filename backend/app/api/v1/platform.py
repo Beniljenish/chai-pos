@@ -57,6 +57,7 @@ class LoginIn(BaseModel):
 
 class CourtIn(BaseModel):
     name: str = Field(min_length=2, max_length=80)
+    location: str = Field(default="", max_length=120)
 
 
 class NewOutletIn(BaseModel):
@@ -111,7 +112,7 @@ def _run(fn, *args):
 
 @router.post("/courts", status_code=201)
 def create_court(body: CourtIn, a: Admin = Depends(current_admin)) -> dict:
-    platform_service.create_court(a.db, a.admin.id, body.name)
+    platform_service.create_court(a.db, a.admin.id, body.name, body.location)
     return {"courts": platform_service.list_courts(a.db)}
 
 

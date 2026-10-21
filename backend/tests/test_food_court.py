@@ -151,7 +151,7 @@ def test_the_catalogue_tells_a_till_it_is_in_a_court(client, shop_a, shop_b):
 # ---------------------------------------------------------------- what a customer can read
 def test_the_public_court_shows_names_and_open_only(client, shop_a, shop_b, court):
     pub = client.get(f"{API}/public/courts/{court['slug']}").json()
-    assert set(pub) == {"name", "outlets"}
+    assert set(pub) == {"name", "location", "outlets"}
     assert all(set(o) == {"id", "name", "open"} for o in pub["outlets"])
     text = str(pub)
     assert str(shop_a.shop.id) not in text and "join_code" not in text
