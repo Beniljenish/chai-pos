@@ -2,14 +2,20 @@
 # Sets a new password on every login in your LOCAL database (the Docker one).
 # Keeps all your data. Run it from the chai-pos folder with Docker running:
 #   ./reset-password.sh
-# It asks for the password (nothing shows as you type) and stores nothing but its hash.
+# It asks for the password (nothing shows as you type: type it, then press Enter once)
+# and stores nothing but its hash. To skip the prompt, give it on the command line,
+# in SINGLE quotes so the shell leaves characters like ! alone:
+#   NEW_PASSWORD='your password' ./reset-password.sh
 set -eu
 
-printf "New password (8+ characters): "
-stty -echo 2>/dev/null || true
-read -r PW
-stty echo 2>/dev/null || true
-echo
+PW="${NEW_PASSWORD:-}"
+if [ -z "$PW" ]; then
+  printf "New password (8+ characters; typing is hidden, press Enter when done): "
+  stty -echo 2>/dev/null || true
+  read -r PW
+  stty echo 2>/dev/null || true
+  echo
+fi
 
 if [ "${#PW}" -lt 8 ]; then
   echo "That is shorter than 8 characters. Nothing was changed." >&2
