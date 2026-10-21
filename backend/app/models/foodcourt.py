@@ -78,5 +78,9 @@ class OnlineOrder(IdMixin, TenantScoped, Base):
         UUID(as_uuid=True), ForeignKey("food_courts.id", ondelete="RESTRICT")
     )
     token: Mapped[str] = mapped_column(String(12))  # "JT-17": what the customer shows
+    # Whose order it is. Null only for orders placed before accounts existed.
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customer_accounts.id", ondelete="RESTRICT"), index=True
+    )
     business_date: Mapped[date] = mapped_column(Date, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

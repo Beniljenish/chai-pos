@@ -39,7 +39,7 @@ def _clean():
     with engine.begin() as conn:
         conn.execute(text("TRUNCATE shops CASCADE"))
         # Food courts and super admins belong to no shop, so the line above misses them.
-        conn.execute(text("TRUNCATE food_courts, platform_admins CASCADE"))
+        conn.execute(text("TRUNCATE food_courts, platform_admins, customer_accounts CASCADE"))
 
 
 @pytest.fixture
@@ -365,4 +365,16 @@ def platform_headers(client: TestClient, phone: str = PLATFORM_PHONE) -> dict:
         platform.make_admin(db, "Test admin", phone, PASSWORD)
     r = client.post("/api/v1/platform/login", json={"phone": phone, "password": PASSWORD})
     assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+def customer_headers(client: TestClient, phone: str = "9840012345", name: str = "Ravi") -> dict:
+    """A food-court customer account, made through the real sign-up (or signed in if the
+    number already has one)."""
+    r = client.post(
+        "/api/v1/customer/signup", json={"name": name, "phone": phone, "password": PASSWORD}
+    )
+    if r.status_code == 409:
+        r = client.post("/api/v1/customer/login", json={"phone": phone, "password": PASSWORD})
+    assert r.status_code in (200, 201), r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}

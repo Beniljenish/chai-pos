@@ -13,7 +13,13 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.db.tenancy import mark_system
 from app.models import Message
-from tests.conftest import FakeDevice, build_catalogue, make_shop, platform_headers
+from tests.conftest import (
+    FakeDevice,
+    build_catalogue,
+    customer_headers,
+    make_shop,
+    platform_headers,
+)
 
 API = "/api/v1"
 
@@ -47,6 +53,7 @@ def court(client, shop_a, shop_b):
         "slug": row["slug"],
         "id": row["id"],
         "admin": admin,
+        "customer": customer_headers(client),
         "a": by_name[shop_a.shop.name],
         "b": by_name[shop_b.shop.name],
     }
@@ -58,17 +65,19 @@ def _menu(client, c, which="a"):
     return {i["name"]: i for i in r.json()["items"]}
 
 
-def _order(client, c, items, which="a", **kw):
+def _order(client, c, items, which="a", who=None, **kw):
     body = {
         "request_id": str(uuid.uuid4()),
-        "name": "Ravi",
-        "phone": "98400 12345",
         "note": "",
         "message_ok": True,
         "items": [{"menu_item_id": i, "qty": q} for i, q in items],
         **kw,
     }
-    return client.post(f"{API}/public/courts/{c['slug']}/outlets/{c[which]}/orders", json=body)
+    return client.post(
+        f"{API}/public/courts/{c['slug']}/outlets/{c[which]}/orders",
+        json=body,
+        headers=who or c["customer"],
+    )
 
 
 def _live(client, shop):
@@ -250,20 +259,20 @@ def test_the_same_tap_twice_is_one_order(client, shop_a, court):
         {"items": []},
         {"items": [{"menu_item_id": str(uuid.uuid4()), "qty": 0}]},
         {"items": [{"menu_item_id": str(uuid.uuid4()), "qty": 21}]},
-        {"phone": "12345"},
-        {"name": ""},
     ],
 )
 def test_bad_orders_are_refused_before_anything_is_written(client, shop_a, court, bad):
     tea = _menu(client, court)["Masala tea"]["id"]
     body = {
         "request_id": str(uuid.uuid4()),
-        "name": "Ravi",
-        "phone": "9840012345",
         "items": [{"menu_item_id": tea, "qty": 1}],
         **bad,
     }
-    r = client.post(f"{API}/public/courts/{court['slug']}/outlets/{court['a']}/orders", json=body)
+    r = client.post(
+        f"{API}/public/courts/{court['slug']}/outlets/{court['a']}/orders",
+        json=body,
+        headers=court["customer"],
+    )
     assert r.status_code == 422
     assert _live(client, shop_a) == []
 
@@ -282,7 +291,8 @@ def test_one_number_cannot_flood_an_outlet(client, shop_a, court):
     r = _order(client, court, [(tea, 1)])
     assert r.status_code == 429 and r.json()["detail"]["code"] == "too_many_orders"
     # another number is unaffected
-    assert _order(client, court, [(tea, 1)], phone="9841100000").status_code == 201
+    other = customer_headers(client, "9841100000", "Priya")
+    assert _order(client, court, [(tea, 1)], who=other).status_code == 201
 
 
 # ---------------------------------------------------------------- the customer's own page

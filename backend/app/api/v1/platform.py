@@ -14,6 +14,7 @@ from app.core.security import decode_platform_token
 from app.models import PlatformAdmin
 from app.schemas import _normalise_phone
 from app.services import auth as auth_service
+from app.services import customer_accounts as customer_service
 from app.services import online
 from app.services import platform as platform_service
 
@@ -68,6 +69,12 @@ class NewOutletIn(BaseModel):
 
 class AttachIn(BaseModel):
     owner_phone: str
+
+
+class ResetIn(BaseModel):
+    phone: str
+
+    _phone = field_validator("phone")(_normalise_phone)
 
 
 class AcceptingIn(BaseModel):
@@ -146,3 +153,10 @@ def remove_outlet(
 ) -> dict:
     _run(platform_service.remove_outlet, a.db, court_id, outlet_id)
     return {"courts": platform_service.list_courts(a.db)}
+
+
+@router.post("/customers/reset-password")
+def reset_customer_password(body: ResetIn, a: Admin = Depends(current_admin)) -> dict:
+    """A customer forgot their password. Returns a temporary one, once, for the admin to
+    tell them; they must choose their own at the next sign-in."""
+    return _run(customer_service.admin_reset, a.db, body.phone)

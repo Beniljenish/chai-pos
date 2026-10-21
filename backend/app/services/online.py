@@ -178,6 +178,7 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
 @dataclass
 class OrderInput:
     request_id: uuid.UUID
+    customer_id: uuid.UUID  # the signed-in account; name and phone come from it
     name: str
     phone: str
     note: str
@@ -268,7 +269,7 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
     with shop_session(outlet.shop_id) as db:
         existing = db.scalar(select(Order).where(Order.id == body.request_id))
         if existing is not None:  # the same tap sent twice: the same order, once
-            return _placed(db, existing, outlet.shop_id)
+            return _placed(db, existing, outlet.shop_id, body.customer_id)
 
         shop = db.scalar(select(Shop))
         menu = {
@@ -402,7 +403,15 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
                     content_hash=order_service._hash(ev),
                 )
             )
-        db.add(OnlineOrder(order_id=order.id, court_id=court.id, token=token, business_date=today))
+        db.add(
+            OnlineOrder(
+                order_id=order.id,
+                court_id=court.id,
+                token=token,
+                business_date=today,
+                customer_id=body.customer_id,
+            )
+        )
         try:
             db.flush()
         except IntegrityError:
@@ -410,12 +419,13 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
             raise OnlineError("busy", "Please try again", 503) from None
         order_service.recompute(db, order.id)
         db.commit()
-        return _placed(db, order, outlet.shop_id)
+        return _placed(db, order, outlet.shop_id, body.customer_id)
 
 
-def _placed(db: Session, order: Order, shop_id: uuid.UUID) -> dict:
+def _placed(db: Session, order: Order, shop_id: uuid.UUID, customer_id: uuid.UUID) -> dict:
     online = db.scalar(select(OnlineOrder).where(OnlineOrder.order_id == order.id))
-    if online is None:  # someone reusing an order id from a till: not ours to show
+    # Not an online order, or somebody else's: reusing an id must never reveal it.
+    if online is None or online.customer_id != customer_id:
         raise OnlineError("not_found", "No such order", 404)
     return {
         "order_id": order.id,

@@ -10,6 +10,7 @@ from app.api.v1 import (
     bills,
     catalogue,
     cron,
+    customer_accounts,
     customers,
     dayend,
     foodcourt,
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(messages.router, prefix="/api/v1")
     app.include_router(payments.router, prefix="/api/v1")
     app.include_router(foodcourt.router, prefix="/api/v1")
+    app.include_router(customer_accounts.router, prefix="/api/v1")
     app.include_router(public.router, prefix="/api/v1")
     app.include_router(platform.router, prefix="/api/v1")
 

@@ -86,6 +86,38 @@ def decode_platform_token(token: str) -> uuid.UUID:
     return uuid.UUID(payload["sub"])
 
 
+CUSTOMER_TOKEN_DAYS = 30
+
+
+def create_customer_token(customer_id: uuid.UUID, version: int) -> str:
+    """A food-court customer's token. No shop, no role, its own `type`. Long-lived (a
+    customer opens the page now and then) and revoked by bumping the account's version."""
+    s = get_settings()
+    now = datetime.now(UTC)
+    payload = {
+        "sub": str(customer_id),
+        "type": "customer",
+        "ver": version,
+        "iat": now,
+        "exp": now + timedelta(days=CUSTOMER_TOKEN_DAYS),
+        "jti": uuid.uuid4().hex,
+    }
+    return jwt.encode(payload, s.jwt_secret, algorithm=s.jwt_algorithm)
+
+
+def decode_customer_token(token: str) -> tuple[uuid.UUID, int]:
+    s = get_settings()
+    payload = jwt.decode(
+        token,
+        s.jwt_secret,
+        algorithms=[s.jwt_algorithm],
+        options={"require": ["exp", "sub", "type", "ver"]},
+    )
+    if payload["type"] != "customer":
+        raise jwt.InvalidTokenError("not a customer token")
+    return uuid.UUID(payload["sub"]), int(payload["ver"])
+
+
 def new_refresh_token() -> tuple[str, str]:
     """Returns (raw token for the client, sha256 hash to store)."""
     raw = secrets.token_urlsafe(48)
