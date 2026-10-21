@@ -645,6 +645,22 @@ Benil asked for the phone to come first and chose all four parts from ten phone 
 
   Every item stays on the page, unlike the mockup, which folded counted items away. A cashier can still scroll back and fix one, and nothing hides a control the count needs. It is still blind for cashiers: no expected amounts.
 
+### 9.9 Four quick reads: menu search, against last week, Manage counts, stock bars
+Benil chose these from a mockup. All four are in the app only: no new routes, no migration.
+- **Menu search** on the till. It looks across every category at once, finds every word typed (in any order) in the item's name or category, and highlights the matching letters. While a search is typed the category chips are hidden, and clearing it brings them back.
+- **This week against last** on Sales (`WeekCompare`, one `/reports/range` call). The chosen day sits beside the same weekday a week earlier, with ▲/▼ and a whole percent, and seven pairs of bars compare each of the last seven days with the week before.
+  - *Trade-off:* **today shows no percentage.** A half-finished day against a full day last week reads as a crash (▼61% at lunchtime). Today says "Today so far" and shows last week's full day beside it. A like-for-like comparison by time of day is possible later, from the hourly split.
+  - Money and bill counts are integer paise and whole bills; the percent is only for display.
+- **Counts in Manage** (`useAttention`, owner only). Four small reads: stock, khata, pending wastage, and the day-end report for today and yesterday. A failed read counts as zero rather than hiding the rest. It refreshes when the tab changes, when the app regains focus, and every five minutes.
+  - **Stock: "N low"** is below the reorder level or below zero. "Near the level" gets an amber bar but is not counted.
+  - **Day end: "N to approve"** is pending wastage plus submitted counts.
+  - **Khata: "N owe"**, not "overdue": the khata has no due dates, so "overdue" would claim something the app does not know.
+  - Manage in the tab bar shows the total. The badge is read as a description, so the button's name stays "Stock", and the tests that find it by name still work.
+- **Stock level bars.** Each ingredient with a reorder level shows how full it is, with a tick at the level. Pink is below it, amber is within a quarter above it, green is fine. The bar is scaled to twice the reorder level, so the tick always sits in the middle. Order: worst first, A–Z, or low only.
+  - Without a reorder level there is no bar, just the quantity.
+  - The bars are drawn from the numbers the server already sends. They are display only; the ledger's numbers are the ones that count.
+  - *Left out of the mockup:* the "about half a day left" line under Milk. It would be a guess from the last week's sales, shown as if it were a fact.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

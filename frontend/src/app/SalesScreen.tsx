@@ -29,6 +29,7 @@ const FLAG_LABELS: Record<string, string> = {
 import { Loading, LoadError } from './Status';
 import { Sheet } from './Sheet';
 import { ServiceReport } from './ServiceReport';
+import { WeekCompare } from './WeekCompare';
 import { CashDrawer } from './CashDrawer';
 import { explainError } from './errors';
 import { useSession } from './session';
@@ -99,6 +100,8 @@ export function SalesScreen() {
                 ` · ${report.voids.length} voided (${formatRupees(report.voids.reduce((a, v) => a + v.total_paise, 0))}, not included)`}
             </p>
           </div>
+
+          <WeekCompare day={day} today={today} />
 
           {report.by_mode.length > 0 && (
             <ul className="mode-split">

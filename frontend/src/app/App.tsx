@@ -5,6 +5,8 @@ import { DeviceSetupScreen } from "./DeviceSetupScreen";
 import { LoginScreen } from "./LoginScreen";
 import { AccountButton, SetPasswordScreen } from "./PasswordForm";
 import { ManageScreen } from "./ManageScreen";
+import { useAttention } from "./attention";
+import { attentionTotal } from "../lib/attention";
 import { DayEndScreen } from "./DayEndScreen";
 import { useSession } from "./session";
 import { TablesScreen } from "./TablesScreen";
@@ -69,6 +71,8 @@ function Shell() {
   const [tab, setTab] = useState<"bill" | "tables" | "today" | "stock">("bill");
 
   const isOwner = user?.role === "owner";
+  const attention = useAttention(isOwner, tab);
+  const needsYou = isOwner ? attentionTotal(attention) : 0;
   const tables = hasTables(catalogue);
 
   return (
@@ -120,6 +124,11 @@ function Shell() {
           >
             <Icon name="manage" />
             {isOwner ? "Manage" : "Stock"}
+            {needsYou > 0 && (
+              <span className="attn-dot" aria-hidden="true">
+                {needsYou}
+              </span>
+            )}
           </button>
         </nav>
         <SyncBadge />
@@ -141,7 +150,7 @@ function Shell() {
         ) : tab === "today" ? (
           <BillsScreen />
         ) : isOwner ? (
-          <ManageScreen />
+          <ManageScreen attention={attention} />
         ) : (
           <main className="manage">
             <DayEndScreen />

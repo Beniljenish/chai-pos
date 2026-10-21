@@ -1,6 +1,8 @@
 /** Owner-only: the shop's records. */
 import { useEffect, useState } from "react";
 import { Icon, type IconName } from "./icons";
+import { badgesFor } from "../lib/attention";
+import type { Attention } from "../lib/attention";
 import { DayEndScreen } from "./DayEndScreen";
 import { FloorSetup } from "./FloorSetup";
 import { KhataScreen } from "./CustomersUI";
@@ -82,7 +84,8 @@ function usePhone(): boolean {
   return phone;
 }
 
-export function ManageScreen() {
+export function ManageScreen({ attention }: { attention?: Attention }) {
+  const badges = attention ? badgesFor(attention) : {};
   // Phones: Manage opens as a list (like the phone's own Settings) and a
   // section fills the screen with a way back. Tablets: the sidebar and Sales.
   const phone = usePhone();
@@ -119,10 +122,18 @@ export function ManageScreen() {
                 <button
                   key={s.id}
                   aria-pressed={section === s.id}
+                  // The badge is read as a description, so the button's name stays "Stock".
+                  aria-label={s.label}
+                  aria-describedby={badges[s.id] ? `attn-${s.id}` : undefined}
                   onClick={() => setSection(s.id)}
                 >
                   <Icon name={s.id} size={20} />
                   <span>{s.label}</span>
+                  {badges[s.id] && (
+                    <span id={`attn-${s.id}`} className={`attn attn-${badges[s.id].urgency}`}>
+                      {badges[s.id].text}
+                    </span>
+                  )}
                   <span className="subnav-chevron" aria-hidden="true">
                     <Icon name="chevron" size={18} />
                   </span>

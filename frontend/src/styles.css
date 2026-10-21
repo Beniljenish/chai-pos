@@ -3882,3 +3882,224 @@ button.save {
     font-size: 1.4rem;
   }
 }
+
+/* Menu search on the till */
+.menu-search {
+  position: relative;
+  margin-bottom: var(--s3);
+}
+.menu-search input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 44px 0 var(--s4);
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.menu-search-clear {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+}
+.menu-search-hint {
+  margin: 0 0 var(--s3);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+.tile-name mark {
+  background: #ffe08a;
+  color: inherit;
+  border-radius: 3px;
+}
+
+/* Manage: what needs the owner */
+.attn {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.attn-act {
+  background: var(--accent);
+  color: #fff;
+}
+.attn-look {
+  background: var(--turmeric-soft);
+  color: var(--turmeric);
+}
+.attn + .subnav-chevron {
+  margin-left: var(--s2);
+}
+.attn-dot {
+  min-width: 18px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+.tabs button {
+  position: relative;
+}
+@media (max-width: 600px) {
+  .tabs .attn-dot {
+    position: absolute;
+    top: 2px;
+    left: calc(50% + 6px);
+  }
+}
+@media (min-width: 601px) {
+  .tabs .attn-dot {
+    margin-left: var(--s2);
+  }
+}
+
+/* Sales: against last week */
+.week-compare {
+  margin: var(--s3) 0;
+  padding: var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.week-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin: 0 0 var(--s3);
+}
+.delta {
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--steel);
+  color: var(--ink-soft);
+}
+.delta.up {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+}
+.delta.down {
+  background: var(--chilli-soft);
+  color: var(--chilli);
+}
+.delta.small {
+  margin-left: auto;
+  font-size: 0.78rem;
+}
+.week-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--s2);
+  height: 120px;
+  align-items: end;
+}
+.week-day {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  padding-bottom: 16px;
+}
+.week-day .then,
+.week-day .now {
+  flex: 1;
+  max-width: 14px;
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+}
+.week-day .then {
+  background: #d9cdea;
+}
+.week-day .now {
+  background: var(--brand);
+}
+.week-day small {
+  position: absolute;
+  bottom: 0;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+.week-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: var(--s2) 0 0;
+  font-size: 0.78rem;
+}
+.week-legend .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.week-legend .swatch.then {
+  background: #d9cdea;
+}
+.week-legend .swatch.now {
+  background: var(--brand);
+  margin-left: var(--s2);
+}
+
+/* Stock: how full against the reorder level */
+.stock-list button {
+  grid-template-areas: 'name qty' 'level level' 'note note' 'flags flags';
+}
+.level {
+  grid-area: level;
+  position: relative;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--steel);
+  overflow: hidden;
+}
+.level-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.level-bad .level-fill {
+  background: var(--chilli);
+}
+.level-near .level-fill {
+  background: var(--turmeric);
+}
+.level-ok .level-fill {
+  background: var(--leaf);
+}
+.level-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.5;
+}
+.level-note {
+  grid-area: note;
+  font-size: 0.78rem;
+}
+.stock .chips {
+  margin-bottom: var(--s3);
+}
+.menu-search input::-webkit-search-cancel-button {
+  display: none; /* our own clear button replaces the browser's */
+}
+.subnav-items button > span:first-of-type {
+  white-space: nowrap; /* "Day end" stays on one line beside its badge */
+}

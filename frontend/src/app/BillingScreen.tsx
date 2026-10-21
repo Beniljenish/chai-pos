@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { buildLines, priceLines, saveBill, type CartLine, type PaymentMode } from '../lib/billing';
 import type { LocalBill } from '../lib/db';
 import { db } from '../lib/db';
+import { highlightParts, searchItems } from '../lib/search';
 import { formatRate, formatRupees, GstError } from '../lib/gst';
 import { Icon } from './icons';
 import { formatPriceDelta } from '../lib/options';
@@ -49,6 +50,7 @@ export function BillingScreen() {
   const [askShift, setAskShift] = useState(false);
   const [cart, setCart] = useState<Line[]>([]);
   const [category, setCategory] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const [payment, setPayment] = useState<PaymentMode>('cash');
   const [saved, setSaved] = useState<LocalBill | null>(null);
   // Razorpay (test mode): offered only when the server has keys and for UPI/card.
@@ -68,6 +70,12 @@ export function BillingScreen() {
   const items = useMemo(() => catalogue?.menu_items.filter((m) => m.is_active) ?? [], [catalogue]);
   const categories = useMemo(() => [...new Set(items.map((i) => i.category))], [items]);
   const activeCategory = category ?? categories[0] ?? null;
+  const searching = query.trim() !== '';
+  // A search looks across every category; without one, the chosen category shows.
+  const shown = useMemo(
+    () => (searching ? searchItems(items, query) : items.filter((i) => i.category === activeCategory)),
+    [items, query, searching, activeCategory],
+  );
   const modifiers = useMemo(() => new Map(catalogue?.modifiers.map((m) => [m.id, m]) ?? []), [catalogue]);
   const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
@@ -191,7 +199,29 @@ export function BillingScreen() {
         </p>
       )}
       <section className="menu" aria-label="Menu">
-        {categories.length > 1 && (
+        <div className="menu-search">
+          <input
+            type="search"
+            aria-label="Search the menu"
+            placeholder="Search the menu"
+            autoComplete="off"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {searching && (
+            <button className="menu-search-clear" aria-label="Clear search" onClick={() => setQuery('')}>
+              ✕
+            </button>
+          )}
+        </div>
+        {searching && (
+          <p className="menu-search-hint" role="status">
+            {shown.length === 0
+              ? `Nothing on the menu matches “${query.trim()}”`
+              : `${shown.length} item${shown.length === 1 ? '' : 's'} match “${query.trim()}” in all categories`}
+          </p>
+        )}
+        {!searching && categories.length > 1 && (
           <nav className="categories" aria-label="Categories">
             {categories.map((c) => (
               <button key={c} aria-pressed={c === activeCategory} onClick={() => setCategory(c)}>
@@ -201,9 +231,7 @@ export function BillingScreen() {
           </nav>
         )}
         <div className="grid">
-          {items
-            .filter((i) => i.category === activeCategory)
-            .map((i) => {
+          {shown.map((i) => {
               const inCart = cart.filter((l) => l.menuItemId === i.id).reduce((n, l) => n + l.qty, 0);
               return (
                 <div key={i.id} className="tile-wrap">
@@ -211,7 +239,13 @@ export function BillingScreen() {
                   <span className={`tile-badge tone-${badge(i.name).tone}`} aria-hidden="true">
                     {badge(i.name).text}
                   </span>
-                  <span className="tile-name">{i.name}</span>
+                  <span className="tile-name">
+                    {searching
+                      ? highlightParts(i.name, query).map((p, n) =>
+                          p.hit ? <mark key={n}>{p.text}</mark> : <span key={n}>{p.text}</span>,
+                        )
+                      : i.name}
+                  </span>
                   <span className="tile-foot">
                     <span className="tile-price">{formatRupees(i.price_paise)}</span>
                     {catalogue.shop.gst_type === 'regular' && (
@@ -230,7 +264,7 @@ export function BillingScreen() {
                 )}
                 </div>
               );
-            })}
+          })}
         </div>
       </section>
 
