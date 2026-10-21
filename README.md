@@ -13,6 +13,12 @@ what works. Needs Docker Desktop and git.
 
 ```bash
 git clone https://github.com/Beniljenish/chai-pos.git && cd chai-pos   # once
+./local.sh      # database + API (:8000) + app, demo data the first time, then open http://localhost:5173
+```
+
+`./local.sh` is the two steps below in one. By hand:
+
+```bash
 docker compose up --build          # database + API (:8000) + app (http://localhost:5173)
 ```
 
