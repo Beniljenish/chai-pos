@@ -6,9 +6,11 @@ import type { ServerBill } from '../lib/types';
 import { api } from './apiClient';
 import { PrinterSheet } from './PrinterSettings';
 import { CustomersSheet } from './CustomersUI';
+import { AccountSheet } from './PasswordForm';
 import { Receipt } from './Receipt';
 import { ShiftPanel } from './ShiftUI';
 import { useSession } from './session';
+import { t, useLang } from '../lib/i18n';
 
 const REASONS: Record<string, string> = {
   device_clock_ahead: "This tablet's clock is wrong. Fix the date and time in settings.",
@@ -19,7 +21,7 @@ const REASONS: Record<string, string> = {
 };
 
 function explain(reason?: string) {
-  if (!reason) return 'Not accepted. Tell the owner.';
+  if (!reason) return t("Not accepted. Tell the owner.");
   return REASONS[reason] ?? REASONS[reason.split(':')[0]] ?? `Not accepted (${reason}). Tell the owner.`;
 }
 
@@ -28,11 +30,13 @@ function timeIST(iso: string) {
 }
 
 export function BillsScreen() {
+  useLang();
   const { sync } = useSession();
   const [bills, setBills] = useState<LocalBill[]>([]);
   const [open, setOpen] = useState<LocalBill | null>(null);
   const [printer, setPrinter] = useState(false);
   const [customers, setCustomers] = useState(false);
+  const [account, setAccount] = useState(false);
   // Voids happen on the server (owner only). Shown when online; offline, the list
   // is what this tablet printed.
   const [voided, setVoided] = useState<Set<string>>(new Set());
@@ -58,47 +62,50 @@ export function BillsScreen() {
     <main className="bills">
       <header className="bills-head">
         <div className="manage-head">
-          <h1>Today on this tablet</h1>
+          <h1>{t("Today on this tablet")}</h1>
           <span className="head-actions">
             <button className="quiet" onClick={() => setCustomers(true)}>
-              Customers
+              {t("Customers")}
             </button>
             <button className="quiet" onClick={() => setPrinter(true)}>
-              Printer
+              {t("Printer")}
+            </button>
+            <button className="quiet" onClick={() => setAccount(true)}>
+              {t("Account")}
             </button>
           </span>
         </div>
         <div className="kpis">
           <div className="kpi">
-            <span className="kpi-label">Sales</span>
+            <span className="kpi-label">{t("Sales")}</span>
             <strong className="kpi-value num">{formatRupees(total)}</strong>
             <span className="kpi-note">
-              from {live.length} bill{live.length === 1 ? '' : 's'}
-              {bills.length > live.length && ` (${bills.length - live.length} voided)`}
+              {live.length === 1 ? t('from {n} bill', { n: live.length }) : t('from {n} bills', { n: live.length })}
+              {bills.length > live.length && ` (${t('{n} voided', { n: bills.length - live.length })})`}
             </span>
           </div>
           <div className="kpi">
-            <span className="kpi-label">Bills</span>
+            <span className="kpi-label">{t("Bills")}</span>
             <strong className="kpi-value num">{live.length}</strong>
-            <span className="kpi-note">on this tablet today</span>
+            <span className="kpi-note">{t("on this tablet today")}</span>
           </div>
           <div className="kpi">
-            <span className="kpi-label">Average bill</span>
+            <span className="kpi-label">{t("Average bill")}</span>
             <strong className="kpi-value num">{formatRupees(live.length ? Math.round(total / live.length / 100) * 100 : 0)}</strong>
-            <span className="kpi-note">to the nearest rupee</span>
+            <span className="kpi-note">{t("to the nearest rupee")}</span>
           </div>
           <div className="kpi">
-            <span className="kpi-label">Waiting to send</span>
+            <span className="kpi-label">{t("Waiting to send")}</span>
             <strong className={`kpi-value num ${sync?.pending ? 'warn' : ''}`}>{sync?.pending ?? 0}</strong>
             <span className={`kpi-note ${sync?.pending ? '' : 'good'}`}>
-              {sync?.pending ? 'Sent when the internet is back' : 'Everything reached the server'}
+              {sync?.pending ? t("Sent when the internet is back") : t("Everything reached the server")}
             </span>
           </div>
         </div>
       </header>
       <ShiftPanel />
       {bills.length === 0 ? (
-        <p className="empty">No bills yet today.</p>
+        <p className="empty">{t("No bills yet today.")}</p>
       ) : (
         <ul className="bill-list">
           {bills.map((b) => (
@@ -108,10 +115,10 @@ export function BillsScreen() {
                 <span className="muted">{timeIST(b.soldAt)}</span>
                 <span className={`num right ${voided.has(b.id) ? 'struck' : ''}`}>{formatRupees(b.totalPaise)}</span>
                 {voided.has(b.id) ? (
-                  <span className="status voided">Voided</span>
+                  <span className="status voided">{t("Voided")}</span>
                 ) : (
                   <span className={`status ${b.status}`}>
-                    {b.status === 'synced' ? 'Sent' : b.status === 'pending' ? 'Waiting' : 'Problem'}
+                    {b.status === 'synced' ? t("Sent") : b.status === 'pending' ? t("Waiting") : t("Problem")}
                   </span>
                 )}
               </button>
@@ -122,6 +129,7 @@ export function BillsScreen() {
       )}
       {printer && <PrinterSheet onClose={() => setPrinter(false)} />}
       {customers && <CustomersSheet onClose={() => setCustomers(false)} />}
+      {account && <AccountSheet onClose={() => setAccount(false)} />}
       {open && <Receipt bill={open} voided={voided.has(open.id)} onClose={() => setOpen(null)} />}
     </main>
   );

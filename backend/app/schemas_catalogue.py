@@ -111,6 +111,8 @@ class MenuItemCreate(BaseModel):
     description: Annotated[str, Field(max_length=200)] = ""
     photo_url: PhotoLink = ""
     is_veg: bool = True
+    name_ta: Annotated[str, Field(max_length=120)] = ""
+    description_ta: Annotated[str, Field(max_length=300)] = ""
 
 
 class MenuItemUpdate(BaseModel):
@@ -124,6 +126,8 @@ class MenuItemUpdate(BaseModel):
     description: Annotated[str, Field(max_length=200)] | None = None
     photo_url: PhotoLink | None = None
     is_veg: bool | None = None
+    name_ta: Annotated[str, Field(max_length=120)] | None = None
+    description_ta: Annotated[str, Field(max_length=300)] | None = None
 
 
 class MenuItemOut(ORM):
@@ -139,6 +143,8 @@ class MenuItemOut(ORM):
     description: str = ""
     photo_url: str = ""
     is_veg: bool = True
+    name_ta: str = ""
+    description_ta: str = ""
 
 
 class ModifierIdsIn(BaseModel):

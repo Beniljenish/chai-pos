@@ -7,7 +7,9 @@ import { createPortal } from "react-dom";
 import { passwordProblem } from "../lib/staff";
 import { explainError } from "./errors";
 import { Sheet } from "./Sheet";
+import { VoiceSettings } from "./VoiceSettings";
 import { useSession } from "./session";
+import { t, useLang } from '../lib/i18n';
 
 export function PasswordForm({
   forced,
@@ -16,6 +18,7 @@ export function PasswordForm({
   forced: boolean;
   onDone?(): void;
 }) {
+  useLang();
   const { user, changePassword } = useSession();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -28,7 +31,7 @@ export function PasswordForm({
     const problem = passwordProblem(next, user?.phone ?? "");
     if (problem) return setError(problem);
     if (next !== again)
-      return setError("The two new passwords are not the same.");
+      return setError(t("The two new passwords are not the same."));
     setBusy(true);
     setError(null);
     try {
@@ -43,7 +46,7 @@ export function PasswordForm({
   return (
     <form className="password-form" onSubmit={submit}>
       <label>
-        {forced ? "Password the owner gave you" : "Current password"}
+        {forced ? t("Password the owner gave you") : t("Current password")}
         <input
           type="password"
           autoComplete="current-password"
@@ -56,7 +59,7 @@ export function PasswordForm({
         />
       </label>
       <label>
-        New password
+        {t("New password")}
         <input
           type="password"
           autoComplete="new-password"
@@ -70,10 +73,10 @@ export function PasswordForm({
         />
       </label>
       <p id="new-password-rules" className="muted hint">
-        At least 8 characters. Not your phone number.
+        {t("At least 8 characters. Not your phone number.")}
       </p>
       <label>
-        New password again
+        {t("New password again")}
         <input
           type="password"
           autoComplete="new-password"
@@ -91,7 +94,7 @@ export function PasswordForm({
         </p>
       )}
       <button className="primary" disabled={busy}>
-        {busy ? "Saving…" : "Save my password"}
+        {busy ? t("Saving…") : t("Save my password")}
       </button>
     </form>
   );
@@ -103,21 +106,35 @@ export function SetPasswordScreen() {
   return (
     <main className="centered">
       <div className="panel login">
-        <h1>Hello {user?.name}</h1>
+        <h1>{t("Hello")} {user?.name}</h1>
         <p>
-          Choose your own password. Only you will know it, so the bills and
-          changes you make are shown as yours.
+          {t("Choose your own password. Only you will know it, so the bills and changes you make are shown as yours.")}
         </p>
         <PasswordForm forced />
         <button className="quiet" onClick={() => void logout()}>
-          Log out
+          {t("Log out")}
         </button>
       </div>
     </main>
   );
 }
 
-/** The logged-in person's name in the top bar; tapping it offers a password change. */
+/** The account sheet: language, speaking aloud, and changing your own password. */
+export function AccountSheet({ onClose }: { onClose(): void }) {
+  const { user } = useSession();
+  if (!user) return null;
+  return createPortal(
+    // Out of the top bar's text styles: the sheet belongs to the page.
+    <Sheet title={`${user.name}: change my password`} onClose={onClose}>
+      <VoiceSettings />
+      <PasswordForm forced={false} onDone={onClose} />
+      <p className="muted">{t("Needs internet. Saving logs you out on your other phones and tablets.")}</p>
+    </Sheet>,
+    document.body,
+  );
+}
+
+/** The logged-in person's name in the top bar; tapping it opens the account sheet. */
 export function AccountButton() {
   const { user } = useSession();
   const [open, setOpen] = useState(false);
@@ -131,21 +148,7 @@ export function AccountButton() {
       >
         {user.name}
       </button>
-      {open &&
-        // Out of the top bar's text styles: the sheet belongs to the page.
-        createPortal(
-          <Sheet
-            title={`${user.name}: change my password`}
-            onClose={() => setOpen(false)}
-          >
-            <PasswordForm forced={false} onDone={() => setOpen(false)} />
-            <p className="muted">
-              Needs internet. Saving logs you out on your other phones and
-              tablets.
-            </p>
-          </Sheet>,
-          document.body,
-        )}
+      {open && <AccountSheet onClose={() => setOpen(false)} />}
     </>
   );
 }

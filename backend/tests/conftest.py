@@ -42,6 +42,16 @@ def _clean():
         conn.execute(text("TRUNCATE food_courts, platform_admins, customer_accounts CASCADE"))
 
 
+@pytest.fixture(autouse=True)
+def _no_ai_backend():
+    """A test that installs a stand-in model must not leak it into the next test."""
+    from app.services import ai
+
+    ai.set_backend(None)
+    yield
+    ai.set_backend(None)
+
+
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)

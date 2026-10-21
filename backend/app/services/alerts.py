@@ -10,6 +10,8 @@ deliberately plain, so an alert can always be explained in one sentence:
   wastage        a large entry waiting for approval
   price up       an ingredient's latest purchase cost 5% or more above the one before
   over recipe    used 10% or more over the recipe across 3 or more closed days
+  upi unconfirmed  2 or more UPI bills in 7 days that Razorpay never confirmed
+  gst limit      turnover past, or 80% of, the GST limit the owner typed
 
 "act" is something to deal with now, "look" is worth a look, "info" is news.
 """
@@ -34,7 +36,7 @@ from app.models import (
     WastageEntry,
     WastageStatus,
 )
-from app.services import dayend, shifts
+from app.services import dayend, gstwatch, shifts, upimatch
 
 SHORT_DRAWER_PAISE = 2_000
 OVER_DRAWER_PAISE = 10_000
@@ -47,6 +49,7 @@ PRICE_RISE_PCT = 5
 PRICE_LOOKBACK_DAYS = 14
 OVER_RECIPE_PCT = 10
 OVER_RECIPE_DAYS = 3
+UPI_UNCONFIRMED_MIN = 2
 URGENCY = {"act": 0, "look": 1, "info": 2}
 PER = {"ml": ("litre", 1000), "g": ("kg", 1000), "piece": ("piece", 1)}
 
@@ -271,6 +274,50 @@ def build(db: Session, d: date | None = None) -> list[dict]:
                         str(t.ingredient.id),
                     )
                 )
+
+    # ---- UPI bills Razorpay never confirmed (only for a shop that takes UPI through Razorpay)
+    match = upimatch.build(db, d - timedelta(days=6), d)
+    if match["online_on"] and len(match["unconfirmed"]) >= UPI_UNCONFIRMED_MIN:
+        lost = sum(u["upi_paise"] for u in match["unconfirmed"])
+        worst = match["by_cashier"][0]
+        out.append(
+            _alert(
+                "upi_unconfirmed",
+                "look",
+                "week",
+                f"{len(match['unconfirmed'])} UPI bills with no confirmed payment",
+                f"{rupees(lost)} billed as UPI in the last 7 days that Razorpay never confirmed. "
+                f"Most: {worst['name']} ({worst['unconfirmed']}). The customer may have paid "
+                "another QR; ask, then check the UPI match report.",
+                None,
+                "sales",
+            )
+        )
+
+    # ---- nearing the GST registration limit the owner typed
+    watch = gstwatch.build(db, d)
+    if watch["status"] in ("over", "watch"):
+        over = watch["status"] == "over"
+        when = (
+            f"At this pace you cross it around {watch['cross_on']:%d %b %Y}. "
+            if watch["cross_on"]
+            else ""
+        )
+        out.append(
+            _alert(
+                "gst_over" if over else "gst_watch",
+                "act" if over else "look",
+                "week",
+                "Turnover is past your GST registration limit"
+                if over
+                else f"Turnover is {watch['percent']}% of your GST registration limit",
+                f"{rupees(watch['turnover_paise'])} before GST this financial year against "
+                f"{rupees(watch['threshold_paise'])}. {when}Talk to your accountant about "
+                "registering.",
+                None,
+                "sales",
+            )
+        )
 
     out.sort(
         key=lambda a: (

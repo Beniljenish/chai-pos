@@ -9,11 +9,13 @@ import type { Ingredient } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
 import { PackEntry } from './PackEntry';
+import { t, useLang } from '../lib/i18n';
 
 type Entry = { counts: Record<string, number>; loose: string; touched: boolean };
 export type HandoverState = 'loading' | 'none' | 'todo' | 'sent' | 'skipped';
 
 export function HandoverCount({ shiftId, onState }: { shiftId: string; onState(s: HandoverState): void }) {
+  useLang();
   const [items, setItems] = useState<Ingredient[] | null>(null);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [state, setState] = useState<HandoverState>('loading');
@@ -39,8 +41,8 @@ export function HandoverCount({ shiftId, onState }: { shiftId: string; onState(s
 
   if (state === 'loading' || state === 'none') return null;
   if (state === 'skipped')
-    return <p className="muted">No connection, so the milk and fruit count is skipped this time. The day-end count still covers it.</p>;
-  if (state === 'sent') return <p className="ok">Milk and fruit counted. Now the drawer.</p>;
+    return <p className="muted">{t("No connection, so the milk and fruit count is skipped this time. The day-end count still covers it.")}</p>;
+  if (state === 'sent') return <p className="ok">{t("Milk and fruit counted. Now the drawer.")}</p>;
 
   const entry = (id: string): Entry => entries[id] ?? { counts: {}, loose: '', touched: false };
   const touch = (id: string, patch: Partial<Entry>) =>
@@ -69,8 +71,8 @@ export function HandoverCount({ shiftId, onState }: { shiftId: string; onState(s
 
   return (
     <section className="handover" aria-labelledby="handover-title">
-      <h3 id="handover-title">First, count these</h3>
-      <p className="muted">Count what is on the shelf now, before the next shift starts using it.</p>
+      <h3 id="handover-title">{t("First, count these")}</h3>
+      <p className="muted">{t("Count what is on the shelf now, before the next shift starts using it.")}</p>
       <ul className="count-list">
         {items!.map((i) => {
           const e = entry(i.id);
@@ -95,9 +97,9 @@ export function HandoverCount({ shiftId, onState }: { shiftId: string; onState(s
       )}
       <div className="sheet-actions">
         <button className="primary" disabled={busy || missing.length > 0} onClick={() => void send()}>
-          {missing.length ? `Count ${missing.length} more` : 'Send count'}
+          {missing.length ? t('Count {n} more', { n: missing.length }) : t('Send count')}
         </button>
-        <button onClick={() => set('skipped')}>Skip this time</button>
+        <button onClick={() => set('skipped')}>{t("Skip this time")}</button>
       </div>
     </section>
   );

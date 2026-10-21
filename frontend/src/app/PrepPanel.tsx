@@ -10,6 +10,7 @@ import type { Ingredient, Recipe as PrepRecipe } from '../lib/types';
 import { api } from './apiClient';
 import { Loading } from './Status';
 import { explainError } from './errors';
+import { t, useLang } from '../lib/i18n';
 
 interface PrepItem {
   ingredient: Ingredient;
@@ -17,6 +18,7 @@ interface PrepItem {
 }
 
 export function PrepPanel({ onLogged }: { onLogged?: () => void }) {
+  useLang();
   const [items, setItems] = useState<PrepItem[] | null>(null);
   const [batches, setBatches] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function PrepPanel({ onLogged }: { onLogged?: () => void }) {
     try {
       await api.post('/prep-batches', { ingredient_id: item.ingredient.id, batches: String(n) });
       const made = formatQty(Number(item.recipe?.yield_qty ?? 0) * n, item.ingredient.base_unit);
-      setMessage({ ok: true, text: `Logged: ${n} batch${n === 1 ? '' : 'es'} of ${item.ingredient.name} (${made}).` });
+      setMessage({ ok: true, text: t(n === 1 ? 'Logged: {n} batch of {name} ({made}).' : 'Logged: {n} batches of {name} ({made}).', { n, name: item.ingredient.name, made }) });
       setBatches({ ...batches, [item.ingredient.id]: 1 });
       onLogged?.();
     } catch (e) {
@@ -63,7 +65,7 @@ export function PrepPanel({ onLogged }: { onLogged?: () => void }) {
 
   return (
     <section className="prep" aria-labelledby="prep-title">
-      <h2 id="prep-title">Made a batch?</h2>
+      <h2 id="prep-title">{t("Made a batch?")}</h2>
       {items.map((item) => {
         const n = batches[item.ingredient.id] ?? 1;
         const unit = item.ingredient.base_unit;
@@ -73,32 +75,32 @@ export function PrepPanel({ onLogged }: { onLogged?: () => void }) {
               <strong>{item.ingredient.name}</strong>
               {item.recipe?.yield_qty ? (
                 <p className="muted">
-                  One batch makes {formatQty(item.recipe.yield_qty, unit)}:{' '}
+                  {t('One batch makes {qty}:', { qty: formatQty(item.recipe.yield_qty, unit) })}{' '}
                   {item.recipe.lines.map((l) => `${l.ingredient_name} ${formatQty(l.qty, l.base_unit as BaseUnit)}`).join(', ')}
                 </p>
               ) : (
-                <p className="warn">No batch recipe yet. The owner needs to add one.</p>
+                <p className="warn">{t("No batch recipe yet. The owner needs to add one.")}</p>
               )}
             </div>
             {item.recipe?.yield_qty && (
               <div className="prep-actions">
                 <div className="stepper">
                   <button
-                    aria-label="Half a batch less"
+                    aria-label={t("Half a batch less")}
                     onClick={() => setBatches({ ...batches, [item.ingredient.id]: Math.max(0.5, n - 0.5) })}
                   >
                     −
                   </button>
                   <span className="num">{n}</span>
                   <button
-                    aria-label="Half a batch more"
+                    aria-label={t("Half a batch more")}
                     onClick={() => setBatches({ ...batches, [item.ingredient.id]: Math.min(20, n + 0.5) })}
                   >
                     +
                   </button>
                 </div>
                 <button className="primary" disabled={busy !== null} onClick={() => log(item)}>
-                  Log {n} batch{n === 1 ? '' : 'es'}
+                  {t(n === 1 ? 'Log {n} batch' : 'Log {n} batches', { n })}
                 </button>
               </div>
             )}

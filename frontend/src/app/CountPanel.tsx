@@ -11,6 +11,7 @@ import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { PackEntry } from './PackEntry';
 import { useSession } from './session';
+import { t, useLang } from '../lib/i18n';
 
 interface Entry {
   counts: Record<string, number>;
@@ -39,6 +40,7 @@ export function CountPanel({
   refreshKey?: number;
   onStatus?: (s: DayStatus) => void;
 }) {
+  useLang();
   const { sync, user } = useSession();
   const reconciling = user?.role === 'owner'; // the owner counts with the balance in view
   const [sheet, setSheet] = useState<CountSheet | null>(null);
@@ -73,8 +75,8 @@ export function CountPanel({
   if (sheet.status === 'approved')
     return (
       <section className="count" aria-labelledby="count-title">
-        <h2 id="count-title">Day-end count</h2>
-        <p className="ok">This day is closed. The owner approved the count.</p>
+        <h2 id="count-title">{t("Day-end count")}</h2>
+        <p className="ok">{t("This day is closed. The owner approved the count.")}</p>
       </section>
     );
 
@@ -82,11 +84,11 @@ export function CountPanel({
   if (sheet.status === 'submitted' && !recounting && !again)
     return (
       <section className="count" aria-labelledby="count-title">
-        <h2 id="count-title">Day-end count</h2>
+        <h2 id="count-title">{t("Day-end count")}</h2>
         <p className="ok" role="status">
-          Count sent to the owner.
+          {t("Count sent to the owner.")}
         </p>
-        <button onClick={() => setAgain(true)}>Count again</button>
+        <button onClick={() => setAgain(true)}>{t("Count again")}</button>
       </section>
     );
   const shown = recounting ? sheet.items.filter((i) => recount.includes(i.ingredient_id)) : sheet.items;
@@ -127,37 +129,34 @@ export function CountPanel({
 
   return (
     <section className="count" aria-labelledby="count-title">
-      <h2 id="count-title">{recounting ? 'Please count these again' : 'Day-end count'}</h2>
-      {again && <p className="muted">Counting again replaces what was sent, item by item.</p>}
+      <h2 id="count-title">{recounting ? t("Please count these again") : t("Day-end count")}</h2>
+      {again && <p className="muted">{t("Counting again replaces what was sent, item by item.")}</p>}
       {recounting ? (
         <p className="warn">
-          Count {recount.length === 1 ? 'this item' : 'these items'} once more, carefully, from the shelf. Do not copy
-          the first number.
+          {recount.length === 1
+            ? t('Count this item once more, carefully, from the shelf. Do not copy the first number.')
+            : t('Count these items once more, carefully, from the shelf. Do not copy the first number.')}
         </p>
       ) : reconciling ? (
         <p className="muted">
-          Each item shows what the stock record says. Tap “Matches” if the shelf agrees, or enter what is really there.
-          Staff counts stay blind: they never see these numbers.
+          {t("Each item shows what the stock record says. Tap “Matches” if the shelf agrees, or enter what is really there. Staff counts stay blind: they never see these numbers.")}
         </p>
       ) : (
         <p className="muted">
-          Count what is on the shelf now. Enter packs and loose amounts; the app adds them up. Use “It is zero” for an
-          empty shelf.
+          {t("Count what is on the shelf now. Enter packs and loose amounts; the app adds them up. Use “It is zero” for an empty shelf.")}
         </p>
       )}
       {pending > 0 && (
         <p className="warn" role="alert">
-          {pending} bill{pending === 1 ? ' is' : 's are'} still waiting to be sent from this tablet. Connect to the
-          internet first: the count must include every bill.
+          {pending === 1
+            ? t('{n} bill is still waiting to be sent from this tablet. Connect to the internet first: the count must include every bill.', { n: pending })
+            : t('{n} bills are still waiting to be sent from this tablet. Connect to the internet first: the count must include every bill.', { n: pending })}
         </p>
       )}
       {required.length > 0 && (
         <div className="count-progress" aria-live="polite">
           <span>
-            <strong className="num">
-              {countedSoFar} of {required.length}
-            </strong>{' '}
-            counted
+            {t('{done} of {all} counted', { done: countedSoFar, all: required.length })}
           </span>
           <span className="count-bar" aria-hidden="true">
             <i style={{ width: `${(countedSoFar / required.length) * 100}%` }} />
@@ -180,7 +179,7 @@ export function CountPanel({
               {expected !== null && (
                 <div className="balance">
                   <span>
-                    Should be <strong className={`num ${expected < 0 ? 'neg' : ''}`}>{formatQty(expected, i.base_unit)}</strong>
+                    {t("Should be")} <strong className={`num ${expected < 0 ? 'neg' : ''}`}>{formatQty(expected, i.base_unit)}</strong>
                   </span>
                   {expected >= 0 ? (
                     <button
@@ -188,19 +187,19 @@ export function CountPanel({
                       aria-label={`${i.name} matches the balance`}
                       onClick={() => set(i.ingredient_id, { counts: {}, loose: String(expected) })}
                     >
-                      Matches
+                      {t("Matches")}
                     </button>
                   ) : (
-                    <span className="muted">below zero: count it</span>
+                    <span className="muted">{t("below zero: count it")}</span>
                   )}
                 </div>
               )}
               <div className="count-head">
                 <strong>{i.name}</strong>
-                {i.ingredient_id === current && <span className="now-tag">Now</span>}
+                {i.ingredient_id === current && <span className="now-tag">{t("Now")}</span>}
                 <span className="muted">
-                  {!mustCount(i.count_frequency) && !recounting && 'weekly · optional'}
-                  {i.counted && !e.touched && !recounting && ' counted'}
+                  {!mustCount(i.count_frequency) && !recounting && t("weekly · optional")}
+                  {i.counted && !e.touched && !recounting && t(" counted")}
                 </span>
               </div>
               <PackEntry
@@ -212,12 +211,12 @@ export function CountPanel({
               />
               <div className="count-actions">
                 <button className="quiet" onClick={() => set(i.ingredient_id, { counts: {}, loose: '0' })}>
-                  It is zero
+                  {t("It is zero")}
                 </button>
                 {e.touched && (
                   <span className={diff ? 'neg' : 'ok'}>
                     ✓ {formatQty(total, i.base_unit)}
-                    {diff ? ` (${formatDelta(diff, i.base_unit)} vs balance)` : diff === 0 ? ' (matches)' : ''}
+                    {diff ? ` (${t('{delta} vs balance', { delta: formatDelta(diff, i.base_unit) })})` : diff === 0 ? t(' (matches)') : ''}
                   </span>
                 )}
               </div>
@@ -226,12 +225,12 @@ export function CountPanel({
         })}
       </ul>
       {missing.length > 0 && (
-        <p className="muted">Still to count: {missing.map((m) => m.name).join(', ')}</p>
+        <p className="muted">{t("Still to count:")} {missing.map((m) => m.name).join(', ')}</p>
       )}
       <div className="count-send">
         {missing.length > 0 && (
           <button onClick={goToNext}>
-            Next item
+            {t("Next item")}
           </button>
         )}
         <button
@@ -239,7 +238,7 @@ export function CountPanel({
           disabled={busy || pending > 0 || missing.length > 0 || !shown.some((i) => entry(i.ingredient_id).touched)}
           onClick={() => void submit()}
         >
-          {recounting ? 'Send recount' : 'Send count'}
+          {recounting ? t("Send recount") : t("Send count")}
         </button>
       </div>
       {error && (

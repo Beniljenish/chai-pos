@@ -108,6 +108,7 @@ export interface HistoryRow {
 export interface Favourite {
   menu_item_id: string;
   name: string;
+  name_ta?: string;
   price_paise: number;
   photo_url: string;
   is_veg: boolean;

@@ -4,12 +4,14 @@
  * allow sound after a tap, so each tablet has one "Sound" switch (remembered on the tablet).
  */
 import { useEffect, useRef, useState } from 'react';
+import { announce } from '../lib/announce';
 import { chime, unlockSound } from '../lib/chime';
 import { db } from '../lib/db';
 import { liveOrders, type LiveOrder } from '../lib/orders';
 import { spotNewOnlineOrders } from '../lib/onlineAlert';
 import { onlineToken } from '../lib/table';
 import { useSession } from './session';
+import { t, useLang } from '../lib/i18n';
 
 const SOUND_KEY = 'taptallow-till-sound';
 const REPEAT_MS = 20_000;
@@ -24,6 +26,7 @@ function soundWanted(): boolean {
 }
 
 export function OnlineOrderAlert({ onOpen }: { onOpen(): void }) {
+  useLang();
   const { sync, worker } = useSession();
   const [sound, setSound] = useState(soundWanted);
   const [fresh, setFresh] = useState<LiveOrder[]>([]);
@@ -49,6 +52,8 @@ export function OnlineOrderAlert({ onOpen }: { onOpen(): void }) {
       if (r.fresh.length > 0) {
         setFresh((f) => [...f, ...r.fresh]);
         if (sound) chime();
+        const token = onlineToken(r.fresh[0].state);
+        if (token) announce('order', { token });
       }
     });
     return () => void (live = false);
@@ -83,9 +88,9 @@ export function OnlineOrderAlert({ onOpen }: { onOpen(): void }) {
         role="switch"
         aria-checked={sound}
         onClick={toggle}
-        title="Ring when a customer's online order arrives"
+        title={t("Ring when a customer's online order arrives")}
       >
-        <span aria-hidden="true">{sound ? '🔔' : '🔕'}</span> Sound {sound ? 'on' : 'off'}
+        <span aria-hidden="true">{sound ? '🔔' : '🔕'}</span> {t("Sound")} {sound ? 'on' : 'off'}
       </button>
       {fresh.length > 0 && (
         <button
@@ -99,10 +104,10 @@ export function OnlineOrderAlert({ onOpen }: { onOpen(): void }) {
           <span aria-hidden="true">🔔</span>
           <span>
             <strong>
-              New online order{fresh.length > 1 ? 's' : ''}: {fresh.map((o) => onlineToken(o.state)).join(', ')}
+              {t("New online order")}{fresh.length > 1 ? 's' : ''}: {fresh.map((o) => onlineToken(o.state)).join(', ')}
             </strong>
             <small>
-              {fresh[fresh.length - 1].state.customer_name.replace(/^[A-Z]{1,2}-\d+ /, '')} · tap to open
+              {fresh[fresh.length - 1].state.customer_name.replace(/^[A-Z]{1,2}-\d+ /, '')} {t("· tap to open")}
             </small>
           </span>
         </button>

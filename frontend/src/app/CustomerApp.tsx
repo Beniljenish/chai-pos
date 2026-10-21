@@ -54,6 +54,8 @@ import {
   type PublicOrder,
   type Signed,
 } from '../lib/publicApi';
+import { dishDescription, dishName, getLang, t, useLang } from '../lib/i18n';
+import { LangSwitch } from './LangSwitch';
 
 // ---- what the phone remembers (every read and write may fail: private windows)
 const TOKEN_KEY = 'taptallow-customer-token';
@@ -91,6 +93,7 @@ interface Auth {
 
 /** The front door: works out who is logged in, then shows the login or the shop. */
 export function CustomerApp({ slug }: { slug: string | null }) {
+  useLang(); // the whole customer app redraws when the language changes
   const [auth, setAuth] = useState<Auth | null>(null);
   const [checked, setChecked] = useState(() => recall(TOKEN_KEY) === null);
 
@@ -120,7 +123,7 @@ export function CustomerApp({ slug }: { slug: string | null }) {
     return (
       <main className="cx">
         <p className="muted" role="status">
-          Loading…
+          {t("Loading…")}
         </p>
       </main>
     );
@@ -174,7 +177,7 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
           : await publicApi.login(clean, loginNeedsPassword ? password : '-');
       onSignedIn(signed);
     } catch (err) {
-      setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : 'No signal. Please try again.');
+      setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : t("No signal. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -183,27 +186,28 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
   return (
     <main className="cx">
       <header className="cx-hero">
-        <small>{court ? 'Welcome to' : 'Taptallow food courts'}</small>
-        <h1>{court?.name ?? 'Order from your food court'}</h1>
-        <p>{court ? 'Log in to choose an outlet and order' : 'Create an account or log in to order'}</p>
+        <LangSwitch />
+        <small>{court ? t("Welcome to") : t("Taptallow food courts")}</small>
+        <h1>{court?.name ?? t("Order from your food court")}</h1>
+        <p>{court ? t("Log in to choose an outlet and order") : t("Create an account or log in to order")}</p>
       </header>
       <div className="cx-tabs" role="tablist">
         <button role="tab" aria-selected={mode === 'signup'} onClick={() => setMode('signup')}>
-          Create account
+          {t("Create account")}
         </button>
         <button role="tab" aria-selected={mode === 'login'} onClick={() => setMode('login')}>
-          Log in
+          {t("Log in")}
         </button>
       </div>
       <form className="cx-form" onSubmit={submit}>
         {mode === 'signup' && (
           <label>
-            Your name
+            {t("Your name")}
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoComplete="name" required />
           </label>
         )}
         <label>
-          Mobile number
+          {t("Mobile number")}
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -213,14 +217,14 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
             required
           />
         </label>
-        {phone !== '' && clean === null && <p className="error">A mobile number has 10 digits.</p>}
+        {phone !== '' && clean === null && <p className="error">{t("A mobile number has 10 digits.")}</p>}
         {mode === 'login' && noPassword ? (
           <p className="login-test-note" role="note">
-            <strong>Local test mode:</strong> no password needed to log in.
+            <strong>{t("Local test mode:")}</strong> {t("no password needed to log in.")}
           </p>
         ) : (
           <label>
-            {mode === 'signup' ? 'Choose a password' : 'Password'}
+            {mode === 'signup' ? t("Choose a password") : t("Password")}
             <input
               type="password"
               value={password}
@@ -232,7 +236,7 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
         )}
         {mode === 'signup' && (
           <p className="cx-note">
-            8 or more characters. If you forget it, the food court team can give you a temporary one.
+            {t("8 or more characters. If you forget it, the food court team can give you a temporary one.")}
           </p>
         )}
         {error && (
@@ -241,7 +245,7 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
           </p>
         )}
         <button className="primary" disabled={!ready || busy}>
-          {busy ? 'Please wait…' : mode === 'signup' ? 'Create account and continue' : 'Log in'}
+          {busy ? t("Please wait…") : mode === 'signup' ? t("Create account and continue") : t("Log in")}
         </button>
       </form>
     </main>
@@ -263,7 +267,7 @@ function NewPassword({ auth, onDone, onLogOut }: { auth: Auth; onDone(s: Signed)
       onDone(await publicApi.changePassword(auth.token, current, next));
     } catch (err) {
       if (err instanceof PublicError && err.status === 401) onLogOut();
-      else setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : 'No signal. Please try again.');
+      else setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : t("No signal. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -272,16 +276,16 @@ function NewPassword({ auth, onDone, onLogOut }: { auth: Auth; onDone(s: Signed)
   return (
     <main className="cx">
       <header className="cx-top">
-        <h1>Choose a new password</h1>
+        <h1>{t("Choose a new password")}</h1>
       </header>
       <form className="cx-form" onSubmit={submit}>
-        <p className="cx-note">The food court team gave you a temporary password. Choose your own to continue.</p>
+        <p className="cx-note">{t("The food court team gave you a temporary password. Choose your own to continue.")}</p>
         <label>
-          Temporary password
+          {t("Temporary password")}
           <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
         </label>
         <label>
-          New password
+          {t("New password")}
           <input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" required />
         </label>
         {error && (
@@ -290,10 +294,10 @@ function NewPassword({ auth, onDone, onLogOut }: { auth: Auth; onDone(s: Signed)
           </p>
         )}
         <button className="primary" disabled={busy || current === '' || next === ''}>
-          {busy ? 'Saving…' : 'Save and continue'}
+          {busy ? t("Saving…") : t("Save and continue")}
         </button>
         <button type="button" className="link" onClick={onLogOut}>
-          Log out
+          {t("Log out")}
         </button>
       </form>
     </main>
@@ -380,10 +384,10 @@ function Shop({
       ) : (
         <>
           <header className="cx-top">
-            <button className="cx-back" onClick={() => setScreen({ kind: 'orders' })} aria-label="Back to my orders">
+            <button className="cx-back" onClick={() => setScreen({ kind: 'orders' })} aria-label={t("Back to my orders")}>
               ‹
             </button>
-            <h1>Your order</h1>
+            <h1>{t("Your order")}</h1>
           </header>
           <StatusCard orderKey={screen.key} token={auth.token} />
         </>
@@ -398,7 +402,8 @@ function Who({ account, onOrders }: { account: Account; onOrders(): void }) {
       <span>
         <strong>{account.name}</strong> · {account.phone}
       </span>
-      <button onClick={onOrders}>My orders</button>
+      <button onClick={onOrders}>{t("My orders")}</button>
+      <LangSwitch />
     </div>
   );
 }
@@ -447,31 +452,31 @@ function Home({
   return (
     <>
       <header className="cx-hero">
-        <small>Hi {auth.account.name}</small>
-        <h1>Where are you eating?</h1>
+        <small>{t('Hi {name}', { name: auth.account.name })}</small>
+        <h1>{t("Where are you eating?")}</h1>
         <Who account={auth.account} onOrders={onOrders} />
       </header>
       <input
         className="cx-search"
         type="search"
-        placeholder="Search food court or place"
-        aria-label="Search food court or place"
+        placeholder={t("Search food court or place")}
+        aria-label={t("Search food court or place")}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
       {failed && !courts && (
         <p className="error" role="alert">
-          Could not load the food courts. <button onClick={load}>Try again</button>
+          {t("Could not load the food courts.")} <button onClick={load}>{t("Try again")}</button>
         </p>
       )}
       {courts === null && !failed && (
         <p className="muted" role="status">
-          Loading…
+          {t("Loading…")}
         </p>
       )}
       {favs.length > 0 && query === '' && (
-        <section className="cx-group" aria-label="Your favourites">
-          <h2>Your favourites</h2>
+        <section className="cx-group" aria-label={t("Your favourites")}>
+          <h2>{t("Your favourites")}</h2>
           <ul className="cx-favs">
             {favs.map((f) => (
               <li key={f.menu_item_id}>
@@ -480,11 +485,11 @@ function Home({
                   <span className="cx-name">
                     <strong>
                       <VegMark veg={f.is_veg} />
-                      {f.name}
+                      {dishName(f)}
                     </strong>
                     <small className="muted">
                       {f.outlet} · {formatRupees(f.price_paise)}
-                      {f.sold_out ? ' · sold out' : ''}
+                      {f.sold_out ? t(" · sold out") : ''}
                     </small>
                   </span>
                   <span className="heart" aria-hidden="true">
@@ -496,9 +501,9 @@ function Home({
           </ul>
         </section>
       )}
-      {courts && courts.length === 0 && <p className="cx-note">No food courts are set up yet.</p>}
-      {courts && courts.length > 0 && shown.length === 0 && <p className="muted">No food court matches “{query}”.</p>}
-      <ul className="cx-list" aria-label="Food courts">
+      {courts && courts.length === 0 && <p className="cx-note">{t("No food courts are set up yet.")}</p>}
+      {courts && courts.length > 0 && shown.length === 0 && <p className="muted">{t('No food court matches “{query}”.', { query })}</p>}
+      <ul className="cx-list" aria-label={t("Food courts")}>
         {shown.map((c) => (
           <li key={c.slug}>
             <button className="cx-outlet" disabled={c.open === 0} onClick={() => onPick(c.slug)}>
@@ -508,7 +513,7 @@ function Home({
                 {c.location && <small className="muted">{c.location}</small>}
               </span>
               <span className={`cx-tag ${c.open > 0 ? 'open' : 'shut'}`}>
-                {c.open > 0 ? `${c.open} of ${c.outlets} open` : 'All closed'}
+                {c.open > 0 ? t('{open} of {outlets} open', { open: c.open, outlets: c.outlets }) : t('All closed')}
               </span>
             </button>
           </li>
@@ -638,16 +643,16 @@ function CourtFlow({
   if (missing) {
     return (
       <>
-        <h1>We could not find this food court</h1>
-        <p className="muted">Please scan the QR code again, or choose one from the list.</p>
+        <h1>{t("We could not find this food court")}</h1>
+        <p className="muted">{t("Please scan the QR code again, or choose one from the list.")}</p>
         <button className="primary" onClick={onHome}>
-          Choose a food court
+          {t("Choose a food court")}
         </button>
       </>
     );
   }
 
-  const nameOf = (id: string) => court?.outlets.find((o) => o.id === id)?.name ?? 'Outlet';
+  const nameOf = (id: string) => court?.outlets.find((o) => o.id === id)?.name ?? t("Outlet");
 
   /** The payment went through and the orders were placed (or refunded): show the tokens, and take
    * what was paid for out of the cart so it cannot be ordered twice. */
@@ -752,7 +757,7 @@ function CourtFlow({
   return (
     <>
       <header className="cx-top">
-        <button className="cx-back" onClick={onHome} aria-label="Back to food courts">
+        <button className="cx-back" onClick={onHome} aria-label={t("Back to food courts")}>
           ‹
         </button>
         <h1>{court?.name ?? ' '}</h1>
@@ -761,17 +766,17 @@ function CourtFlow({
       {court?.location && <p className="muted cx-where">{court.location}</p>}
       {court === null ? (
         <p className="muted" role="status">
-          Loading…
+          {t("Loading…")}
         </p>
       ) : (
         <>
-          <div className="cx-chips" role="tablist" aria-label="Outlets">
+          <div className="cx-chips" role="tablist" aria-label={t("Outlets")}>
             {court.outlets.map((o) => {
               const n = cartCount(carts[o.id] ?? {});
               return (
                 <button key={o.id} role="tab" aria-selected={active === o.id} className={o.open ? '' : 'shut'} onClick={() => setActive(o.id)}>
                   {o.name}
-                  {n > 0 && <b aria-label={`${n} in cart`}>{n}</b>}
+                  {n > 0 && <b aria-label={t('{n} in cart', { n })}>{n}</b>}
                 </button>
               );
             })}
@@ -794,10 +799,11 @@ function CourtFlow({
       {count > 0 && (
         <div className="cx-bar">
           <span>
-            {count} item{count === 1 ? '' : 's'} · {outlets} outlet{outlets === 1 ? '' : 's'} · {formatRupees(total)}
+            {count} {count === 1 ? t('item') : t('items')} · {outlets} {outlets === 1 ? t('outlet') : t('outlets')} ·{' '}
+            {formatRupees(total)}
           </span>
           <button className="primary" onClick={() => setView('cart')}>
-            View cart
+            {t("View cart")}
           </button>
         </div>
       )}
@@ -807,7 +813,7 @@ function CourtFlow({
 
 /** The green (vegetarian) or red (non-vegetarian) square every Indian menu uses. */
 function VegMark({ veg }: { veg: boolean }) {
-  return <span className={`veg ${veg ? '' : 'nv'}`} role="img" aria-label={veg ? 'Vegetarian' : 'Non-vegetarian'} />;
+  return <span className={`veg ${veg ? '' : 'nv'}`} role="img" aria-label={veg ? t("Vegetarian") : t("Non-vegetarian")} />;
 }
 
 function OutletMenu({
@@ -846,17 +852,17 @@ function OutletMenu({
     <>
       {failed && !menu && (
         <p className="error" role="alert">
-          Could not load the menu. <button onClick={load}>Try again</button>
+          {t("Could not load the menu.")} <button onClick={load}>{t("Try again")}</button>
         </p>
       )}
-      {menu && !menu.open && <p className="cx-note">This outlet is not taking orders right now.</p>}
+      {menu && !menu.open && <p className="cx-note">{t("This outlet is not taking orders right now.")}</p>}
       {menu?.open && menu.prep_minutes && (
-        <p className="muted cx-wait-note">Usually ready in about {menu.prep_minutes} min</p>
+        <p className="muted cx-wait-note">{t('Usually ready in about {n} min', { n: menu.prep_minutes })}</p>
       )}
       {menu &&
         byCategory(menu.items).map((g) => (
-          <section key={g.category} aria-label={g.category}>
-            <h2>{g.category}</h2>
+          <section key={g.category} aria-label={t(g.category)}>
+            <h2>{t(g.category)}</h2>
             <ul className="cx-list">
               {g.items.map((i) => {
                 const qty = dishCount(cart, i.id);
@@ -870,38 +876,37 @@ function OutletMenu({
                     <div>
                       <strong>
                         <VegMark veg={i.is_veg} />
-                        {i.name}
+                        {dishName(i)}
                       </strong>
-                      {i.description && <span className="cx-desc">{i.description}</span>}
-                      {i.sold_out && <span className="muted"> Sold out today</span>}
+                      {dishDescription(i) && <span className="cx-desc">{dishDescription(i)}</span>}
+                      {i.sold_out && <span className="muted"> {t("Sold out today")}</span>}
                       <span className="muted cx-price num">
-                        {hasOptions ? 'from ' : ''}
-                        {formatRupees(i.price_paise)}
+                        {hasOptions ? t('from {price}', { price: formatRupees(i.price_paise) }) : formatRupees(i.price_paise)}
                       </span>
                     </div>
                     <button
                       className={`cx-heart ${favs.has(i.id) ? 'on' : ''}`}
                       aria-pressed={favs.has(i.id)}
-                      aria-label={`${favs.has(i.id) ? 'Remove' : 'Save'} ${i.name} ${favs.has(i.id) ? 'from' : 'to'} favourites`}
+                      aria-label={t(favs.has(i.id) ? 'Remove {name} from favourites' : 'Save {name} to favourites', { name: dishName(i) })}
                       onClick={() => onFav(i.id)}
                     >
                       {favs.has(i.id) ? '♥' : '♡'}
                     </button>
                     {!canOrder ? null : hasOptions ? (
-                      <button className="cx-add wide" aria-label={`Add ${i.name}`} onClick={() => setChoosing(i)}>
-                        {qty > 0 ? `Add · ${qty}` : 'Add'}
+                      <button className="cx-add wide" aria-label={t('Add {name}', { name: dishName(i) })} onClick={() => setChoosing(i)}>
+                        {qty > 0 ? t('Add · {qty}', { qty }) : t('Add')}
                       </button>
                     ) : qty === 0 ? (
-                      <button className="cx-add" aria-label={`Add ${i.name}`} onClick={() => change(i.id, [], 1)}>
+                      <button className="cx-add" aria-label={t('Add {name}', { name: dishName(i) })} onClick={() => change(i.id, [], 1)}>
                         +
                       </button>
                     ) : (
                       <span className="cx-step">
-                        <button aria-label={`Remove one ${i.name}`} onClick={() => change(i.id, [], -1)}>
+                        <button aria-label={t('Remove one {name}', { name: dishName(i) })} onClick={() => change(i.id, [], -1)}>
                           −
                         </button>
-                        <span aria-label={`${qty} ${i.name}`}>{qty}</span>
-                        <button aria-label={`Add one more ${i.name}`} onClick={() => change(i.id, [], 1)}>
+                        <span aria-label={`${qty} ${dishName(i)}`}>{qty}</span>
+                        <button aria-label={t('Add one more {name}', { name: dishName(i) })} onClick={() => change(i.id, [], 1)}>
                           +
                         </button>
                       </span>
@@ -914,7 +919,7 @@ function OutletMenu({
         ))}
       {gone.length > 0 && (
         <p className="error" role="alert">
-          Sold out since you picked it: {gone.join(', ')}. Open your cart to remove it.
+          {t('Sold out since you picked it: {names}. Open your cart to remove it.', { names: gone.join(', ') })}
         </p>
       )}
       {choosing && (
@@ -942,20 +947,20 @@ function OptionsSheet({ item, onClose, onAdd }: { item: PublicItem; onClose(): v
   const delta = (o: PublicOption) => (o.price_delta_paise ? ` ${o.price_delta_paise > 0 ? '+' : '−'}${formatRupees(Math.abs(o.price_delta_paise))}` : '');
 
   return (
-    <Sheet title={item.name} onClose={onClose}>
+    <Sheet title={dishName(item)} onClose={onClose}>
       <div className="cx-form">
-        {item.description && <p className="muted">{item.description}</p>}
+        {dishDescription(item) && <p className="muted">{dishDescription(item)}</p>}
         {sizes.length > 0 && (
           <fieldset className="cx-opts">
-            <legend>Size</legend>
+            <legend>{t("Size")}</legend>
             <label className={`cx-chip ${size === null ? 'on' : ''}`}>
               <input type="radio" name="size" checked={size === null} onChange={() => setSize(null)} />
-              Regular
+              {t("Regular")}
             </label>
             {sizes.map((o) => (
               <label key={o.id} className={`cx-chip ${size === o.id ? 'on' : ''}`}>
                 <input type="radio" name="size" checked={size === o.id} onChange={() => setSize(o.id)} />
-                {o.name}
+                {t(o.name)}
                 {delta(o)}
               </label>
             ))}
@@ -963,29 +968,29 @@ function OptionsSheet({ item, onClose, onAdd }: { item: PublicItem; onClose(): v
         )}
         {extras.length > 0 && (
           <fieldset className="cx-opts">
-            <legend>Make it</legend>
+            <legend>{t("Make it")}</legend>
             {extras.map((o) => (
               <label key={o.id} className={`cx-chip ${ticked.has(o.id) ? 'on' : ''}`}>
                 <input
                   type="checkbox"
                   checked={ticked.has(o.id)}
                   onChange={() =>
-                    setTicked((t) => {
-                      const next = new Set(t);
+                    setTicked((prev) => {
+                      const next = new Set(prev);
                       if (next.has(o.id)) next.delete(o.id);
                       else next.add(o.id);
                       return next;
                     })
                   }
                 />
-                {o.name}
+                {t(o.name)}
                 {delta(o)}
               </label>
             ))}
           </fieldset>
         )}
         <button className="primary" onClick={() => onAdd(mods)}>
-          Add to cart · {formatRupees(unitPrice(item, mods))}
+          {t('Add to cart · {price}', { price: formatRupees(unitPrice(item, mods)) })}
         </button>
       </div>
     </Sheet>
@@ -1055,7 +1060,11 @@ function CartScreen({
     }
     if (dropped > 0) {
       setCarts(Object.fromEntries(Object.entries(next).filter(([, c]) => Object.keys(c).length > 0)));
-      setNotice(`${dropped} dish${dropped === 1 ? ' is' : 'es are'} no longer on the menu and ${dropped === 1 ? 'was' : 'were'} left out.`);
+      setNotice(
+        dropped === 1
+          ? t('{n} dish is no longer on the menu and was left out.', { n: dropped })
+          : t('{n} dishes are no longer on the menu and were left out.', { n: dropped }),
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
@@ -1086,7 +1095,7 @@ function CartScreen({
           onGuard(e);
           return;
         }
-        const why = e instanceof PublicError ? orderProblem(e.code, e.names) : 'No signal. Please try again.';
+        const why = e instanceof PublicError ? orderProblem(e.code, e.names) : t("No signal. Please try again.");
         results.push({ id, outlet: nameOf(id), error: why });
         problems.push(`${nameOf(id)}: ${why}`);
       }
@@ -1130,7 +1139,7 @@ function CartScreen({
         onGuard(e);
         return;
       }
-      setError(e instanceof PublicError ? e.message || orderProblem(e.code, e.names) : 'No signal. Please try again.');
+      setError(e instanceof PublicError ? e.message || orderProblem(e.code, e.names) : t("No signal. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -1139,17 +1148,17 @@ function CartScreen({
   return (
     <>
       <header className="cx-top">
-        <button className="cx-back" onClick={onBack} aria-label="Back to the menu">
+        <button className="cx-back" onClick={onBack} aria-label={t("Back to the menu")}>
           ‹
         </button>
-        <h1>Your cart</h1>
+        <h1>{t("Your cart")}</h1>
       </header>
       {notice && (
         <p className="cx-note" role="status">
           {notice}
         </p>
       )}
-      {outletIds.length === 0 && <p className="muted">Your cart is empty.</p>}
+      {outletIds.length === 0 && <p className="muted">{t("Your cart is empty.")}</p>}
       {outletIds.map((id) => {
         const menu = menus[id];
         const cart = carts[id];
@@ -1157,9 +1166,9 @@ function CartScreen({
         return (
           <section key={id} className="cx-group" aria-label={nameOf(id)}>
             <h2>{nameOf(id)}</h2>
-            {menu && !menu.open && <p className="error">This outlet is not taking orders right now. Remove its dishes to continue.</p>}
-            {gone.length > 0 && <p className="error">Sold out: {gone.join(', ')}. Remove it to continue.</p>}
-            <ul className="cx-summary" aria-label={`${nameOf(id)} order`}>
+            {menu && !menu.open && <p className="error">{t("This outlet is not taking orders right now. Remove its dishes to continue.")}</p>}
+            {gone.length > 0 && <p className="error">{t('Sold out: {names}. Remove it to continue.', { names: gone.join(', ') })}</p>}
+            <ul className="cx-summary" aria-label={t('{name} order', { name: nameOf(id) })}>
               {menu &&
                 Object.values(cart).map((line) => {
                   const item = menu.items.find((i) => i.id === line.itemId);
@@ -1172,13 +1181,13 @@ function CartScreen({
                       </span>
                       <span className="cx-step">
                         <button
-                          aria-label={`Remove one ${label}`}
+                          aria-label={t('Remove one {name}', { name: label })}
                           onClick={() => setCarts(changeOutletLine(carts, id, line.itemId, line.mods, -1))}
                         >
                           −
                         </button>
                         <button
-                          aria-label={`Add one more ${label}`}
+                          aria-label={t('Add one more {name}', { name: label })}
                           onClick={() => setCarts(changeOutletLine(carts, id, line.itemId, line.mods, 1))}
                         >
                           +
@@ -1189,13 +1198,13 @@ function CartScreen({
                 })}
               {menu && (
                 <li className="cx-total">
-                  <strong>Subtotal</strong>
+                  <strong>{t("Subtotal")}</strong>
                   <strong className="num">{formatRupees(cartTotal(menu.items, cart, menu.gst_type))}</strong>
                 </li>
               )}
             </ul>
             <label>
-              Note for {nameOf(id)} <span className="muted">(optional)</span>
+              {t('Note for {name} (optional)', { name: nameOf(id) })}
               <input
                 value={notes[id] ?? ''}
                 onChange={(e) => setNotes((n) => ({ ...n, [id]: e.target.value }))}
@@ -1218,41 +1227,45 @@ function CartScreen({
               {auth.account.name[0]?.toUpperCase()}
             </span>
             <span>
-              Ordering as <strong>{auth.account.name}</strong>
+              {t("Ordering as")} <strong>{auth.account.name}</strong>
               <small className="muted"> {auth.account.phone}</small>
             </span>
             <button type="button" className="link" onClick={onLogOut}>
-              Not you?
+              {t("Not you?")}
             </button>
           </div>
           <label className="cx-check">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            Message me on this number when {outletIds.length > 1 ? 'each order is' : 'my order is'} ready
+            {outletIds.length > 1
+              ? t('Message me on this number when each order is ready')
+              : t('Message me on this number when my order is ready')}
           </label>
           {online && (
             <fieldset className="cx-pay">
-              <legend>How do you want to pay?</legend>
+              <legend>{t("How do you want to pay?")}</legend>
               <label className={`cx-opt ${pay === 'online' ? 'on' : ''}`}>
                 <input type="radio" name="pay" checked={pay === 'online'} onChange={() => setPay('online')} />
                 <span>
-                  <strong>Pay online · {formatRupees(total)}</strong>
-                  <small>UPI or card{outletIds.length > 1 ? ', one payment for all outlets' : ''}</small>
+                  <strong>{t('Pay online · {amount}', { amount: formatRupees(total) })}</strong>
+                  <small>{outletIds.length > 1 ? t('UPI or card, one payment for all outlets') : t('UPI or card')}</small>
                 </span>
               </label>
               <label className={`cx-opt ${pay === 'counter' ? 'on' : ''}`}>
                 <input type="radio" name="pay" checked={pay === 'counter'} onChange={() => setPay('counter')} />
                 <span>
-                  <strong>Pay at the counter{outletIds.length > 1 ? 's' : ''}</strong>
-                  <small>Pay {outletIds.length > 1 ? 'each outlet' : 'there'} when you collect</small>
+                  <strong>{outletIds.length > 1 ? t('Pay at the counters') : t('Pay at the counter')}</strong>
+                  <small>{outletIds.length > 1 ? t('Pay each outlet when you collect') : t('Pay there when you collect')}</small>
                 </span>
               </label>
             </fieldset>
           )}
           {pay === 'online' ? (
-            <p className="cx-note">Nothing is sent to the kitchen until your payment goes through.</p>
+            <p className="cx-note">{t("Nothing is sent to the kitchen until your payment goes through.")}</p>
           ) : (
             <p className="cx-note">
-              You pay <strong>{formatRupees(total)}</strong> at the counter{outletIds.length > 1 ? 's' : ''} when you collect.
+              {outletIds.length > 1
+                ? t('You pay {amount} at the counters when you collect.', { amount: formatRupees(total) })
+                : t('You pay {amount} at the counter when you collect.', { amount: formatRupees(total) })}
             </p>
           )}
           {error && (
@@ -1263,13 +1276,15 @@ function CartScreen({
           <button className="primary" disabled={!ready || blocked || busy}>
             {busy
               ? pay === 'online'
-                ? 'Starting payment…'
-                : 'Placing…'
+                ? t("Starting payment…")
+                : t("Placing…")
               : pay === 'online'
-                ? `Pay ${formatRupees(total)} and place ${outletIds.length === 1 ? 'order' : `${outletIds.length} orders`}`
+                ? outletIds.length === 1
+                  ? t('Pay {amount} and place order', { amount: formatRupees(total) })
+                  : t('Pay {amount} and place {n} orders', { amount: formatRupees(total), n: outletIds.length })
                 : outletIds.length === 1
-                  ? 'Place order'
-                  : `Place ${outletIds.length} orders`}
+                  ? t('Place order')
+                  : t('Place {n} orders', { n: outletIds.length })}
           </button>
         </form>
       )}
@@ -1323,38 +1338,42 @@ function Paying({
   return (
     <>
       <header className="cx-top">
-        <button className="cx-back" onClick={onBack} aria-label="Cancel and go back to the cart">
+        <button className="cx-back" onClick={onBack} aria-label={t("Cancel and go back to the cart")}>
           ‹
         </button>
-        <h1>Paying {formatRupees(view.amount_paise)}</h1>
+        <h1>{t("Paying")} {formatRupees(view.amount_paise)}</h1>
       </header>
       <section className="cx-group cx-wait" role="status" aria-live="polite">
         {view.status === 'paid' ? (
           <>
-            <h2>Payment received</h2>
-            <p className="muted">Placing your orders…</p>
+            <h2>{t("Payment received")}</h2>
+            <p className="muted">{t("Placing your orders…")}</p>
           </>
         ) : (
           <>
             <div className="cx-spin" aria-hidden="true" />
-            <h2>Waiting for your payment</h2>
-            <p className="muted">Finish paying in the other tab. This page moves on by itself.</p>
+            <h2>{t("Waiting for your payment")}</h2>
+            <p className="muted">{t("Finish paying in the other tab. This page moves on by itself.")}</p>
             {view.status === 'failed' && (
-              <p className="error">The payment did not go through{view.error ? `: ${view.error}` : ''}. You can try again.</p>
+              <p className="error">
+                {view.error
+                  ? t('The payment did not go through: {why}. You can try again.', { why: view.error })
+                  : t('The payment did not go through. You can try again.')}
+              </p>
             )}
-            {blocked && <p className="cx-note">Your browser blocked the payment page. Use the button below to open it.</p>}
+            {blocked && <p className="cx-note">{t("Your browser blocked the payment page. Use the button below to open it.")}</p>}
             <a className="button" href={payPageUrl(view.razorpay_order_id)} target="_blank" rel="noreferrer">
-              {blocked ? 'Open the payment page' : 'Open the payment page again'}
+              {blocked ? t("Open the payment page") : t("Open the payment page again")}
             </a>
             <p className="muted">
-              Closed it by mistake? Nothing is charged until you pay. If money left your account, your tokens will appear here.
+              {t("Closed it by mistake? Nothing is charged until you pay. If money left your account, your tokens will appear here.")}
             </p>
-            {lost && <p className="muted">No signal. Still trying…</p>}
+            {lost && <p className="muted">{t("No signal. Still trying…")}</p>}
           </>
         )}
       </section>
       <button className="link" onClick={onBack}>
-        Cancel and go back to the cart
+        {t("Cancel and go back to the cart")}
       </button>
     </>
   );
@@ -1381,25 +1400,37 @@ function Placed({
   return (
     <>
       <header className="cx-hero">
-        <small>{paidPaise !== null && paidPaise > 0 ? `Paid ${formatRupees(paidPaise)} online` : `Order${placed.length === 1 ? '' : 's'} placed`}</small>
+        <small>
+          {paidPaise !== null && paidPaise > 0
+            ? t('Paid {amount} online', { amount: formatRupees(paidPaise) })
+            : placed.length === 1
+              ? t('Order placed')
+              : t('Orders placed')}
+        </small>
         <h1>
-          {placed.length} token{placed.length === 1 ? '' : 's'}
+          {placed.length} {placed.length === 1 ? t('token') : t('tokens')}
         </h1>
-        <p>{placed.length === 0 ? 'Nothing was placed' : `Show ${placed.length === 1 ? 'it' : 'each'} at ${placed.length === 1 ? 'the' : 'its own'} counter`}</p>
+        <p>
+          {placed.length === 0
+            ? t('Nothing was placed')
+            : placed.length === 1
+              ? t('Show it at the counter')
+              : t('Show each at its own counter')}
+        </p>
       </header>
       {placed.map((r) => (
         <StatusCard key={r.key} orderKey={r.key!} token={token} />
       ))}
       {failed.map((r) => (
         <p key={r.id} className="cx-note" role="alert">
-          {paidPaise !== null ? r.error : `${r.outlet}: ${r.error} It is still in your cart.`}
+          {paidPaise !== null ? r.error : t('{outlet}: {error} It is still in your cart.', { outlet: r.outlet, error: r.error ?? '' })}
         </p>
       ))}
       <div className="cx-actions">
         <button className="primary" onClick={onMore}>
-          {more === 'cart' ? 'Back to my cart' : 'Order more'}
+          {more === 'cart' ? t("Back to my cart") : t("Order more")}
         </button>
-        <button onClick={onOrders}>My orders</button>
+        <button onClick={onOrders}>{t("My orders")}</button>
       </div>
     </>
   );
@@ -1423,7 +1454,7 @@ function StatusCard({ orderKey: key, token }: { orderKey: string; token: string 
           // The moment it turns ready while this page is open: a chime, a buzz and the tab title.
           if (o.status === 'ready' && last.current !== null && last.current !== 'ready') {
             chime();
-            document.title = `🔔 ${o.token} is ready`;
+            document.title = t('🔔 {token} is ready', { token: o.token });
           }
           last.current = o.status;
           setOrder(o);
@@ -1439,36 +1470,36 @@ function StatusCard({ orderKey: key, token }: { orderKey: string; token: string 
     };
   }, [key, done]);
 
-  if (lost) return <p className="error">We could not find this order.</p>;
+  if (lost) return <p className="error">{t("We could not find this order.")}</p>;
   if (!order) {
     return (
       <p className="muted" role="status">
-        Loading your order…
+        {t("Loading your order…")}
       </p>
     );
   }
   const text = STATUS_TEXT[order.status];
   const step = statusStep(order.status);
   return (
-    <article className="cx-card" aria-label={`Order ${order.token}`}>
+    <article className="cx-card" aria-label={t('Order {token}', { token: order.token })}>
       <p className="cx-outlet-name">{order.outlet}</p>
       <section className={`cx-token ${order.status}`} aria-live="polite">
-        <small>Your token</small>
+        <small>{t("Your token")}</small>
         <strong>{order.token}</strong>
         <div className="cx-steps" aria-hidden="true">
           {[1, 2, 3].map((n) => (
             <i key={n} className={n <= step ? 'on' : ''} />
           ))}
         </div>
-        <h2>{text.title}</h2>
-        <p className="muted">{text.detail}</p>
+        <h2>{t(text.title)}</h2>
+        <p className="muted">{t(text.detail)}</p>
         {order.status === 'received' && order.prep_minutes && (
-          <p className="muted">Usually ready in about {order.prep_minutes} min</p>
+          <p className="muted">{t('Usually ready in about {n} min', { n: order.prep_minutes })}</p>
         )}
       </section>
       {!done && <NotifyPrompt token={token} />}
       {order.status === 'collected' && <RateOrder token={token} orderKey={key} />}
-      <ul className="cx-summary" aria-label="Your order">
+      <ul className="cx-summary" aria-label={t("Your order")}>
         {order.items.map((i) => (
           <li key={i.name}>
             <span>
@@ -1477,7 +1508,7 @@ function StatusCard({ orderKey: key, token }: { orderKey: string; token: string 
           </li>
         ))}
         <li className="cx-total">
-          <strong>{order.paid_online ? 'Paid online' : order.status === 'collected' ? 'Total' : 'Pay at the counter'}</strong>
+          <strong>{order.paid_online ? t("Paid online") : order.status === 'collected' ? t("Total") : t("Pay at the counter")}</strong>
           <strong className="num">{formatRupees(order.total_paise)}</strong>
         </li>
       </ul>
@@ -1497,13 +1528,13 @@ function NotifyPrompt({ token }: { token: string }) {
     return () => void (live = false);
   }, [token]);
 
-  if (state === 'on') return <p className="muted cx-notify">🔔 We will notify you when it is ready.</p>;
+  if (state === 'on') return <p className="muted cx-notify">{t("🔔 We will notify you when it is ready.")}</p>;
   if (state !== 'ask') return null;
   return (
     <div className="cx-notify-card">
       <div>
-        <strong>Get a notification when it is ready</strong>
-        <span className="muted">So you can close this page and do something else.</span>
+        <strong>{t("Get a notification when it is ready")}</strong>
+        <span className="muted">{t("So you can close this page and do something else.")}</span>
       </div>
       <button
         className="primary"
@@ -1517,7 +1548,7 @@ function NotifyPrompt({ token }: { token: string }) {
           });
         }}
       >
-        Allow notifications
+        {t("Allow notifications")}
       </button>
     </div>
   );
@@ -1544,8 +1575,7 @@ function RateOrder({ token, orderKey }: { token: string; orderKey: string }) {
   if (mine.rating !== null) {
     return (
       <p className="cx-rated" role="status">
-        Thanks for rating: {'★'.repeat(mine.rating)}
-        {'☆'.repeat(5 - mine.rating)}
+        {t('Thanks for rating: {stars}', { stars: '★'.repeat(mine.rating) + '☆'.repeat(5 - mine.rating) })}
       </p>
     );
   }
@@ -1560,19 +1590,19 @@ function RateOrder({ token, orderKey }: { token: string; orderKey: string }) {
         publicApi
           .rate(token, orderKey, stars, comment.trim())
           .then(() => setMine({ rating: stars, comment: comment.trim() }))
-          .catch(() => setError('Could not send your rating. Please try again.'))
+          .catch(() => setError(t("Could not send your rating. Please try again.")))
           .finally(() => setBusy(false));
       }}
     >
-      <strong>How was it?</strong>
-      <div className="cx-stars" role="radiogroup" aria-label="Your rating">
+      <strong>{t("How was it?")}</strong>
+      <div className="cx-stars" role="radiogroup" aria-label={t("Your rating")}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             type="button"
             role="radio"
             aria-checked={stars === n}
-            aria-label={`${n} star${n === 1 ? '' : 's'}`}
+            aria-label={n === 1 ? t('{n} star', { n }) : t('{n} stars', { n })}
             className={n <= stars ? 'on' : ''}
             onClick={() => setStars(n)}
           >
@@ -1580,17 +1610,23 @@ function RateOrder({ token, orderKey }: { token: string; orderKey: string }) {
           </button>
         ))}
       </div>
-      <input value={comment} onChange={(e) => setComment(e.target.value)} maxLength={200} placeholder="Anything to add? (optional)" />
+      <input value={comment} onChange={(e) => setComment(e.target.value)} maxLength={200} placeholder={t("Anything to add? (optional)")} />
       {error && <p className="error">{error}</p>}
       <button className="primary" disabled={stars === 0 || busy}>
-        {busy ? 'Sending…' : 'Send'}
+        {busy ? t("Sending…") : t("Send")}
       </button>
     </form>
   );
 }
 
 // ---------------------------------------------------------------- my orders and my account
-const WHEN = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+const when = (d: Date) =>
+  new Intl.DateTimeFormat(getLang() === 'ta' ? 'ta-IN' : 'en-IN', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d);
 
 function Orders({
   auth,
@@ -1630,23 +1666,23 @@ function Orders({
   return (
     <>
       <header className="cx-top">
-        <button className="cx-back" onClick={onBack} aria-label="Back">
+        <button className="cx-back" onClick={onBack} aria-label={t("Back")}>
           ‹
         </button>
-        <h1>My orders</h1>
+        <h1>{t("My orders")}</h1>
       </header>
       {failed && !rows && (
         <p className="error" role="alert">
-          Could not load your orders. <button onClick={load}>Try again</button>
+          {t("Could not load your orders.")} <button onClick={load}>{t("Try again")}</button>
         </p>
       )}
       {rows === null && !failed && (
         <p className="muted" role="status">
-          Loading…
+          {t("Loading…")}
         </p>
       )}
-      {rows && rows.length === 0 && <p className="cx-note">You have not ordered yet.</p>}
-      <ul className="cx-list" aria-label="Orders">
+      {rows && rows.length === 0 && <p className="cx-note">{t("You have not ordered yet.")}</p>}
+      <ul className="cx-list" aria-label={t("Orders")}>
         {rows?.map((o) => (
           <li key={o.status_key} className="cx-order-row">
             <button className="cx-outlet cx-history" onClick={() => onOpen(o.status_key)}>
@@ -1655,28 +1691,28 @@ function Orders({
                   {o.token} · {o.outlet}
                 </strong>
                 <small className="muted">
-                  {WHEN.format(new Date(o.placed_at))} · {o.items.map((i) => `${i.qty} × ${i.name}`).join(', ')}
+                  {when(new Date(o.placed_at))} · {o.items.map((i) => `${i.qty} × ${i.name}`).join(', ')}
                 </small>
               </span>
               <span className="cx-right">
-                <span className={`cx-tag st-${o.status}`}>{STATUS_TEXT[o.status].title.split(',')[0]}</span>
+                <span className={`cx-tag st-${o.status}`}>{t(STATUS_TEXT[o.status].title).split(/[,،]/)[0]}</span>
                 <small className="num">{formatRupees(o.total_paise)}</small>
                 {o.rating !== null && (
-                  <small className="cx-rated" aria-label={`You rated it ${o.rating} out of 5`}>
+                  <small className="cx-rated" aria-label={t('You rated it {n} out of 5', { n: o.rating })}>
                     {'★'.repeat(o.rating)}
                   </small>
                 )}
               </span>
             </button>
             {o.lines.length > 0 && (
-              <button className="cx-again" onClick={() => onReorder(o)} aria-label={`Order ${o.token} again`}>
-                ↻ Order again
+              <button className="cx-again" onClick={() => onReorder(o)} aria-label={t('Order {token} again', { token: o.token })}>
+                {t("↻ Order again")}
               </button>
             )}
           </li>
         ))}
       </ul>
-      <section className="cx-group" aria-label="Account">
+      <section className="cx-group" aria-label={t("Account")}>
         <h2>
           {auth.account.name} · {auth.account.phone}
         </h2>
@@ -1684,8 +1720,8 @@ function Orders({
           <ChangePassword auth={auth} onDone={(s) => (onAuth(s), setChanging(false))} onCancel={() => setChanging(false)} />
         ) : (
           <div className="cx-actions">
-            <button onClick={() => setChanging(true)}>Change password</button>
-            <button onClick={onLogOut}>Log out</button>
+            <button onClick={() => setChanging(true)}>{t("Change password")}</button>
+            <button onClick={onLogOut}>{t("Log out")}</button>
           </div>
         )}
       </section>
@@ -1706,7 +1742,7 @@ function ChangePassword({ auth, onDone, onCancel }: { auth: Auth; onDone(s: Sign
     try {
       onDone(await publicApi.changePassword(auth.token, current, next));
     } catch (err) {
-      setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : 'No signal. Please try again.');
+      setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : t("No signal. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -1715,11 +1751,11 @@ function ChangePassword({ auth, onDone, onCancel }: { auth: Auth; onDone(s: Sign
   return (
     <form className="cx-form" onSubmit={submit}>
       <label>
-        Current password
+        {t("Current password")}
         <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
       </label>
       <label>
-        New password
+        {t("New password")}
         <input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" required />
       </label>
       {error && (
@@ -1729,10 +1765,10 @@ function ChangePassword({ auth, onDone, onCancel }: { auth: Auth; onDone(s: Sign
       )}
       <div className="cx-actions">
         <button className="primary" disabled={busy || current === '' || next === ''}>
-          {busy ? 'Saving…' : 'Save password'}
+          {busy ? t("Saving…") : t("Save password")}
         </button>
         <button type="button" onClick={onCancel}>
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
     </form>

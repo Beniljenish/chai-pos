@@ -66,6 +66,7 @@ ID_ROUTES = {
         "customer",
         {"POST": {"id": ANY_ID, "amount_paise": 100, "mode": "cash"}},
     ),
+    "/api/v1/bills/{bill_id}/trail": ("bill", {"GET": None}),
     "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
     "/api/v1/wastage/{entry_id}/decision": ("wastage", {"POST": {"accept": False}}),

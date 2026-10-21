@@ -1,5 +1,6 @@
 /** The customer's side of a food court order: pure helpers, tested in foodcourt.test.ts. */
 import { computeBill, type GstType } from './gst';
+import { dishName, t } from './i18n';
 
 /** An option a dish offers (Large, less sugar). `is_size` options change how much is made, so a
  * customer picks one of them at most; the rest are tick boxes. */
@@ -13,12 +14,14 @@ export interface PublicOption {
 export interface PublicItem {
   id: string;
   name: string;
+  name_ta?: string;
   category: string;
   price_paise: number;
   gst_rate_bp: number;
   tax_inclusive: boolean;
   sold_out: boolean;
   description: string;
+  description_ta?: string;
   photo_url: string;
   is_veg: boolean;
   options: PublicOption[];
@@ -81,8 +84,9 @@ export function lineLabel(item: PublicItem, mods: string[]): string {
   const names = mods
     .map((id) => item.options.find((o) => o.id === id)?.name)
     .filter((n): n is string => n !== undefined)
-    .sort();
-  return names.length ? `${item.name} (${names.join(', ')})` : item.name;
+    .sort()
+    .map((n) => t(n));
+  return names.length ? `${dishName(item)} (${names.join(', ')})` : dishName(item);
 }
 
 /** What the customer will pay: the same GST code the till uses, with each option's price change,
@@ -190,10 +194,11 @@ export type PayChoice = 'online' | 'counter';
 
 /** What the customer is told about an outlet that could not take its part of a paid cart. */
 export function notPlacedText(o: { outlet: string; error: string | null; message: string | null; refunded: boolean | null; amount_paise: number }, rupees: string): string {
-  const why = o.error === 'price_changed' ? 'a price changed while you were paying' : (o.message ?? 'it could not take the order').replace(/\.$/, '');
+  const why =
+    o.error === 'price_changed' ? t('a price changed while you were paying') : (o.message ?? t('it could not take the order')).replace(/\.$/, '');
   return o.refunded === false
-    ? `${o.outlet}: ${why}. We could not refund ${rupees} automatically; the food court team will do it.`
-    : `${o.outlet}: ${why}. ${rupees} is being refunded to your UPI or card. It can take 5 to 7 working days.`;
+    ? t('{outlet}: {why}. We could not refund {rupees} automatically; the food court team will do it.', { outlet: o.outlet, why, rupees })
+    : t('{outlet}: {why}. {rupees} is being refunded to your UPI or card. It can take 5 to 7 working days.', { outlet: o.outlet, why, rupees });
 }
 
 /** The customer area's front door: /order, with no court chosen yet. */
@@ -212,34 +217,34 @@ export function accountProblem(status: number, code?: string, serverMessage?: st
   if (status === 429 && serverMessage) return serverMessage;
   switch (code) {
     case 'phone_taken':
-      return 'This number already has an account. Log in instead.';
+      return t('This number already has an account. Log in instead.');
     case 'weak_password':
-      return serverMessage || 'Choose a stronger password.';
+      return serverMessage || t('Choose a stronger password.');
     case 'wrong_password':
-      return 'Your current password is not right.';
+      return t('Your current password is not right.');
     case 'name_required':
-      return 'Enter your name.';
+      return t('Enter your name.');
   }
-  if (status === 401) return 'Phone number or password is wrong.';
-  if (status === 422) return 'Check your name, a 10-digit mobile number and a password.';
-  return 'Could not do that. Please try again.';
+  if (status === 401) return t('Phone number or password is wrong.');
+  if (status === 422) return t('Check your name, a 10-digit mobile number and a password.');
+  return t('Could not do that. Please try again.');
 }
 
 /** Why an order was refused, in words for a customer. */
 export function orderProblem(code: string | undefined, names?: string[]): string {
   switch (code) {
     case 'outlet_closed':
-      return 'This outlet is not taking orders right now.';
+      return t('This outlet is not taking orders right now.');
     case 'items_unavailable':
-      return names?.length ? `Sold out: ${names.join(', ')}. Please remove it and try again.` : 'Some dishes are no longer available.';
+      return names?.length ? t('Sold out: {names}. Please remove it and try again.', { names: names.join(', ') }) : t('Some dishes are no longer available.');
     case 'too_many_orders':
-      return 'Too many orders from this number. Please try again a little later.';
+      return t('Too many orders from this number. Please try again a little later.');
     case 'outlet_busy':
-      return 'This outlet is very busy right now. Please try again shortly.';
+      return t('This outlet is very busy right now. Please try again shortly.');
     case 'order_too_big':
-      return 'That is a lot for one order. Please split it into two.';
+      return t('That is a lot for one order. Please split it into two.');
     default:
-      return 'Could not place the order. Please try again.';
+      return t('Could not place the order. Please try again.');
   }
 }
 

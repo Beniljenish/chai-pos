@@ -9,6 +9,7 @@ import { formatRupees } from '../lib/gst';
 import type { BillCustomer } from '../lib/types';
 import { api } from './apiClient';
 import { Sheet } from './Sheet';
+import { t, useLang } from '../lib/i18n';
 
 export const DISCOUNT_REASONS = ['Regular customer', 'Staff', 'Complaint', 'Offer'];
 
@@ -44,6 +45,7 @@ export function DiscountSheet({
   onClose(): void;
   onApply(key: string, paise: number, reason: string): void;
 }) {
+  useLang();
   const [key, setKey] = useState(targets[0].key);
   const [unit, setUnit] = useState<'rs' | 'pct'>('rs');
   const [value, setValue] = useState(current[targets[0].key] ? String(current[targets[0].key] / 100) : '');
@@ -60,10 +62,10 @@ export function DiscountSheet({
   const ok = !tooBig && allowed && (paise === 0 || reason.trim() !== '');
 
   return (
-    <Sheet title="Discount" onClose={onClose}>
+    <Sheet title={t("Discount")} onClose={onClose}>
       {targets.length > 1 && (
         <label>
-          Take it off
+          {t("Take it off")}
           <select
             value={key}
             onChange={(e) => {
@@ -79,7 +81,7 @@ export function DiscountSheet({
           </select>
         </label>
       )}
-      <div className="chips" role="group" aria-label="Discount in">
+      <div className="chips" role="group" aria-label={t("Discount in")}>
         <button className="chip" aria-pressed={unit === 'rs'} onClick={() => setUnit('rs')}>
           ₹
         </button>
@@ -88,7 +90,7 @@ export function DiscountSheet({
         </button>
       </div>
       <label>
-        {unit === 'rs' ? 'Amount off (₹)' : 'Percent off'}
+        {unit === 'rs' ? t("Amount off (₹)") : t("Percent off")}
         <input
           inputMode="decimal"
           value={value}
@@ -96,30 +98,30 @@ export function DiscountSheet({
           onChange={(e) => rupeesOk(e.target.value) && setValue(e.target.value)}
         />
       </label>
-      {unit === 'pct' && paise > 0 && <p className="muted num">= {formatRupees(paise)} off</p>}
-      <p className="field-label">Why</p>
-      <div className="chips" role="group" aria-label="Reason">
+      {unit === 'pct' && paise > 0 && <p className="muted num">= {formatRupees(paise)} {t("off")}</p>}
+      <p className="field-label">{t("Why")}</p>
+      <div className="chips" role="group" aria-label={t("Reason")}>
         {DISCOUNT_REASONS.map((r) => (
           <button key={r} className="chip" aria-pressed={reason === r} onClick={() => setReason(r)}>
-            {r}
+            {t(r)}
           </button>
         ))}
       </div>
       <label>
-        Or in your words
+        {t("Or in your words")}
         <input value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} />
       </label>
-      {tooBig && <p className="error">More than {formatRupees(target.grossPaise)}.</p>}
+      {tooBig && <p className="error">{t('More than {amount}.', { amount: formatRupees(target.grossPaise) })}</p>}
       {!allowed && (
         <p className="error" role="alert">
-          A cashier can take off up to {maxBp / 100}% of the bill. Ask the owner.
+          {t('A cashier can take off up to {pct}% of the bill. Ask the owner.', { pct: maxBp / 100 })}
         </p>
       )}
       <div className="sheet-actions">
         <button className="primary" disabled={!ok} onClick={() => onApply(key, paise, reason.trim())}>
-          {paise ? `Take off ${formatRupees(paise)}` : 'No discount'}
+          {paise ? t('Take off {amount}', { amount: formatRupees(paise) }) : t('No discount')}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
     </Sheet>
   );
@@ -142,6 +144,7 @@ export function SplitSheet({
   onClose(): void;
   onApply(s: SplitChoice): void;
 }) {
+  useLang();
   const [cash, setCash] = useState(initial ? String(initial.cashPaise / 100) : '');
   const [other, setOther] = useState<'upi' | 'card'>(initial?.other ?? 'upi');
   const cashPaise = toPaise(cash);
@@ -150,26 +153,26 @@ export function SplitSheet({
   return (
     <Sheet title={`Split ${formatRupees(totalPaise)}`} onClose={onClose}>
       <label>
-        Cash (₹)
+        {t("Cash (₹)")}
         <input inputMode="decimal" value={cash} autoFocus onChange={(e) => rupeesOk(e.target.value) && setCash(e.target.value)} />
       </label>
-      <p className="field-label">The rest by</p>
-      <div className="chips" role="group" aria-label="The rest by">
+      <p className="field-label">{t("The rest by")}</p>
+      <div className="chips" role="group" aria-label={t("The rest by")}>
         <button className="chip" aria-pressed={other === 'upi'} onClick={() => setOther('upi')}>
-          UPI
+          {t("UPI")}
         </button>
         <button className="chip" aria-pressed={other === 'card'} onClick={() => setOther('card')}>
-          Card
+          {t("Card")}
         </button>
       </div>
       <p className="num" role="status">
-        {ok ? `Cash ${formatRupees(cashPaise)} + ${other === 'upi' ? 'UPI' : 'Card'} ${formatRupees(rest)}` : 'Enter the cash part'}
+        {ok ? t('Cash {cash} + {other} {rest}', { cash: formatRupees(cashPaise), other: other === 'upi' ? t('UPI') : t('Card'), rest: formatRupees(rest) }) : t('Enter the cash part')}
       </p>
       <div className="sheet-actions">
         <button className="primary" disabled={!ok} onClick={() => onApply({ cashPaise, other })}>
-          Split
+          {t("Split")}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
     </Sheet>
   );
@@ -194,6 +197,7 @@ export function CustomerSheet({
   onClose(): void;
   onApply(c: BillCustomer, paidNowPaise: number): void;
 }) {
+  useLang();
   const [phone, setPhone] = useState(initial?.phone ?? '');
   const [name, setName] = useState(initial?.name ?? '');
   const [known, setKnown] = useState<{ id: string; name: string; outstanding_paise: number } | null>(null);
@@ -225,7 +229,7 @@ export function CustomerSheet({
   return (
     <Sheet title={credit ? `On credit: ${formatRupees(totalPaise)}` : 'Customer'} onClose={onClose}>
       <label>
-        Phone
+        {t("Phone")}
         <input
           inputMode="numeric"
           value={phone}
@@ -238,23 +242,25 @@ export function CustomerSheet({
         />
       </label>
       <label>
-        Name
+        {t("Name")}
         <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
       </label>
       {known && (
         <p className="muted" role="status">
-          {known.name} already has a khata here{known.outstanding_paise ? `: owes ${formatRupees(known.outstanding_paise)}` : ''}.
+          {known.outstanding_paise
+            ? t('{name} already has a khata here: owes {amount}.', { name: known.name, amount: formatRupees(known.outstanding_paise) })
+            : t('{name} already has a khata here.', { name: known.name })}
         </p>
       )}
       {credit && (
         <label>
-          Paid now in cash (₹, optional)
+          {t("Paid now in cash (₹, optional)")}
           <input inputMode="decimal" value={paidNow} onChange={(e) => rupeesOk(e.target.value) && setPaidNow(e.target.value)} />
         </label>
       )}
       {credit && ok && (
         <p className="num" role="status">
-          {formatRupees(totalPaise - paidNowPaise)} goes on {name.trim()}&apos;s khata
+          {t("{amount} goes on {name}'s khata", { amount: formatRupees(totalPaise - paidNowPaise), name: name.trim() })}
         </p>
       )}
       <div className="sheet-actions">
@@ -269,9 +275,9 @@ export function CustomerSheet({
             )
           }
         >
-          {credit ? 'Put on credit' : 'Save customer'}
+          {credit ? t("Put on credit") : t("Save customer")}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
     </Sheet>
   );

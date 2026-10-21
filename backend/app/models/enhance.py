@@ -2,10 +2,11 @@
 asked to be told when an order is ready."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -74,3 +75,13 @@ class PushSubscription(IdMixin, Base):
     p256dh: Mapped[str] = mapped_column(String(200))
     auth: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AiUsage(IdMixin, TenantScoped, Base):
+    """How many AI calls a shop made on one business day, so a day has a ceiling."""
+
+    __tablename__ = "ai_usage"
+    __table_args__ = (UniqueConstraint("shop_id", "day", name="uq_ai_usage_shop_day"),)
+
+    day: Mapped[date] = mapped_column(Date)
+    calls: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

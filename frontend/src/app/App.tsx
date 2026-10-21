@@ -13,8 +13,10 @@ import { TablesScreen } from "./TablesScreen";
 import { hasTables } from "../lib/table";
 import { Icon } from "./icons";
 import { OnlineOrderAlert } from "./OnlineOrderAlert";
+import { t, useLang } from '../lib/i18n';
 
 function SyncBadge() {
+  useLang();
   const { sync, worker } = useSession();
   if (!sync) return null;
   // Long text for tablets, short for phones (CSS picks one).
@@ -22,25 +24,31 @@ function SyncBadge() {
   let short: string;
   let tone: "ok" | "wait" | "bad";
   if (sync.rejected > 0) {
-    text = `${sync.rejected} bill${sync.rejected > 1 ? "s" : ""} need the owner`;
-    short = `${sync.rejected} problem${sync.rejected > 1 ? "s" : ""}`;
+    text =
+      sync.rejected > 1
+        ? t("{n} bills need the owner", { n: sync.rejected })
+        : t("{n} bill needs the owner", { n: sync.rejected });
+    short =
+      sync.rejected > 1
+        ? t("{n} problems", { n: sync.rejected })
+        : t("{n} problem", { n: sync.rejected });
     tone = "bad";
   } else if (sync.pending > 0) {
     text = sync.syncing
-      ? `Sending ${sync.pending}…`
-      : `${sync.pending} waiting to send`;
-    short = `${sync.pending} waiting`;
+      ? t("Sending {n}…", { n: sync.pending })
+      : t("{n} waiting to send", { n: sync.pending });
+    short = t("{n} waiting", { n: sync.pending });
     tone = "wait";
   } else {
-    text = "All bills sent";
-    short = "Sent";
+    text = t("All bills sent");
+    short = t("Sent");
     tone = "ok";
   }
   return (
     <button
       className={`sync-badge ${tone}`}
       onClick={() => void worker?.kick()}
-      title={sync.lastError ?? "Tap to send now"}
+      title={sync.lastError ?? t("Tap to send now")}
       aria-label={sync.lastError ? `${text}. ${sync.lastError}` : text}
       aria-live="polite"
     >
@@ -56,6 +64,7 @@ function SyncBadge() {
 }
 
 export function App() {
+  useLang();
   const { phase, user } = useSession();
   if (phase === "loading")
     return <main className="centered" aria-busy="true" />;
@@ -68,6 +77,7 @@ export function App() {
 }
 
 function Shell() {
+  useLang();
   const { user, device, catalogue, sync, notice, logout } = useSession();
   const [tab, setTab] = useState<"bill" | "tables" | "today" | "stock">("bill");
 
@@ -92,15 +102,15 @@ function Shell() {
             {device?.name} ({device?.code}), <AccountButton />
           </span>
         </div>
-        <nav className="tabs" aria-label="Screens">
+        <nav className="tabs" aria-label={t("Screens")}>
           <button
             aria-pressed={tab === "bill"}
             onClick={() => setTab("bill")}
-            aria-label="New bill"
+            aria-label={t("New bill")}
           >
             <Icon name="bill" />
-            <span className="long">New bill</span>
-            <span className="short">Bill</span>
+            <span className="long">{t("New bill")}</span>
+            <span className="short">{t("Bill")}</span>
           </button>
           {tables && (
             <button
@@ -108,7 +118,7 @@ function Shell() {
               onClick={() => setTab("tables")}
             >
               <Icon name="tables" />
-              Tables
+              {t("Tables")}
             </button>
           )}
           <button
@@ -116,7 +126,7 @@ function Shell() {
             onClick={() => setTab("today")}
           >
             <Icon name="today" />
-            Today
+            {t("Today")}
           </button>
           {/* Cashiers: batches, wastage and the blind count. They never see stock levels. */}
           <button
@@ -124,7 +134,7 @@ function Shell() {
             onClick={() => setTab("stock")}
           >
             <Icon name="manage" />
-            {isOwner ? "Manage" : "Stock"}
+            {isOwner ? t("Manage") : t("Stock")}
             {needsYou > 0 && (
               <span className="attn-dot" aria-hidden="true">
                 {needsYou}
@@ -135,7 +145,7 @@ function Shell() {
         <SyncBadge />
         <button className="quiet logout" onClick={logout}>
           <Icon name="logout" />
-          <span>Log out</span>
+          <span>{t("Log out")}</span>
         </button>
       </header>
       <div className="content">

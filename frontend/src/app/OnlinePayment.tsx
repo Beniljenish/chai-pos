@@ -5,6 +5,7 @@
  * sees the bill as "not paid online" in the sales report.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { announce } from '../lib/announce';
 import type { LocalBill } from '../lib/db';
 import { db } from '../lib/db';
 import { formatRupees } from '../lib/gst';
@@ -22,10 +23,12 @@ import {
 import { api } from './apiClient';
 import { useSession } from './session';
 import { Sheet } from './Sheet';
+import { t, useLang } from '../lib/i18n';
 
 const POLL_MS = 2000;
 
 export function OnlinePayment({ bill, method, onDone }: { bill: LocalBill; method: OnlineMethod; onDone(): void }) {
+  useLang();
   const { worker } = useSession();
   const [order, setOrder] = useState<OnlineOrder | null>(null);
   const [state, setState] = useState<OnlineState | null>(null);
@@ -68,14 +71,18 @@ export function OnlinePayment({ bill, method, onDone }: { bill: LocalBill; metho
   }, [order, state?.status]);
 
   const paid = state?.status === 'paid';
+  const amountPaise = order?.amount_paise ?? bill.totalPaise;
+  // Say "₹60 received" once, when the money arrives: the cashier may be looking at the customer.
+  useEffect(() => {
+    if (paid) announce('paid', { paise: amountPaise });
+  }, [paid, amountPaise]);
   const amount = formatRupees(order?.amount_paise ?? bill.totalPaise);
   const open = () => order && window.open(checkoutUrl(api.baseUrl, order.razorpay_order_id), '_blank', 'noopener');
 
   return (
-    <Sheet title={paid ? 'Paid' : `Collect ${amount} online`} onClose={onDone}>
+    <Sheet title={paid ? t('Paid') : t('Collect {amount} online', { amount })} onClose={onDone}>
       <p className="muted">
-        Bill <span className="num">{bill.invoiceNo}</span> is saved. {method === 'upi' ? 'UPI' : 'Card'} through Razorpay
-        (test mode).
+        {t('Bill {no} is saved. {method} through Razorpay (test mode).', { no: bill.invoiceNo, method: method === 'upi' ? t('UPI') : t('Card') })}
       </p>
       {error && (
         <p className="error" role="alert">
@@ -84,19 +91,19 @@ export function OnlinePayment({ bill, method, onDone }: { bill: LocalBill; metho
       )}
       {paid ? (
         <p className="ok" role="status">
-          Payment received: {formatRupees(state.paid_paise ?? 0)}.
+          {t("Payment received:")} {formatRupees(state.paid_paise ?? 0)}.
         </p>
       ) : (
         order && (
           <>
             <p role="status">
               {state?.status === 'failed'
-                ? `Not paid: ${state.error}. The customer can try again.`
-                : 'Open the payment page and let the customer pay there (UPI app or card).'}
+                ? t('Not paid: {why}. The customer can try again.', { why: state.error ?? '' })
+                : t("Open the payment page and let the customer pay there (UPI app or card).")}
             </p>
             <div className="sheet-actions">
               <button className="primary" onClick={open}>
-                Open payment page
+                {t("Open payment page")}
               </button>
             </div>
           </>
@@ -105,26 +112,27 @@ export function OnlinePayment({ bill, method, onDone }: { bill: LocalBill; metho
       <div className="sheet-actions">
         {paid ? (
           <button className="primary" onClick={onDone}>
-            Print receipt
+            {t("Print receipt")}
           </button>
         ) : (
           <>
             {error && (
               <button onClick={() => void start()} disabled={busy}>
-                Try again
+                {t("Try again")}
               </button>
             )}
-            <button onClick={onDone}>Took the payment another way</button>
+            <button onClick={onDone}>{t("Took the payment another way")}</button>
           </>
         )}
       </div>
-      {busy && <p className="muted">Sending the bill and asking Razorpay…</p>}
+      {busy && <p className="muted">{t("Sending the bill and asking Razorpay…")}</p>}
     </Sheet>
   );
 }
 
 /** Owner, Shop & GST: is Razorpay set up, test or live, and do the keys work? */
 export function RazorpaySettings() {
+  useLang();
   const [h, setH] = useState<RazorpayHealth | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -145,7 +153,7 @@ export function RazorpaySettings() {
   const words = h ? healthWords(h) : null;
   return (
     <section aria-labelledby="rzp-title">
-      <h2 id="rzp-title">Online payments (Razorpay)</h2>
+      <h2 id="rzp-title">{t("Online payments (Razorpay)")}</h2>
       {words && (
         <p className={words.ok ? 'ok' : 'warn'} role="status">
           {words.text}
@@ -157,7 +165,7 @@ export function RazorpaySettings() {
         chosen; the till marks the bill paid once Razorpay confirms it.
       </p>
       <button disabled={busy} onClick={() => void check()}>
-        {busy ? 'Checking…' : 'Check connection'}
+        {busy ? t("Checking…") : t("Check connection")}
       </button>
     </section>
   );

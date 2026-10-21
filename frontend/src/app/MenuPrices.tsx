@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DISH_PICTURES, photoLinkOk, shippedPicture } from '../lib/dishPictures';
 import { formatRate, formatRupees } from '../lib/gst';
+import { t } from '../lib/i18n';
 import type { MenuItem, Modifier } from '../lib/types';
 import { api } from './apiClient';
 import { Loading, LoadError } from './Status';
@@ -27,6 +28,8 @@ type Draft = {
   description: string;
   photo_url: string;
   is_veg: boolean;
+  name_ta: string;
+  description_ta: string;
 };
 const toDraft = (m: MenuItem): Draft => ({
   name: m.name,
@@ -38,6 +41,8 @@ const toDraft = (m: MenuItem): Draft => ({
   description: m.description ?? '',
   photo_url: m.photo_url ?? '',
   is_veg: m.is_veg ?? true,
+  name_ta: m.name_ta ?? '',
+  description_ta: m.description_ta ?? '',
 });
 const blank: Draft = {
   name: '',
@@ -49,6 +54,8 @@ const blank: Draft = {
   description: '',
   photo_url: '',
   is_veg: true,
+  name_ta: '',
+  description_ta: '',
 };
 
 export function MenuPrices() {
@@ -173,6 +180,25 @@ export function MenuItemEditor({
   const valid =
     d.name.trim() && d.category.trim() && Number.isFinite(pricePaise) && pricePaise >= 0 && d.price !== '' && photoOk;
 
+  const [tamilNote, setTamilNote] = useState<{ ok: boolean; text: string } | null>(null);
+  /** Ask the AI for a Tamil name and description. It only fills the boxes: nothing is saved. */
+  async function writeTamil() {
+    setBusy(true);
+    setTamilNote(null);
+    try {
+      const r = await api.post<{ name_ta: string; description_ta: string }>('/ai/translate-dish', {
+        name: d.name.trim(),
+        description: d.description.trim(),
+      });
+      set({ name_ta: r.name_ta, description_ta: r.description_ta });
+      setTamilNote({ ok: true, text: t('Written. Please read it and fix anything that sounds wrong, then save.') });
+    } catch (e) {
+      setTamilNote({ ok: false, text: explainError(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function save() {
     setBusy(true);
     setError(null);
@@ -185,6 +211,8 @@ export function MenuItemEditor({
       description: d.description.trim(),
       photo_url: d.photo_url.trim(),
       is_veg: d.is_veg,
+      name_ta: d.name_ta.trim(),
+      description_ta: d.description_ta.trim(),
     };
     try {
       let saved = savedItem;
@@ -246,6 +274,27 @@ export function MenuItemEditor({
             onChange={(e) => set({ description: e.target.value })}
           />
         </label>
+        <div className="ta-fields">
+          <label>
+            {t('Title in Tamil')}
+            <input lang="ta" value={d.name_ta} maxLength={120} placeholder="மசாலா டீ" onChange={(e) => set({ name_ta: e.target.value })} />
+          </label>
+          <label>
+            {t('Line in Tamil')}
+            <input
+              lang="ta"
+              value={d.description_ta}
+              maxLength={300}
+              placeholder="இஞ்சி, ஏலக்காய் சேர்த்த டீ"
+              onChange={(e) => set({ description_ta: e.target.value })}
+            />
+          </label>
+          <button type="button" className="quiet" disabled={busy || d.name.trim() === ''} onClick={() => void writeTamil()}>
+            ✨ {t('Write in Tamil for me')}
+          </button>
+          {tamilNote && <p className={tamilNote.ok ? 'muted' : 'error'}>{tamilNote.text}</p>}
+          <small className="muted">{t('Customers who choose Tamil see these. Check the words before you save.')}</small>
+        </div>
         <div className="pic-picker" role="group" aria-label="Picture">
           <span className="pic-title">Picture</span>
           <ul>

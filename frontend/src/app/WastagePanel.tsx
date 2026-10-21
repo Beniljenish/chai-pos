@@ -8,8 +8,10 @@ import { api } from './apiClient';
 import { explainError } from './errors';
 import { PackEntry } from './PackEntry';
 import { useSession } from './session';
+import { t, useLang } from '../lib/i18n';
 
 export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
+  useLang();
   const { user } = useSession();
   const isOwner = user?.role === 'owner';
   const [kind, setKind] = useState<'drink' | 'ingredient'>('drink');
@@ -68,7 +70,11 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
         reason,
       });
       const name = kind === 'drink' ? items.find((m) => m.id === target)?.name : ing?.name;
-      setMessage({ ok: true, text: `Recorded: ${kind === 'drink' ? `${qty} × ${name}` : `${formatQty(qty, ing!.base_unit)} ${name}`}, ${reasonLabel(reason!).toLowerCase()}.` });
+      setMessage({ ok: true, text: t('Recorded: {what}, {reason}.', {
+          what: kind === 'drink' ? `${qty} × ${name}` : `${formatQty(qty, ing!.base_unit)} ${name}`,
+          reason: reasonLabel(reason!).toLowerCase(),
+        }),
+      });
       reset();
       void loadToday();
       onLogged?.();
@@ -81,19 +87,19 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
 
   return (
     <section className="wastage" aria-labelledby="wastage-title">
-      <h2 id="wastage-title">Something wasted?</h2>
-      <div className="segmented" role="radiogroup" aria-label="What was wasted">
+      <h2 id="wastage-title">{t("Something wasted?")}</h2>
+      <div className="segmented" role="radiogroup" aria-label={t("What was wasted")}>
         <button role="radio" aria-checked={kind === 'drink'} onClick={() => reset('drink')}>
-          A drink
+          {t("A drink")}
         </button>
         <button role="radio" aria-checked={kind === 'ingredient'} onClick={() => reset('ingredient')}>
-          An ingredient
+          {t("An ingredient")}
         </button>
       </div>
       <label>
-        {kind === 'drink' ? 'Which drink' : 'Which ingredient'}
+        {kind === 'drink' ? t("Which drink") : t("Which ingredient")}
         <select value={target} onChange={(e) => setTarget(e.target.value)}>
-          <option value="">Choose…</option>
+          <option value="">{t("Choose…")}</option>
           {(kind === 'drink' ? items : ingredients).map((x) => (
             <option key={x.id} value={x.id}>
               {x.name}
@@ -103,13 +109,13 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
       </label>
       {kind === 'drink' && target && (
         <div className="pack-row">
-          <strong>How many</strong>
+          <strong>{t("How many")}</strong>
           <div className="stepper">
-            <button aria-label="One less" onClick={() => setServings(Math.max(1, servings - 1))}>
+            <button aria-label={t("One less")} onClick={() => setServings(Math.max(1, servings - 1))}>
               −
             </button>
             <span className="num">{servings}</span>
-            <button aria-label="One more" onClick={() => setServings(servings + 1)}>
+            <button aria-label={t("One more")} onClick={() => setServings(servings + 1)}>
               +
             </button>
           </div>
@@ -119,17 +125,17 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
         <PackEntry ingredient={ing} counts={counts} loose={loose} onCounts={setCounts} onLoose={setLoose} />
       )}
       {target && (
-        <div className="reasons" role="radiogroup" aria-label="Why">
+        <div className="reasons" role="radiogroup" aria-label={t("Why")}>
           {REASONS.filter((r) => isOwner || !r.ownerOnly).map((r) => (
             <button key={r.id} role="radio" aria-checked={reason === r.id} className="chip" onClick={() => setReason(r.id)}>
-              {r.label}
+              {t(r.label)}
             </button>
           ))}
         </div>
       )}
       {target && (
         <button className="primary" disabled={!ready || busy} onClick={() => void save()}>
-          Record wastage
+          {t("Record wastage")}
         </button>
       )}
       {message && (
@@ -140,7 +146,7 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
       {rows.length > 0 && (
         <details className="history">
           <summary>
-            Today: {rows.length} entr{rows.length === 1 ? 'y' : 'ies'}
+            {rows.length === 1 ? t('Today: {n} entry', { n: rows.length }) : t('Today: {n} entries', { n: rows.length })}
             {isOwner &&
               ` · ${formatRupees(rows.reduce((a, r) => a + (r.status === 'rejected' ? 0 : (r.value_paise ?? 0)), 0))}`}
           </summary>
@@ -153,8 +159,8 @@ export function WastagePanel({ onLogged }: { onLogged?: () => void }) {
                   <span className="muted">
                     {reasonLabel(r.reason)} · {r.created_by_name}
                   </span>
-                  {r.status === 'pending' && <span className="flag wait">Waiting for the owner</span>}
-                  {r.status === 'rejected' && <span className="flag bad">Not accepted</span>}
+                  {r.status === 'pending' && <span className="flag wait">{t("Waiting for the owner")}</span>}
+                  {r.status === 'rejected' && <span className="flag bad">{t("Not accepted")}</span>}
                 </span>
                 <span />
                 <span className="num right">{r.value_paise !== null ? formatRupees(r.value_paise) : ''}</span>

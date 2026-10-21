@@ -12,3 +12,4 @@ dist/
 frontend/playwright.local.config.ts
 frontend/e2e-screenshots/
 frontend/test-results/
+.local-ai.env

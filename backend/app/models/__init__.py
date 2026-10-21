@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
@@ -58,6 +59,9 @@ class Shop(IdMixin, TimestampMixin, Base):
     wastage_approval_paise: Mapped[int] = mapped_column(
         Integer, default=20000, server_default="20000"
     )
+    # Turnover (paise, a financial year) at which this shop must register for GST. The owner
+    # sets it after asking an accountant; empty = no watch.
+    gst_threshold_paise: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class User(IdMixin, TimestampMixin, TenantScoped, Base):
@@ -248,7 +252,12 @@ from app.models.foodcourt import FoodCourt, FoodCourtOutlet, OnlineOrder  # noqa
 __all__ += ["FoodCourt", "FoodCourtOutlet", "OnlineOrder"]
 
 from app.models.customer_account import CustomerAccount  # noqa: E402
-from app.models.enhance import CustomerFavourite, OrderFeedback, PushSubscription  # noqa: E402
+from app.models.enhance import (  # noqa: E402
+    AiUsage,  # noqa: F401
+    CustomerFavourite,
+    OrderFeedback,
+    PushSubscription,
+)
 from app.models.onlinepay import OnlinePayment, OnlineSettlement  # noqa: E402
 from app.models.platform import PlatformAdmin  # noqa: E402
 

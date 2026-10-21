@@ -7,6 +7,10 @@ import { DayEndScreen } from "./DayEndScreen";
 import { FloorSetup } from "./FloorSetup";
 import { FoodCourtScreen } from "./FoodCourtScreen";
 import { AlertsScreen } from "./AlertsScreen";
+import { AskScreen } from "./AskScreen";
+import { BuyScreen } from "./BuyScreen";
+import { WatchScreen } from "./WatchScreen";
+import { t, useLang } from "../lib/i18n";
 import { KhataScreen } from "./CustomersUI";
 import { MarginScreen } from "./MarginScreen";
 import { MessagesScreen } from "./MessagesScreen";
@@ -34,7 +38,10 @@ type Section =
   | "reports"
   | "purchases"
   | "khata"
-  | "messages";
+  | "messages"
+  | "watch"
+  | "ask"
+  | "buy";
 // Grouped by what the owner is doing: checking money, looking after stock, or
 // setting the shop up. Twelve sections in one sideways-scrolling row hid most
 // of them on a phone.
@@ -51,12 +58,15 @@ const GROUPS: {
         { id: "sales", label: "Sales" },
         { id: "reports", label: "Reports" },
         { id: "khata", label: "Khata" },
+        { id: "watch", label: "Watch" },
+        { id: "ask", label: "Ask" },
       ],
     },
     {
       label: "Stock",
       sections: [
         { id: "stock", label: "Stock" },
+        { id: "buy", label: "Buy" },
         { id: "margin", label: "Margin" },
         { id: "purchases", label: "Purchases" },
         { id: "dayend", label: "Day end" },
@@ -94,6 +104,7 @@ function usePhone(): boolean {
 }
 
 export function ManageScreen({ attention }: { attention?: Attention }) {
+  useLang();
   const badges = attention ? badgesFor(attention) : {};
   // Phones: Manage opens as a list (like the phone's own Settings) and a
   // section fills the screen with a way back. Tablets: the sidebar and Sales.
@@ -103,9 +114,9 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
   if (phone && section !== null) {
     return (
       <main className="manage manage-section">
-        <button className="manage-back" aria-label="Back to Manage" onClick={() => setSection(null)}>
+        <button className="manage-back" aria-label={t("Back to Manage")} onClick={() => setSection(null)}>
           <Icon name="back" size={20} />
-          <span>Manage</span>
+          <span>{t("Manage")}</span>
         </button>
         <div className="manage-body">
           <SectionBody section={section} go={setSection} />
@@ -124,7 +135,7 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
             aria-label={g.label}
           >
             <span className="subnav-label" aria-hidden="true">
-              {g.label}
+              {t(g.label)}
             </span>
             <div className="subnav-items">
               {g.sections.map((s) => (
@@ -132,12 +143,12 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
                   key={s.id}
                   aria-pressed={section === s.id}
                   // The badge is read as a description, so the button's name stays "Stock".
-                  aria-label={s.label}
+                  aria-label={t(s.label)}
                   aria-describedby={badges[s.id] ? `attn-${s.id}` : undefined}
                   onClick={() => setSection(s.id)}
                 >
                   <Icon name={s.id} size={20} />
-                  <span>{s.label}</span>
+                  <span>{t(s.label)}</span>
                   {badges[s.id] && (
                     <span id={`attn-${s.id}`} className={`attn attn-${badges[s.id].urgency}`}>
                       {badges[s.id].text}
@@ -193,5 +204,11 @@ function SectionBody({ section, go }: { section: Section; go: (s: Section) => vo
       return <MessagesScreen />;
     case "tablets":
       return <TabletsScreen />;
+    case "watch":
+      return <WatchScreen />;
+    case "ask":
+      return <AskScreen />;
+    case "buy":
+      return <BuyScreen />;
   }
 }

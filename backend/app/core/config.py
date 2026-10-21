@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     # flow can be tried without Razorpay keys. Same guard as DEV_LOGIN: never with a remote
     # database or ENV=prod, so it can never reach real customers.
     fake_payments: bool = False
+    # AI helpers (README, "9.16"). Empty key = they say "not switched on" and everything else
+    # works as before. The key is a secret: the owner types it into Vercel, never into the repo.
+    anthropic_api_key: str = ""
+    ai_model: str = "claude-opus-5-5"  # claude-haiku-5-5 is about 40x cheaper for these small jobs
+    ai_daily_limit: int = 60  # calls per shop per day: a ceiling on cost and on abuse
+    # LOCAL TESTING ONLY: a rule-based stand-in for the model, so the AI screens can be tried
+    # and tested with no key and no cost. Same guard as FAKE_PAYMENTS.
+    fake_ai: bool = False
 
     @model_validator(mode="after")
     def local_test_modes_only_with_a_local_database(self):
@@ -68,6 +76,7 @@ class Settings(BaseSettings):
         for on, name, what in (
             (self.dev_login, "DEV_LOGIN", "lets anyone in without a password"),
             (self.fake_payments, "FAKE_PAYMENTS", "accepts pretend payments"),
+            (self.fake_ai, "FAKE_AI", "answers with a rule-based stand-in instead of a model"),
         ):
             if on and (self.env == "prod" or host not in LOCAL_DB_HOSTS):
                 raise ValueError(

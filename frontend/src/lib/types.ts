@@ -23,6 +23,9 @@ export interface MenuItem {
   description?: string;
   photo_url?: string;
   is_veg?: boolean;
+  /** Tamil name and description for customers who chose Tamil (README, "9.16"). */
+  name_ta?: string;
+  description_ta?: string;
   recipe: { id: string; version: number; lines: RecipeLine[] } | null;
   modifier_ids: string[];
 }

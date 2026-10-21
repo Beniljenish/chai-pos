@@ -16,6 +16,7 @@ import { billSummaryRows, kotRows, type Row } from '../lib/escpos';
 import { formatRupees, GstError } from '../lib/gst';
 import { formatPriceDelta } from '../lib/options';
 import { act, liveOrders, minutesOpen, nextKotNo, openOrder, sendKot, type LiveOrder, type OpenInput, type OrderLine } from '../lib/orders';
+import { t as tr, useLang } from '../lib/i18n';
 import { loadPrinter } from '../lib/printer';
 import { shiftsOn } from '../lib/shift';
 import { CANCEL_REASONS, floorModel, kitchenTickets, kotLinesFromCart, onlineToken,
@@ -83,6 +84,7 @@ interface Target {
 }
 
 export function TablesScreen() {
+  useLang();
   const { catalogue } = useSession();
   const { orders, reload } = useLiveOrders();
   const paidOnline = usePaidOnline((orders ?? []).filter((o) => onlineToken(o.state)).map((o) => o.id));
@@ -142,20 +144,20 @@ export function TablesScreen() {
   return (
     <main className="floor" aria-busy={orders === null}>
       <header className="floor-head">
-        <h1>Tables</h1>
+        <h1>{tr('Tables')}</h1>
         {view === 'floor' && (
           <div className="floor-actions">
-            <button onClick={() => setNewKind('takeaway')}>+ Takeaway</button>
-            <button onClick={() => setNewKind('delivery')}>+ Delivery</button>
+            <button onClick={() => setNewKind('takeaway')}>{tr('+ Takeaway')}</button>
+            <button onClick={() => setNewKind('delivery')}>{tr('+ Delivery')}</button>
           </div>
         )}
       </header>
-      <div className="view-switch" role="group" aria-label="View">
+      <div className="view-switch" role="group" aria-label={tr('View')}>
         <button aria-pressed={view === 'floor'} onClick={() => setView('floor')}>
-          Floor
+          {tr('Floor')}
         </button>
         <button aria-pressed={view === 'kitchen'} onClick={() => setView('kitchen')}>
-          Kitchen{toMake ? ` (${toMake})` : ''}
+          {tr('Kitchen')}{toMake ? ` (${toMake})` : ''}
         </button>
       </div>
       {notice && (
@@ -168,12 +170,12 @@ export function TablesScreen() {
       ) : (
         <>
           <p className="floor-legend" aria-hidden="true">
-            <span className="dot free" /> Free <span className="dot running" /> Eating <span className="dot billed" /> Bill printed
+            <span className="dot free" /> {tr('Free')} <span className="dot running" /> {tr('Eating')} <span className="dot billed" /> {tr('Bill printed')}
           </p>
 
           {online.length > 0 && (
-            <section className="floor-area online-orders" aria-label="Online orders">
-              <h2>Online orders ({online.length})</h2>
+            <section className="floor-area online-orders" aria-label={tr('Online orders')}>
+              <h2>{tr('Online orders ({n})', { n: online.length })}</h2>
               <ul className="order-list">
                 {online.map((o) => {
                   const lines = o.state.lines.filter((ln) => ln.qty > 0);
@@ -192,11 +194,11 @@ export function TablesScreen() {
                               .join(', ')}</span>
                         </span>
                         {paidOnline[o.id] !== undefined && (
-                          <span className="flag paid-online" title="Already paid in the app. Do not collect money; bill it as UPI.">
-                            Paid online {formatRupees(paidOnline[o.id])}
+                          <span className="flag paid-online" title={tr('Already paid in the app. Do not collect money; bill it as UPI.')}>
+                            {tr('Paid online {amount}', { amount: formatRupees(paidOnline[o.id]) })}
                           </span>
                         )}
-                        <span className={`flag ${ready ? '' : 'bad'}`}>{ready ? 'Ready' : 'New'}</span>
+                        <span className={`flag ${ready ? '' : 'bad'}`}>{ready ? tr('Ready') : tr('New')}</span>
                       </button>
                     </li>
                   );

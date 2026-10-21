@@ -3,12 +3,14 @@
  * data: still loading, or the load failed. One look everywhere, and a failed load
  * can always be retried in place (README, "Phase 5.4").
  */
+import { t } from '../lib/i18n';
+
 export function Loading({ what }: { what?: string }) {
   // Three shimmering rows where the content will be; the words are for screen
   // readers (and the tests that wait for them to go).
   return (
     <div className="skeleton" role="status">
-      <span className="sr-only">Loading{what ? ` ${what}` : ''}…</span>
+      <span className="sr-only">{t('Loading')}{what ? ` ${what}` : ''}…</span>
       <span className="skeleton-row" aria-hidden="true" />
       <span className="skeleton-row" aria-hidden="true" />
       <span className="skeleton-row short" aria-hidden="true" />
@@ -22,7 +24,7 @@ export function LoadError({ error, onRetry }: { error: string; onRetry(): void }
     <p className="error load-error" role="alert">
       <span>{error}</span>
       <button className="quiet" onClick={onRetry}>
-        Reload
+        {t('Reload')}
       </button>
     </p>
   );

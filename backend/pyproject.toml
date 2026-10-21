@@ -15,6 +15,7 @@ dependencies = [
     "tzdata>=2024.1",  # IANA timezones even on slim Docker images
     "httpx>=0.27",  # Resend email API, Web Push
     "cryptography>=42",  # Web Push message encryption (services/webpush.py)
+    "anthropic>=1.0",  # the AI helpers (services/ai.py); unused until ANTHROPIC_API_KEY is set
 ]
 
 [project.optional-dependencies]

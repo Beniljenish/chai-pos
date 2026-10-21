@@ -9,8 +9,10 @@ import { PendingWastage } from './PendingWastage';
 import { PrepPanel } from './PrepPanel';
 import { useSession } from './session';
 import { WastagePanel } from './WastagePanel';
+import { t, useLang } from '../lib/i18n';
 
 export function DayEndScreen() {
+  useLang();
   const { user } = useSession();
   const isOwner = user?.role === 'owner';
   const days = countableDays(new Date());
@@ -23,19 +25,19 @@ export function DayEndScreen() {
   return (
     <section className="dayend">
       <header className="manage-head">
-        <h1>{isOwner ? 'Day end' : 'Stock tasks'}</h1>
+        <h1>{isOwner ? t("Day end") : t("Stock tasks")}</h1>
       </header>
       {!isOwner && <PrepPanel />}
       <WastagePanel onLogged={bump} />
       {isOwner && <PendingWastage refreshKey={refresh} onDecided={bump} />}
-      <div className="segmented day-pick" role="radiogroup" aria-label="Which day">
+      <div className="segmented day-pick" role="radiogroup" aria-label={t("Which day")}>
         {days.map((d) => (
           <button key={d.date} role="radio" aria-checked={day === d.date} onClick={() => setDay(d.date)}>
             {d.label}
           </button>
         ))}
       </div>
-      <p className="muted">Closing after midnight? Choose yesterday: the count belongs to the day you are closing.</p>
+      <p className="muted">{t("Closing after midnight? Choose yesterday: the count belongs to the day you are closing.")}</p>
       <CountPanel key={`${day}-count`} day={day} refreshKey={closed} onStatus={bump} />
       {isOwner && <DayReport key={`${day}-report`} day={day} refreshKey={refresh} onApproved={reloadCount} />}
       {isOwner && <HandoverReport key={`${day}-handover`} day={day} refreshKey={refresh} />}

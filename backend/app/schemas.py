@@ -67,6 +67,7 @@ class ShopOut(ORM):
     cash_shifts: bool
     max_discount_bp: int = 1000
     wastage_approval_paise: int = 20000
+    gst_threshold_paise: int | None = None
 
 
 class ShopUpdate(BaseModel):
@@ -84,6 +85,8 @@ class ShopUpdate(BaseModel):
     max_discount_bp: int | None = Field(default=None, ge=0, le=10_000)
     # A cashier's wastage worth more than this waits for the owner (20000 = Rs 200).
     wastage_approval_paise: int | None = Field(default=None, ge=0, le=10_000_000)
+    # Turnover at which this shop must register for GST (ask an accountant); None = no watch.
+    gst_threshold_paise: int | None = Field(default=None, ge=0, le=100_000_000_000)
 
     @field_validator("report_email")
     @classmethod

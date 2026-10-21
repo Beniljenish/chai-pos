@@ -218,6 +218,8 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
                     "tax_inclusive": i.tax_inclusive,
                     "sold_out": i.is_sold_out,
                     "description": i.description,
+                    "name_ta": i.name_ta,
+                    "description_ta": i.description_ta,
                     "photo_url": i.photo_url,
                     "is_veg": i.is_veg,
                     "options": options.get(i.id, []),

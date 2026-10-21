@@ -5246,3 +5246,324 @@ button.save {
     display: none;
   }
 }
+
+/* ---- Tamil / English switch (README, "9.16") */
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--steel-deep);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--paper);
+  flex: none;
+}
+.lang-switch button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.lang-switch button[aria-pressed='true'] {
+  background: var(--brand);
+  color: #fff;
+}
+.cx-hero .lang-switch {
+  float: right;
+}
+.cx-who .lang-switch {
+  margin-left: auto;
+}
+
+.voice-settings {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.voice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.voice-row small {
+  display: block;
+}
+.voice-more {
+  display: grid;
+  gap: 8px;
+  padding-left: 4px;
+}
+.voice-more label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.voice-volume {
+  justify-content: space-between;
+}
+
+/* ---- Watch, Ask and Buy (README, "9.16") */
+.watch-card {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+.watch-card.ok {
+  background: var(--leaf-soft);
+  border-color: transparent;
+}
+.watch-card.look {
+  background: var(--turmeric-soft);
+  border-color: transparent;
+}
+.watch-card.warn {
+  background: var(--chilli-soft);
+  border-color: transparent;
+}
+.watch-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.watch-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.watch-list small {
+  display: block;
+}
+.watch-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.gst-bar {
+  position: relative;
+  height: 28px;
+  margin: 8px 0;
+  border-radius: 999px;
+  background: var(--steel-deep);
+  overflow: hidden;
+}
+.gst-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--leaf);
+}
+.gst-bar i.watch {
+  background: var(--turmeric);
+}
+.gst-bar i.over {
+  background: var(--chilli);
+}
+.gst-bar span {
+  position: relative;
+  display: block;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.trail {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.trail li {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 10px;
+  padding-left: 10px;
+  border-left: 3px solid var(--steel-deep);
+}
+.trail li.trail-void,
+.trail li.trail-flag {
+  border-left-color: var(--chilli);
+}
+.trail li.trail-discount,
+.trail li.trail-late {
+  border-left-color: var(--turmeric);
+}
+.trail li p {
+  margin: 2px 0;
+}
+.trail time {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+.trail-box {
+  margin: 8px 0;
+}
+
+.mic-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--paper);
+  color: var(--accent);
+  font-weight: 700;
+}
+.mic-btn.on {
+  background: var(--accent);
+  color: #fff;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  50% {
+    box-shadow: 0 0 0 8px rgba(226, 62, 114, 0.18);
+  }
+}
+.buy-input,
+.buy-draft {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.buy-input textarea {
+  width: 100%;
+}
+.buy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.buy-lines,
+.ask-turns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.buy-line {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.buy-line.bad {
+  border-color: var(--chilli);
+}
+.buy-line.done {
+  background: var(--leaf-soft);
+}
+.buy-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.buy-saved {
+  color: var(--leaf);
+  font-weight: 700;
+}
+.ask-form {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.ask-form input {
+  flex: 1;
+}
+.ask-turns li {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.ask-q {
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+.ask-a {
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.ta-fields {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.explain {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.explain-summary {
+  font-weight: 600;
+  margin: 0;
+}
+.explain-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.explain-facts li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--steel-deep);
+  background: var(--paper);
+  border-radius: 8px;
+}
+.explain-facts li.fact-stock {
+  border-left-color: var(--chilli);
+}
+.explain-facts li em {
+  color: var(--brand);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* the customer's name row has room for the language switch on a phone */
+.cx-who {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.buy-actions label.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--steel-deep);
+  border-radius: 12px;
+  background: var(--paper);
+  font-weight: 600;
+  cursor: pointer;
+}
+.buy-actions label.button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.trail small {
+  display: block;
+}

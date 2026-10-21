@@ -5,6 +5,7 @@ import { formatRupees } from '../lib/gst';
 import { formatDelta, formatQty } from '../lib/qty';
 import type { DayReport as Report } from '../lib/types';
 import { api } from './apiClient';
+import { ExplainDay } from './ExplainDay';
 import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 
@@ -96,6 +97,7 @@ export function DayReport({
             .join(' · ')}
         </p>
       )}
+      <ExplainDay day={day} />
       <ul className="variance-list">
         {rep.lines.map((l) => {
           const words = adherenceWords(l.adherence_pct);

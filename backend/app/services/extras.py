@@ -98,6 +98,7 @@ def favourites(db: Session, customer_id: uuid.UUID) -> list[dict]:
         {
             "menu_item_id": item.id,
             "name": item.name,
+            "name_ta": item.name_ta,
             "price_paise": item.price_paise,
             "photo_url": item.photo_url,
             "is_veg": item.is_veg,

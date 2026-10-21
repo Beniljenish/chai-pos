@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { HttpError, NetworkError } from '../lib/api';
 import { useSession } from './session';
+import { t, useLang } from '../lib/i18n';
 
 export function LoginScreen() {
+  useLang();
   const { login } = useSession();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -25,11 +27,11 @@ export function LoginScreen() {
     try {
       await login(phone, noPassword && !password ? '-' : password);
     } catch (err) {
-      if (err instanceof NetworkError) setError('No internet. Logging in needs a connection; billing does not.');
-      else if (err instanceof HttpError && err.status === 401) setError('Phone number or password is wrong.');
+      if (err instanceof NetworkError) setError(t("No internet. Logging in needs a connection; billing does not."));
+      else if (err instanceof HttpError && err.status === 401) setError(t("Phone number or password is wrong."));
       else if (err instanceof HttpError && err.status === 429 && typeof err.detail === 'string') setError(err.detail);
-      else if (err instanceof HttpError && err.status === 422) setError('Enter a 10-digit mobile number.');
-      else setError('Could not log in. Try again.');
+      else if (err instanceof HttpError && err.status === 422) setError(t("Enter a 10-digit mobile number."));
+      else setError(t("Could not log in. Try again."));
     } finally {
       setBusy(false);
     }
@@ -40,18 +42,18 @@ export function LoginScreen() {
       <section className="login-hero">
         <ChaiCup />
         <h1>Taptallow</h1>
-        <p className="login-tagline">Billing and stock for tea and juice shops</p>
-        <ul className="login-points" aria-label="What it does">
-          <li>Bills even when the internet drops</li>
-          <li>GST worked out on every line</li>
-          <li>Stock that matches the shelf</li>
+        <p className="login-tagline">{t("Billing and stock for tea and juice shops")}</p>
+        <ul className="login-points" aria-label={t("What it does")}>
+          <li>{t("Bills even when the internet drops")}</li>
+          <li>{t("GST worked out on every line")}</li>
+          <li>{t("Stock that matches the shelf")}</li>
         </ul>
       </section>
       <form className="login-card" onSubmit={submit}>
-        <h2>Log in</h2>
-        <p className="muted">Use the mobile number your shop owner set up for you.</p>
+        <h2>{t("Log in")}</h2>
+        <p className="muted">{t("Use the mobile number your shop owner set up for you.")}</p>
         <label>
-          Mobile number
+          {t("Mobile number")}
           <input
             inputMode="numeric"
             autoComplete="username"
@@ -63,11 +65,11 @@ export function LoginScreen() {
         </label>
         {noPassword ? (
           <p className="login-test-note" role="note">
-            <strong>Local test mode:</strong> no password needed. Passwords are set at go-live.
+            <strong>{t("Local test mode:")}</strong> {t("no password needed. Passwords are set at go-live.")}
           </p>
         ) : (
           <label>
-            Password
+            {t("Password")}
             <input
               type="password"
               autoComplete="current-password"
@@ -79,10 +81,10 @@ export function LoginScreen() {
         )}
         {error && <p className="error" role="alert">{error}</p>}
         <button className="primary" disabled={busy}>
-          {busy ? 'Logging in…' : 'Log in'}
+          {busy ? t("Logging in…") : t("Log in")}
         </button>
         <p className="login-customer">
-          Want to order food at a food court? <a href="/order">Create a customer account or log in</a>
+          {t("Want to order food at a food court?")} <a href="/order">{t("Create a customer account or log in")}</a>
         </p>
       </form>
     </main>

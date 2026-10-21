@@ -6,9 +6,11 @@
 import { useState } from 'react';
 import { db } from '../lib/db';
 import { act, type LiveOrder } from '../lib/orders';
-import { KITCHEN_LATE_MIN, kitchenTickets } from '../lib/table';
+import { announce } from '../lib/announce';
+import { KITCHEN_LATE_MIN, kitchenTickets, onlineToken } from '../lib/table';
 import type { Catalogue } from '../lib/types';
 import { useSession } from './session';
+import { t, useLang } from '../lib/i18n';
 
 export function KitchenView({
   catalogue,
@@ -21,6 +23,7 @@ export function KitchenView({
   now: number;
   reload(): Promise<void>;
 }) {
+  useLang();
   const { user, worker } = useSession();
   const [busy, setBusy] = useState(false);
   const tickets = kitchenTickets(catalogue, orders, now);
@@ -30,6 +33,10 @@ export function KitchenView({
     setBusy(true);
     try {
       await act(db, orderId, 'ready', { line_ids: lineIds }, user.id);
+      // A customer's online order has a token: say it, for people who are not looking at the screen.
+      const order = orders.find((o) => o.id === orderId);
+      const token = order ? onlineToken(order.state) : null;
+      if (token) announce('ready', { token });
       await reload();
       void worker?.kick();
     } finally {
@@ -41,28 +48,28 @@ export function KitchenView({
     return (
       <div className="empty-card kitchen-empty">
         <p>
-          <strong>Nothing to make.</strong> New kitchen tickets appear here within a few seconds of being sent.
+          <strong>{t("Nothing to make.")}</strong> {t("New kitchen tickets appear here within a few seconds of being sent.")}
         </p>
       </div>
     );
   }
 
   return (
-    <ul className="kitchen-grid" aria-label="Kitchen tickets">
-      {tickets.map((t) => (
-        <li key={`${t.orderId}:${t.kotNo}`} className={`kitchen-ticket ${t.minutes >= KITCHEN_LATE_MIN ? 'late' : ''}`}>
+    <ul className="kitchen-grid" aria-label={t("Kitchen tickets")}>
+      {tickets.map((tk) => (
+        <li key={`${tk.orderId}:${tk.kotNo}`} className={`kitchen-ticket ${tk.minutes >= KITCHEN_LATE_MIN ? 'late' : ''}`}>
           <header>
-            <strong className="kitchen-label">{t.label}</strong>
-            <span className="num">{t.minutes} min</span>
+            <strong className="kitchen-label">{tk.label}</strong>
+            <span className="num">{tk.minutes} {t("min")}</span>
           </header>
           <p className="muted kitchen-kot">
-            KOT {t.kotNo}
-            {t.orderType !== 'dine_in' ? ` · ${t.orderType === 'takeaway' ? 'Takeaway: pack it' : 'Delivery: pack it'}` : ''}
+            {t("KOT")} {tk.kotNo}
+            {tk.orderType !== 'dine_in' ? ` · ${tk.orderType === 'takeaway' ? t("Takeaway: pack it") : t("Delivery: pack it")}` : ''}
           </p>
           <ul className="kitchen-lines">
-            {t.lines.map((l) => (
+            {tk.lines.map((l) => (
               <li key={l.line_id}>
-                <button onClick={() => void ready(t.orderId, [l.line_id])} aria-label={`${l.name} ready`} disabled={busy}>
+                <button onClick={() => void ready(tk.orderId, [l.line_id])} aria-label={t('{name} ready', { name: l.name })} disabled={busy}>
                   <span className="kitchen-qty num">{l.qty}</span>
                   <span>
                     {l.name}
@@ -78,12 +85,12 @@ export function KitchenView({
             disabled={busy}
             onClick={() =>
               void ready(
-                t.orderId,
-                t.lines.map((l) => l.line_id),
+                tk.orderId,
+                tk.lines.map((l) => l.line_id),
               )
             }
           >
-            All ready
+            {t("All ready")}
           </button>
         </li>
       ))}

@@ -3,6 +3,7 @@
  * Every dialog in the app uses this one component (README, "Phase 5.4").
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { t } from '../lib/i18n';
 
 export function Sheet({
   title,
@@ -61,7 +62,7 @@ export function Sheet({
             {sub}
           </div>
           <button className="quiet" onClick={() => close.current()}>
-            Close
+            {t('Close')}
           </button>
         </header>
         {children}

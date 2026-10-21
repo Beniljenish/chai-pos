@@ -14,6 +14,7 @@ import { StartShiftSheet } from './ShiftUI';
 import { CustomerSheet, DiscountSheet, SplitSheet, type SplitChoice } from './TillExtras';
 import type { BillCustomer, PaymentPart } from '../lib/types';
 import { useSession } from './session';
+import { t, useLang } from '../lib/i18n';
 
 interface Line extends CartLine {
   key: string;
@@ -46,6 +47,7 @@ function partsFor(mode: PaymentMode, total: number, split: SplitChoice | null, p
 }
 
 export function BillingScreen() {
+  useLang();
   const { catalogue, device, worker, user, shift } = useSession();
   const [askShift, setAskShift] = useState(false);
   const [cart, setCart] = useState<Line[]>([]);
@@ -92,8 +94,8 @@ export function BillingScreen() {
     return (
       <main className="centered">
         <div className="panel">
-          <h1>No menu on this tablet yet</h1>
-          <p>Connect to the internet once so the tablet can download the menu. After that it works offline.</p>
+          <h1>{t("No menu on this tablet yet")}</h1>
+          <p>{t("Connect to the internet once so the tablet can download the menu. After that it works offline.")}</p>
         </div>
       </main>
     );
@@ -169,7 +171,7 @@ export function BillingScreen() {
       // saveBill's own refusals (parts that do not add up, credit with no customer)
       // are written for the cashier; anything else is a storage failure.
       const ours = e instanceof Error && /add up|customer|empty/.test(e.message);
-      setError(e instanceof GstError || ours ? (e as Error).message : 'Could not save the bill. Nothing was charged.');
+      setError(e instanceof GstError || ours ? (e as Error).message : t("Could not save the bill. Nothing was charged."));
     } finally {
       setSaving(false);
     }
@@ -185,9 +187,15 @@ export function BillingScreen() {
   const creditBad = payment === 'credit' && (!customer || (totals !== null && paidNow >= totals.total));
   const paymentNote =
     payment === 'split' && split && totals && !splitBad
-      ? `Cash ${formatRupees(split.cashPaise)} + ${split.other === 'upi' ? 'UPI' : 'Card'} ${formatRupees(totals.total - split.cashPaise)}`
+      ? t('Cash {cash} + {other} {rest}', {
+              cash: formatRupees(split.cashPaise),
+              other: split.other === 'upi' ? t('UPI') : t('Card'),
+              rest: formatRupees(totals.total - split.cashPaise),
+            })
       : payment === 'credit' && customer && totals && !creditBad
-        ? `${formatRupees(totals.total - paidNow)} on ${customer.name}'s khata${paidNow ? `, ${formatRupees(paidNow)} cash now` : ''}`
+        ? paidNow
+          ? t("{rest} on {name}'s khata, {paid} cash now", { rest: formatRupees(totals.total - paidNow), name: customer.name, paid: formatRupees(paidNow) })
+          : t("{rest} on {name}'s khata", { rest: formatRupees(totals.total - paidNow), name: customer.name })
         : null;
   const canCollectOnline = Boolean(catalogue?.shop.online_payments) && (payment === 'upi' || payment === 'card');
 
@@ -195,21 +203,21 @@ export function BillingScreen() {
     <div className="billing">
       {shift && user && shift.openedById !== user.id && shiftsOn(catalogue?.shop.cash_shifts) && (
         <p className="shift-note" role="note">
-          Billing into {shift.openedByName}&apos;s shift. Taking over the drawer? End it under Today first.
+          {t("Billing into {name}'s shift. Taking over the drawer? End it under Today first.", { name: shift.openedByName })}
         </p>
       )}
-      <section className="menu" aria-label="Menu">
+      <section className="menu" aria-label={t("Menu")}>
         <div className="menu-search">
           <input
             type="search"
-            aria-label="Search the menu"
-            placeholder="Search the menu"
+            aria-label={t("Search the menu")}
+            placeholder={t("Search the menu")}
             autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           {searching && (
-            <button className="menu-search-clear" aria-label="Clear search" onClick={() => setQuery('')}>
+            <button className="menu-search-clear" aria-label={t("Clear search")} onClick={() => setQuery('')}>
               ✕
             </button>
           )}
@@ -217,12 +225,14 @@ export function BillingScreen() {
         {searching && (
           <p className="menu-search-hint" role="status">
             {shown.length === 0
-              ? `Nothing on the menu matches “${query.trim()}”`
-              : `${shown.length} item${shown.length === 1 ? '' : 's'} match “${query.trim()}” in all categories`}
+              ? t('Nothing on the menu matches “{query}”', { query: query.trim() })
+              : shown.length === 1
+                ? t('{n} item match “{query}” in all categories', { n: shown.length, query: query.trim() })
+                : t('{n} items match “{query}” in all categories', { n: shown.length, query: query.trim() })}
           </p>
         )}
         {!searching && categories.length > 1 && (
-          <nav className="categories" aria-label="Categories">
+          <nav className="categories" aria-label={t("Categories")}>
             {categories.map((c) => (
               <button key={c} aria-pressed={c === activeCategory} onClick={() => setCategory(c)}>
                 {c}
@@ -254,11 +264,11 @@ export function BillingScreen() {
                       </span>
                     )}
                   </span>
-                  {inCart > 0 && <span className="tile-count" aria-label={`${inCart} in bill`}>{inCart}</span>}
+                  {inCart > 0 && <span className="tile-count" aria-label={t('{n} in bill', { n: inCart })}>{inCart}</span>}
                 </button>
                 {/* Undo a tap without opening the bill: takes one off the last line of this item. */}
                 {inCart > 0 && (
-                  <button className="tile-less" aria-label={`Take one ${i.name} off the bill`} onClick={() => takeOne(i.id)}>
+                  <button className="tile-less" aria-label={t('Take one {name} off the bill', { name: i.name })} onClick={() => takeOne(i.id)}>
                     −
                   </button>
                 )}
@@ -268,23 +278,23 @@ export function BillingScreen() {
         </div>
       </section>
 
-      <aside className={`till ${tillOpen ? 'open' : ''}`} aria-label="Current bill">
+      <aside className={`till ${tillOpen ? 'open' : ''}`} aria-label={t("Current bill")}>
         <div className="till-bar">
           <button className="till-handle" onClick={() => setTillOpen((o) => !o)} aria-expanded={tillOpen}>
-            <span>{itemCount ? `${itemCount} item${itemCount > 1 ? 's' : ''}` : 'Empty bill'}</span>
+            <span>{itemCount ? (itemCount > 1 ? t('{n} items', { n: itemCount }) : t('{n} item', { n: itemCount })) : t('Empty bill')}</span>
             <strong className="num">{formatRupees(totals?.total ?? 0)}</strong>
           </button>
           {/* Phones: the usual sale (a tea, paid as before) without opening the bill. */}
           {!tillOpen && itemCount > 0 && totals && (
             <button className="primary quick-save" disabled={saving} onClick={() => void save()}>
-              {canCollectOnline && online ? 'Collect' : 'Save'} · {PAYMENT_LABELS[payment]}
+              {canCollectOnline && online ? t("Collect") : t("Save")} · {t(PAYMENT_LABELS[payment])}
             </button>
           )}
         </div>
 
         <div className="till-body">
           {cart.length === 0 ? (
-            <p className="empty">Tap an item to start a bill.</p>
+            <p className="empty">{t("Tap an item to start a bill.")}</p>
           ) : (
             <ul className="lines">
               {cart.map((l, idx) => {
@@ -299,9 +309,9 @@ export function BillingScreen() {
                     </div>
                     <div className="line-controls">
                       <div className="stepper">
-                        <button onClick={() => setQty(l.key, l.qty - 1)} aria-label={`One less ${item.name}`}>−</button>
+                        <button onClick={() => setQty(l.key, l.qty - 1)} aria-label={t('One less {name}', { name: item.name })}>−</button>
                         <span className="num" aria-live="polite">{l.qty}</span>
-                        <button onClick={() => setQty(l.key, l.qty + 1)} aria-label={`One more ${item.name}`}>+</button>
+                        <button onClick={() => setQty(l.key, l.qty + 1)} aria-label={t('One more {name}', { name: item.name })}>+</button>
                       </div>
                       {item.modifier_ids.map((mid) => {
                         const m = modifiers.get(mid);
@@ -328,33 +338,33 @@ export function BillingScreen() {
           <div className="till-foot">
             {totals && catalogue.shop.gst_type === 'regular' && totals.cgst > 0 && (
               <dl className="till-sums num">
-                <dt>Taxable value</dt>
+                <dt>{t("Taxable value")}</dt>
                 <dd>{formatRupees(totals.taxable)}</dd>
-                <dt>CGST + SGST</dt>
+                <dt>{t("CGST + SGST")}</dt>
                 <dd>{formatRupees(totals.cgst + totals.sgst)}</dd>
               </dl>
             )}
             <div className="till-extras">
               <button className="quiet" disabled={cart.length === 0} onClick={() => setSheet('discount')}>
-                {discountTotal ? `Discount −${formatRupees(totals?.discount ?? discountTotal)}` : 'Discount'}
+                {discountTotal ? t('Discount −{amount}', { amount: formatRupees(totals?.discount ?? discountTotal) }) : t('Discount')}
               </button>
               <button className="quiet" onClick={() => setSheet('customer')}>
-                {customer ? `Customer: ${customer.name}` : '+ Customer'}
+                {customer ? t('Customer: {name}', { name: customer.name }) : t('+ Customer')}
               </button>
             </div>
             {discountTotal > 0 && !totals && (
               <p className="error" role="alert">
-                The discount is more than the bill now.{' '}
+                {t("The discount is more than the bill now.")}{' '}
                 <button className="quiet" onClick={() => setBillDiscount(0)}>
-                  Remove it
+                  {t("Remove it")}
                 </button>
               </p>
             )}
             <p className="total">
-              <span>Total</span>
+              <span>{t("Total")}</span>
               <strong className="num">{formatRupees(totals?.total ?? 0)}</strong>
             </p>
-            <div className="payment" role="radiogroup" aria-label="Payment">
+            <div className="payment" role="radiogroup" aria-label={t("Payment")}>
               {PAYMENT_MODES.map(({ mode, label }) => (
                 <button
                   key={mode}
@@ -376,11 +386,11 @@ export function BillingScreen() {
                 {paymentNote}
               </p>
             )}
-            {splitBad && split && <p className="error">The split no longer fits the bill: tap Split again.</p>}
+            {splitBad && split && <p className="error">{t("The split no longer fits the bill: tap Split again.")}</p>}
             {canCollectOnline && (
               <label className="check online-toggle">
                 <input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} />
-                Collect through Razorpay (needs internet)
+                {t("Collect through Razorpay (needs internet)")}
               </label>
             )}
             {error && <p className="error" role="alert">{error}</p>}
@@ -389,7 +399,7 @@ export function BillingScreen() {
               onClick={() => void save()}
               disabled={saving || cart.length === 0 || !totals || splitBad || creditBad}
             >
-              {saving ? 'Saving…' : canCollectOnline && online ? 'Save and collect' : 'Save and print'}
+              {saving ? t("Saving…") : canCollectOnline && online ? t("Save and collect") : t("Save and print")}
               {!saving && totals && (
                 <span className="save-amount num" aria-hidden="true">
                   {formatRupees(totals.total)}
@@ -404,10 +414,10 @@ export function BillingScreen() {
       {sheet === 'discount' && totals && (
         <DiscountSheet
           targets={[
-            { key: 'bill', label: 'Whole bill', grossPaise: grossPaise - cart.reduce((a, l) => a + (l.discountPaise ?? 0), 0) },
+            { key: "bill", label: t("Whole bill"), grossPaise: grossPaise - cart.reduce((a, l) => a + (l.discountPaise ?? 0), 0) },
             ...cart.map((l, i) => ({
               key: l.key,
-              label: itemsById.get(l.menuItemId)?.name ?? 'Item',
+              label: itemsById.get(l.menuItemId)?.name ?? t("Item"),
               grossPaise: totals.lines[i]?.gross ?? 0,
             })),
           ]}

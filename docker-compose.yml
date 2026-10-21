@@ -27,9 +27,14 @@ services:
       # with this on unless its database is this compose 'db' (or localhost).
       DEV_LOGIN: "true"
       FAKE_PAYMENTS: "true"
-    # Phone-notification keys for this computer only (./local.sh makes the file; it is not committed).
+      # Local testing only: simple rules stand in for the AI model. A real key (below) replaces them.
+      FAKE_AI: "true"
+    # Phone-notification keys for this computer only (./local.sh makes the file; it is not committed),
+    # and, if you want to try the real AI, your own key in .local-ai.env as ANTHROPIC_API_KEY=... (not committed).
     env_file:
       - path: .local-vapid.env
+        required: false
+      - path: .local-ai.env
         required: false
     command: >
       sh -c "alembic upgrade heads &&

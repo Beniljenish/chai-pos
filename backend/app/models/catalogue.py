@@ -120,6 +120,9 @@ class MenuItem(IdMixin, TimestampMixin, TenantScoped, Base):
     description: Mapped[str] = mapped_column(String(200), default="", server_default="")
     photo_url: Mapped[str] = mapped_column(String(500), default="", server_default="")
     is_veg: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    # Tamil name and description, shown to customers who picked Tamil (README, "9.16").
+    name_ta: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    description_ta: Mapped[str] = mapped_column(String(300), default="", server_default="")
 
 
 class Recipe(IdMixin, TenantScoped, Base):

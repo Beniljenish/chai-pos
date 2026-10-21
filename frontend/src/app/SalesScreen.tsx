@@ -27,6 +27,7 @@ const FLAG_LABELS: Record<string, string> = {
   credit_without_customer: 'on credit with no customer',
 };
 import { Loading, LoadError } from './Status';
+import { TrailPanel } from './TrailPanel';
 import { Sheet } from './Sheet';
 import { ServiceReport } from './ServiceReport';
 import { WeekCompare } from './WeekCompare';
@@ -442,6 +443,8 @@ function BillSheet({
           </tr>
         </tbody>
       </table>
+
+      <TrailPanel billId={bill.id} />
 
       {!v && canVoid && !voiding && (
         <button className="danger" onClick={() => setVoiding(true)}>
