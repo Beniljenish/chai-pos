@@ -275,3 +275,71 @@ def test_only_the_owner_edits_what_customers_see(client, shop_a, court):
         f"{API}/menu-items/{tea['id']}", json={"description": "x"}, headers=shop_a.cashier_h
     )
     assert r.status_code == 403
+
+
+# ---- the pictures that ship with the app
+def test_a_shipped_picture_is_a_valid_photo_and_other_paths_are_not(client, shop_a, court):
+    tea = _menu(client, court)["Masala tea"]["id"]
+    ok = client.patch(
+        f"{API}/menu-items/{tea}", json={"photo_url": "/dishes/tea.svg"}, headers=shop_a.owner_h
+    )
+    assert ok.status_code == 200 and ok.json()["photo_url"] == "/dishes/tea.svg"
+    assert _menu(client, court)["Masala tea"]["photo_url"] == "/dishes/tea.svg"
+    for bad in (
+        "/dishes/../secret.svg",
+        "/etc/passwd",
+        "/dishes/tea.png",
+        "/dishes/Tea.svg",
+        "data:image/svg+xml,x",
+    ):
+        r = client.patch(f"{API}/menu-items/{tea}", json={"photo_url": bad}, headers=shop_a.owner_h)
+        assert r.status_code == 422, bad
+    # taking the picture off is allowed
+    gone = client.patch(f"{API}/menu-items/{tea}", json={"photo_url": ""}, headers=shop_a.owner_h)
+    assert gone.status_code == 200 and gone.json()["photo_url"] == ""
+
+
+def test_the_sample_menu_comes_with_pictures_and_descriptions(client):
+    from sqlalchemy import select
+
+    from app.db.session import SessionLocal
+    from app.db.tenancy import mark_system
+    from app.models import MenuItem
+    from app.services.sample import seed_catalogue
+    from app.services.shops import create_shop
+
+    shop, owner = create_shop("Sample Outlet", "9841100003")
+    seed_catalogue(shop, owner)
+    with mark_system(SessionLocal()) as db:
+        items = {m.name: m for m in db.scalars(select(MenuItem).where(MenuItem.shop_id == shop.id))}
+    assert items["Masala tea"].photo_url == "/dishes/tea.svg"
+    assert items["Orange juice"].photo_url == "/dishes/juice.svg"
+    assert items["Masala tea"].description and items["Orange juice"].is_veg is True
+
+
+def test_older_shops_get_the_pictures_without_touching_what_an_owner_set(
+    client, shop_a, shop_b, court
+):
+    from sqlalchemy import select
+
+    from app.db.session import SessionLocal
+    from app.db.tenancy import mark_system
+    from app.models import MenuItem
+    from app.services.sample import add_sample_pictures
+
+    with mark_system(SessionLocal()) as db:
+        # make both shops look like they were set up before pictures existed...
+        for item in db.scalars(select(MenuItem)):
+            item.photo_url, item.description = "", ""
+        # ...except one dish whose owner already gave it their own picture
+        own = db.scalar(
+            select(MenuItem).where(
+                MenuItem.shop_id == shop_a.shop.id, MenuItem.name == "Masala tea"
+            )
+        )
+        own.photo_url = "https://example.com/mine.jpg"
+        db.commit()
+        assert add_sample_pictures(db) == 3  # 4 sample dishes in two shops, minus the owner's own
+        assert add_sample_pictures(db) == 0  # and running it again changes nothing
+        db.refresh(own)
+        assert own.photo_url == "https://example.com/mine.jpg" and own.description == ""

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img"><title>Meal</title><rect width="128" height="128" rx="24" fill="#e4f1dc"/>
+<circle cx="64" cy="68" r="44" fill="#fff"/><circle cx="64" cy="68" r="36" fill="#f1f6ec"/>
+<circle cx="50" cy="56" r="13" fill="#f6dd8a"/><circle cx="76" cy="54" r="12" fill="#e5703d"/>
+<circle cx="52" cy="82" r="12" fill="#7fb85a"/><circle cx="78" cy="80" r="13" fill="#fff"/><circle cx="78" cy="80" r="9" fill="#f3e9cf"/>
+<path d="M18 22v30M24 22v30M30 22v30M24 52v50" stroke="#9aa5ae" stroke-width="4" stroke-linecap="round" fill="none"/>
+</svg>

@@ -4991,6 +4991,50 @@ button.save {
 .fc-ratings li span[aria-label] {
   color: #f0a500;
 }
+.menu-thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--brand-soft);
+}
+.pic-picker ul {
+  list-style: none;
+  margin: var(--s2) 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s2);
+}
+.pic-picker li button {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--s1);
+  min-height: 0;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--steel);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.pic-picker li button.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.pic-title {
+  font-weight: 800;
+}
+.pic-current {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.pic-current img {
+  border-radius: 12px;
+}
 .menu-photo-preview {
   border-radius: 12px;
   object-fit: cover;

@@ -1,6 +1,7 @@
 """Request/response shapes for Phase 1. Quantities are Decimals and are sent as
 JSON strings ("555.556") so no precision is lost to JavaScript floats."""
 
+import re
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -84,11 +85,16 @@ class IngredientOut(ORM):
 
 
 # --- menu items ---
+# The pictures that ship with the app (frontend/public/dishes), which the menu editor offers.
+_SHIPPED_PICTURE = re.compile(r"^/dishes/[a-z]{3,20}\.svg$")
+
+
 def _secure_photo(v: str) -> str:
-    # Shown in an <img> on customers' phones: a plain https address, or nothing.
+    # Shown in an <img> on customers' phones: an https address, one of the pictures that ship
+    # with the app, or nothing. Nothing else (no other path, no data: or javascript: address).
     v = v.strip()
-    if v and not v.startswith("https://"):
-        raise ValueError("The photo link must start with https://")
+    if v and not v.startswith("https://") and not _SHIPPED_PICTURE.match(v):
+        raise ValueError("The photo link must start with https:// (or pick a picture)")
     return v
 
 

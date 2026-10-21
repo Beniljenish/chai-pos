@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img"><title>Dessert</title><rect width="128" height="128" rx="24" fill="#fbe1ea"/>
+<path d="M38 58h52l-6 40a12 12 0 0 1-12 10H56a12 12 0 0 1-12-10z" fill="#fff"/>
+<path d="M36 58a28 22 0 0 1 56 0z" fill="#f6a5c0"/>
+<path d="M44 56a20 14 0 0 1 40 0z" fill="#fff" opacity=".5"/>
+<circle cx="64" cy="30" r="9" fill="#d6293e"/><path d="M64 22c2-6 8-8 12-8" stroke="#6aa84f" stroke-width="4" stroke-linecap="round" fill="none"/>
+<rect x="48" y="84" width="32" height="6" rx="3" fill="#f6a5c0"/>
+</svg>

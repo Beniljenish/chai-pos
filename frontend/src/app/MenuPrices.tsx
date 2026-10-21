@@ -1,5 +1,6 @@
 /** Menu items: price, category, GST rate and whether the price includes GST. */
 import { useCallback, useEffect, useState } from 'react';
+import { DISH_PICTURES, photoLinkOk, shippedPicture } from '../lib/dishPictures';
 import { formatRate, formatRupees } from '../lib/gst';
 import type { MenuItem, Modifier } from '../lib/types';
 import { api } from './apiClient';
@@ -88,6 +89,11 @@ export function MenuPrices() {
         {(items ?? []).map((m) => (
           <li key={m.id}>
             <button onClick={() => setEditing(m)}>
+              {m.photo_url ? (
+                <img className="menu-thumb" src={m.photo_url} alt="" width={40} height={40} loading="lazy" />
+              ) : (
+                <span className="menu-thumb blank" aria-hidden="true" />
+              )}
               <span className="sop-name">
                 <strong>{m.name}</strong> <span className="muted">· {m.category}</span>
                 {!m.is_active && <span className="flag wait"> Off the menu</span>}
@@ -163,7 +169,7 @@ export function MenuItemEditor({
   }, [item]);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const pricePaise = Math.round(Number(d.price) * 100);
-  const photoOk = d.photo_url.trim() === '' || d.photo_url.trim().startsWith('https://');
+  const photoOk = photoLinkOk(d.photo_url);
   const valid =
     d.name.trim() && d.category.trim() && Number.isFinite(pricePaise) && pricePaise >= 0 && d.price !== '' && photoOk;
 
@@ -240,10 +246,37 @@ export function MenuItemEditor({
             onChange={(e) => set({ description: e.target.value })}
           />
         </label>
+        <div className="pic-picker" role="group" aria-label="Picture">
+          <span className="pic-title">Picture</span>
+          <ul>
+            {DISH_PICTURES.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className={shippedPicture(d.photo_url)?.id === p.id ? 'on' : ''}
+                  aria-pressed={shippedPicture(d.photo_url)?.id === p.id}
+                  aria-label={`${p.label} picture`}
+                  onClick={() => set({ photo_url: p.url })}
+                >
+                  <img src={p.url} alt="" width={52} height={52} />
+                  <span>{p.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {d.photo_url.trim() !== '' && (
+            <div className="pic-current">
+              <img src={d.photo_url.trim()} alt="This dish's picture" width={56} height={56} />
+              <button type="button" className="quiet" onClick={() => set({ photo_url: '' })}>
+                Remove picture
+              </button>
+            </div>
+          )}
+        </div>
         <label>
-          Photo link <span className="muted">(an https:// address of a picture)</span>
+          Or paste a link to your own photo <span className="muted">(an https:// address)</span>
           <input
-            value={d.photo_url}
+            value={shippedPicture(d.photo_url) ? '' : d.photo_url}
             maxLength={500}
             inputMode="url"
             placeholder="https://…/masala-tea.jpg"
@@ -251,10 +284,7 @@ export function MenuItemEditor({
             onChange={(e) => set({ photo_url: e.target.value })}
           />
         </label>
-        {!photoOk && <p className="error">The photo link must start with https://</p>}
-        {d.photo_url.trim().startsWith('https://') && (
-          <img className="menu-photo-preview" src={d.photo_url.trim()} alt="" width={96} height={96} />
-        )}
+        {!photoOk && <p className="error">The link must start with https://</p>}
         <label className="check">
           <input type="checkbox" checked={d.is_veg} onChange={(e) => set({ is_veg: e.target.checked })} />
           Vegetarian (shows the green mark; unticked shows the red non-veg mark)

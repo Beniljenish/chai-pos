@@ -244,6 +244,13 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await page.locator('#menu-title').locator('..').locator('.sop-name', { hasText: 'Masala tea' }).click();
   const editor = page.getByRole('dialog', { name: 'Masala tea' });
   await editor.getByLabel('Short description').fill('Strong tea with ginger');
+  // the picture: pick one, change your mind, take it off, pick another
+  await editor.getByRole('button', { name: 'Coffee picture' }).click();
+  await expect(editor.getByRole('button', { name: 'Coffee picture' })).toHaveAttribute('aria-pressed', 'true');
+  await editor.getByRole('button', { name: 'Remove picture' }).click();
+  await expect(editor.getByAltText("This dish's picture")).toHaveCount(0);
+  await editor.getByRole('button', { name: 'Biryani picture' }).click();
+  await shot(page, 'foodcourt-9c-owner-edit-picture');
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(editor).toHaveCount(0);
 
@@ -253,6 +260,9 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await tabs.getByRole('tab').filter({ hasNotText: 'E2E Anna Biryani' }).click();
   await expect(customer.getByText('Usually ready in about 10 min')).toBeVisible();
   await expect(customer.getByText('Strong tea with ginger')).toBeVisible();
+  // pictures: the sample dishes came with one, and the owner's new choice shows on Masala tea
+  await expect(customer.locator('li.cx-dish', { hasText: 'Orange juice' }).locator('img')).toHaveAttribute('src', '/dishes/juice.svg');
+  await expect(customer.locator('li.cx-dish', { hasText: 'Masala tea' }).locator('img')).toHaveAttribute('src', '/dishes/biryani.svg');
   await shot(customer, 'foodcourt-9b-menu-details');
   await addDish(customer, 'Masala tea');
   await addDish(customer, 'Masala tea');

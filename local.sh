@@ -41,6 +41,10 @@ else
   echo "Demo data is already loaded."
 fi
 
+# Pictures and descriptions for the sample dishes, in shops made before pictures existed (only blanks
+# are filled: anything an owner set is left alone).
+docker compose exec -T api python -m scripts.add_dish_pictures
+
 # The super admin who makes food courts and adds outlets (does nothing if it exists).
 docker compose exec -T -e NEW_ADMIN_PHONE=9000000099 -e NEW_ADMIN_NAME="Super admin" \
   api python -m scripts.new_platform_admin >/dev/null

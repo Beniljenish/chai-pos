@@ -7,6 +7,9 @@ uses it too. Every number here is a typical guess, not data from a real shop.
 
 from decimal import Decimal as D
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.db.session import SessionLocal
 from app.db.tenancy import bind_tenant
 from app.models import (
@@ -22,6 +25,45 @@ from app.models import (
     User,
 )
 from app.services import recipes
+
+# What a customer sees for the sample dishes: a picture that ships with the app (the frontend's
+# public/dishes folder, so it works offline and needs no outside link), a line about it, and the veg
+# mark. Owners change all of it from the menu screen.
+SAMPLE_LOOKS: dict[str, dict] = {
+    "Masala tea": {
+        "photo_url": "/dishes/tea.svg",
+        "description": "Strong tea with ginger and cardamom",
+        "is_veg": True,
+    },
+    "Orange juice": {
+        "photo_url": "/dishes/juice.svg",
+        "description": "Fresh pressed, no added sugar",
+        "is_veg": True,
+    },
+}
+
+
+def _looks(name: str) -> dict:
+    return dict(SAMPLE_LOOKS[name])
+
+
+def add_sample_pictures(db: Session) -> int:
+    """Give the sample dishes their picture and line in shops that were made before pictures
+    existed. Only blanks are filled: a dish an owner has already described, or given a picture
+    of their own, is left exactly as it is. Safe to run again. `db` is a system session (every
+    shop). Returns how many dishes were changed."""
+    changed = 0
+    for item in db.scalars(select(MenuItem).where(MenuItem.name.in_(list(SAMPLE_LOOKS)))):
+        looks = SAMPLE_LOOKS[item.name]
+        if not item.photo_url and not item.description:
+            item.photo_url, item.description, item.is_veg = (
+                looks["photo_url"],
+                looks["description"],
+                looks["is_veg"],
+            )
+            changed += 1
+    db.commit()
+    return changed
 
 
 def seed_catalogue(shop: Shop, owner: User) -> None:
@@ -61,8 +103,10 @@ def seed_catalogue(shop: Shop, owner: User) -> None:
         yield_qty=D(2200),
         user_id=owner.id,
     )
-    tea = MenuItem(name="Masala tea", category="Tea", price_paise=2000)
-    juice = MenuItem(name="Orange juice", category="Juice", price_paise=6000)
+    tea = MenuItem(name="Masala tea", category="Tea", price_paise=2000, **_looks("Masala tea"))
+    juice = MenuItem(
+        name="Orange juice", category="Juice", price_paise=6000, **_looks("Orange juice")
+    )
     db.add_all([tea, juice])
     db.flush()
     recipes.set_menu_item_recipe(

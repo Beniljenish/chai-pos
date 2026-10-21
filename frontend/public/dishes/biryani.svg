@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img"><title>Biryani</title><rect width="128" height="128" rx="24" fill="#fff0c9"/>
+<path d="M18 70h92a46 40 0 0 1-92 0z" fill="#c24a2e"/>
+<path d="M18 70h92" stroke="#fff" stroke-width="4"/>
+<path d="M28 68c6-26 22-34 36-34s30 8 36 34z" fill="#f2b84b"/>
+<circle cx="50" cy="52" r="4" fill="#fff"/><circle cx="68" cy="46" r="4" fill="#e5703d"/><circle cx="82" cy="58" r="4" fill="#fff"/><circle cx="60" cy="62" r="4" fill="#8cc56a"/>
+<rect x="70" y="32" width="16" height="12" rx="4" fill="#8a4b2a"/>
+</svg>

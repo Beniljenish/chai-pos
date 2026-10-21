@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img"><title>Juice</title><rect width="128" height="128" rx="24" fill="#ffe3b8"/>
+<path d="M38 40h52l-6 66a10 10 0 0 1-10 9H54a10 10 0 0 1-10-9z" fill="#fff" opacity=".9"/>
+<path d="M41 62h46l-4 44a10 10 0 0 1-10 9H55a10 10 0 0 1-10-9z" fill="#f59a23"/>
+<ellipse cx="64" cy="62" rx="23" ry="4" fill="#ffb84f"/>
+<circle cx="92" cy="44" r="16" fill="#f59a23"/><circle cx="92" cy="44" r="12" fill="#ffd27a"/>
+<path d="M92 32v24M80 44h24M83 35l18 18M101 35L83 53" stroke="#f59a23" stroke-width="2"/>
+<path d="M74 22l12 20" stroke="#e23e72" stroke-width="5" stroke-linecap="round"/>
+</svg>

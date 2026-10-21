@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img"><title>Snack</title><rect width="128" height="128" rx="24" fill="#fbe0c3"/>
+<path d="M24 92 64 30l40 62a8 8 0 0 1-7 12H31a8 8 0 0 1-7-12z" fill="#e8a24a"/>
+<path d="M40 88 64 50l24 38z" fill="#f2c27a"/>
+<circle cx="56" cy="80" r="3" fill="#c9772c"/><circle cx="70" cy="72" r="3" fill="#c9772c"/><circle cx="64" cy="88" r="3" fill="#c9772c"/>
+<ellipse cx="104" cy="104" rx="14" ry="6" fill="#6aa84f"/><ellipse cx="104" cy="102" rx="10" ry="4" fill="#8cc56a"/>
+</svg>
