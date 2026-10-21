@@ -35,6 +35,7 @@ by themselves. A new migration: `docker compose restart api` applies it.
 
 - Look at the database: any Postgres tool (TablePlus, DBeaver, pgAdmin) on
   `localhost:5433`, database `chai_pos`, user and password `chai`.
+- Forgot the demo password: `./reset-password.sh` asks for a new one and keeps your data.
 - Start again from empty: `docker compose down -v` (deletes the local data only).
 - Stop: Ctrl+C, or `docker compose down` (keeps the data).
 - Get the latest code: `git pull`, then `docker compose up --build`.
