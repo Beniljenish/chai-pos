@@ -29,8 +29,8 @@ from app.api.deps import Caller, get_caller, require_owner
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.db.tenancy import mark_system
-from app.models import Bill, Payment, Shop
-from app.services import payments
+from app.models import Bill, FoodCourt, OnlinePayment, Payment, Shop
+from app.services import online, onlinepay, payments
 from app.services.reports import rupees
 
 log = logging.getLogger(__name__)
@@ -92,6 +92,26 @@ def _by_order(db, order_id: str) -> Payment | None:
     return db.scalar(select(Payment).where(Payment.provider_order_id == order_id))
 
 
+def _online_by_order(db, order_id: str) -> OnlinePayment | None:
+    """A food court customer's payment (README, "9.14"), as opposed to a till bill's."""
+    return db.scalar(select(OnlinePayment).where(OnlinePayment.provider_order_id == order_id))
+
+
+def _after_paid(db, op: OnlinePayment) -> None:
+    """The payment is confirmed: place the customer's orders (and refund what cannot be).
+    Committed first, so a failure here never un-confirms the money; the customer's page, or
+    the next webhook, finishes the job."""
+    db.commit()
+    if op.status == "paid":
+        try:
+            onlinepay.fulfil(db, op)
+        except online.OnlineError:
+            db.rollback()
+        except Exception:  # noqa: BLE001 - the money is safe; the page retries
+            log.exception("food court order placement failed after payment")
+            db.rollback()
+
+
 @router.post("/verify")
 def verify(body: VerifyIn) -> dict:
     """Checkout's success callback. Only a valid signature (made with the key
@@ -101,9 +121,19 @@ def verify(body: VerifyIn) -> dict:
     ):
         raise HTTPException(400, "bad_signature")
     with SessionLocal() as db:
-        p = _by_order(mark_system(db), body.razorpay_order_id)
+        db = mark_system(db)
+        p = _by_order(db, body.razorpay_order_id)
         if p is None:
-            raise HTTPException(404, "Not found")
+            op = _online_by_order(db, body.razorpay_order_id)
+            if op is None:
+                raise HTTPException(404, "Not found")
+            try:
+                payments.confirm(op, body.razorpay_payment_id)
+            except payments.PaymentError as e:
+                db.rollback()
+                raise HTTPException(e.status, e.code) from None
+            _after_paid(db, op)
+            return {"status": op.status}
         # Then ask Razorpay itself: captures an authorized payment, records the
         # amount Razorpay actually took (see services/payments.confirm).
         try:
@@ -120,7 +150,8 @@ def failed(body: FailedIn) -> dict:
     """Checkout says an attempt failed. Unsigned, so it can only ever record a
     failure, never a payment; a later success still wins."""
     with SessionLocal() as db:
-        p = _by_order(mark_system(db), body.razorpay_order_id)
+        db = mark_system(db)
+        p = _by_order(db, body.razorpay_order_id) or _online_by_order(db, body.razorpay_order_id)
         if p is None:
             raise HTTPException(404, "Not found")
         payments.mark_failed(p, body.reason)
@@ -144,8 +175,18 @@ async def webhook(request: Request) -> dict:
     if kind not in handled or not entity.get("order_id"):
         return {"ok": True, "ignored": True}
     with SessionLocal() as db:
-        p = _by_order(mark_system(db), str(entity["order_id"]))
+        db = mark_system(db)
+        p = _by_order(db, str(entity["order_id"]))
         if p is None:
+            op = _online_by_order(db, str(entity["order_id"]))
+            if op is not None:
+                try:
+                    payments.settle_from_razorpay(op, entity)
+                except payments.PaymentError:
+                    db.rollback()
+                    raise HTTPException(503, "capture_failed_retry") from None
+                _after_paid(db, op)
+                return {"ok": True}
             # Not ours (another app on the same Razorpay account): acknowledge, so
             # Razorpay does not keep retrying it.
             return {"ok": True, "ignored": True}
@@ -174,11 +215,11 @@ background:#1f6b4f;color:#fff;width:100%}} #msg{{min-height:1.5em;font-weight:70
 .ok{{color:#1f6b4f}} .bad{{color:#b3261e}} .muted{{color:#5b6670;font-size:.9rem}}
 </style></head>
 <body><main>
-<h1>{shop}</h1><p class="muted">Bill {invoice}</p>
+<h1>{shop}</h1><p class="muted">{subtitle}</p>
 <p class="amt">{amount_text}</p>
 <p id="msg" role="status"></p>
 <button id="pay">Pay {amount_text}</button>
-<p class="muted">Test mode. When it says Paid, go back to the till.</p>
+<p class="muted">{foot}</p>
 </main>
 <script nonce="{nonce}" src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script nonce="{nonce}">
@@ -193,10 +234,10 @@ const rzp = new Razorpay(Object.assign(o, {{
   handler: function (r) {{
     say('Checking the payment…');
     post('verify', r).then(function (x) {{
-      if (x.status === 'paid') {{ say('Paid. Go back to the till.', 'ok'); btn.hidden = true; }}
-      else say('Could not confirm the payment. Ask the cashier.', 'bad');
+      if (x.status === 'paid') {{ say({paid_text}, 'ok'); btn.hidden = true; }}
+      else say({unsure_text}, 'bad');
     }}, function () {{
-      say('Could not reach the shop. The cashier will see it shortly.', 'bad');
+      say({unsure_text}, 'bad');
     }});
   }},
   modal: {{ ondismiss: function () {{ if (!btn.hidden) say('Not paid yet.'); }} }}
@@ -212,7 +253,7 @@ rzp.open();
 </body></html>"""
 
 
-def _js(value: dict) -> str:
+def _js(value) -> str:
     """JSON that is safe inside a <script> element."""
     return json.dumps(value).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
@@ -274,17 +315,63 @@ def checkout(order_id: str = Query(max_length=40)) -> HTMLResponse:
         page = _PAGE.format(
             nonce=nonce,
             shop=html.escape(shop.name),
-            invoice=html.escape(bill.invoice_no),
+            subtitle=html.escape(f"Bill {bill.invoice_no}"),
+            foot="Test mode. When it says Paid, go back to the till.",
+            paid_text=_js("Paid. Go back to the till."),
+            unsure_text=_js("Could not confirm the payment. Ask the cashier."),
             amount_text=html.escape(rupees(p.amount_paise)),
             options=_js(options),
         )
-    return HTMLResponse(
-        page,
-        headers={
-            # Razorpay's script loads its own frames and assets, so the policy here
-            # only stops this page being framed or its forms being redirected.
-            "Content-Security-Policy": "frame-ancestors 'none'; base-uri 'none'",
-            "Cache-Control": "no-store",
-            "Referrer-Policy": "no-referrer",
-        },
-    )
+    return HTMLResponse(page, headers=_PAGE_HEADERS)
+
+
+# Razorpay's script loads its own frames and assets, so the policy here only stops this page
+# being framed or its forms being redirected.
+_PAGE_HEADERS = {
+    "Content-Security-Policy": "frame-ancestors 'none'; base-uri 'none'",
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+@router.get("/customer-checkout", response_class=HTMLResponse)
+def customer_checkout(order_id: str = Query(max_length=40)) -> HTMLResponse:
+    """The same page for a food court customer paying online. Public, like the till's: the
+    order id is unguessable, and the page shows only the amount and the court's name.
+    The customer's app watches the payment on the server (`GET /customer/checkout/<id>`),
+    so this tab can simply be closed once it says Paid."""
+    with SessionLocal() as db:
+        mark_system(db)
+        op = _online_by_order(db, order_id)
+        if op is None or not payments.enabled():
+            return HTMLResponse("<!doctype html><title>Not found</title>Not found", 404)
+        if op.status == "paid":
+            return HTMLResponse(
+                "<!doctype html><meta name=viewport content='width=device-width'>"
+                "<title>Paid</title><p>This is already paid. Go back to the food court page.</p>"
+            )
+        court = db.get(FoodCourt, op.court_id)
+        nonce = secrets.token_urlsafe(16)
+        options = {
+            "key": payments.keys()[0],
+            "amount": op.amount_paise,
+            "currency": "INR",
+            "order_id": op.provider_order_id,
+            "name": court.name,
+            "description": "Food court order",
+            "theme": {"color": "#3b1468"},
+            "config": _only("upi"),
+        }
+        page = _PAGE.format(
+            nonce=nonce,
+            shop=html.escape(court.name),
+            subtitle="Your food court order",
+            foot="When it says Paid, go back to the food court page for your tokens.",
+            paid_text=_js("Paid. Go back to the food court page for your tokens."),
+            unsure_text=_js(
+                "Could not confirm the payment. Go back to the food court page: it will show it."
+            ),
+            amount_text=html.escape(rupees(op.amount_paise)),
+            options=_js(options),
+        )
+    return HTMLResponse(page, headers=_PAGE_HEADERS)

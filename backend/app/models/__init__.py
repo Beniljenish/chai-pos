@@ -248,6 +248,7 @@ from app.models.foodcourt import FoodCourt, FoodCourtOutlet, OnlineOrder  # noqa
 __all__ += ["FoodCourt", "FoodCourtOutlet", "OnlineOrder"]
 
 from app.models.customer_account import CustomerAccount  # noqa: E402
+from app.models.onlinepay import OnlinePayment, OnlineSettlement  # noqa: E402
 from app.models.platform import PlatformAdmin  # noqa: E402
 
-__all__ += ["PlatformAdmin", "CustomerAccount"]
+__all__ += ["PlatformAdmin", "CustomerAccount", "OnlinePayment", "OnlineSettlement"]

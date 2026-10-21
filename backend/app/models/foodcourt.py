@@ -17,6 +17,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     UniqueConstraint,
     func,
@@ -80,6 +81,13 @@ class OnlineOrder(IdMixin, TenantScoped, Base):
         UUID(as_uuid=True), ForeignKey("food_courts.id", ondelete="RESTRICT")
     )
     token: Mapped[str] = mapped_column(String(12))  # "JT-17": what the customer shows
+    # Paid online (README, "9.14"): the Razorpay payment this order was part of, and how much of
+    # it is this outlet's. Both null for an order to be paid at the counter.
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("online_payments.id", ondelete="RESTRICT"), index=True
+    )
+    paid_paise: Mapped[int | None] = mapped_column(Integer)
+    refunded_paise: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Whose order it is. Null only for orders placed before accounts existed.
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customer_accounts.id", ondelete="RESTRICT"), index=True

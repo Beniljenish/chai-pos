@@ -23,6 +23,8 @@ class FakeRazorpay:
         self.orders: list[dict] = []
         self.payments: dict[str, dict] = {}
         self.captured: list[tuple[str, int]] = []
+        self.refunds: list[tuple[str, int]] = []
+        self.refuse_refunds = False
         self.down = False  # Razorpay unreachable
 
     def _check(self):
@@ -50,6 +52,13 @@ class FakeRazorpay:
         if payment_id not in self.payments:
             raise payments.PaymentError("razorpay_refused", 502)
         return self.payments[payment_id]
+
+    def refund(self, payment_id: str, amount: int) -> dict:
+        self._check()
+        if self.refuse_refunds:
+            raise payments.PaymentError("razorpay_refused", 502)
+        self.refunds.append((payment_id, amount))
+        return {"id": f"rfnd_{len(self.refunds)}", "amount": amount}
 
     def capture(self, payment_id: str, amount: int) -> dict:
         self._check()

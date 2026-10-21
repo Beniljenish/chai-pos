@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import Caller, require_owner
-from app.services import online
+from app.services import online, onlinepay
 
 router = APIRouter(tags=["food court"])
 
@@ -38,7 +38,11 @@ class AcceptingIn(BaseModel):
 
 @router.get("/food-court")
 def my_food_court(caller: Caller = Depends(require_owner), db: Session = Depends(system_db)):
-    return online.view(db, caller.ctx.shop_id)
+    out = online.view(db, caller.ctx.shop_id)
+    if out.get("court") is not None:
+        # What customers paid online for this outlet, and what the operator has paid it so far.
+        out["online_money"] = onlinepay.outlet_money(db, caller.ctx.shop_id)
+    return out
 
 
 @router.patch("/food-court/me")

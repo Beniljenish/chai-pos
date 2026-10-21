@@ -47,7 +47,7 @@ from app.models import (
     Shop,
     User,
 )
-from app.services import gst
+from app.services import gst, payments
 from app.services import orders as order_service
 
 ONLINE_USER_NAME = "Online ordering"  # the stand-in author of customers' orders
@@ -143,6 +143,8 @@ def public_court(sysdb: Session, slug: str) -> dict:
     return {
         "name": court.name,
         "location": court.location,
+        # Whether the customer may be offered "pay online" (the Razorpay keys are set).
+        "online_payment": payments.enabled(),
         "outlets": [{"id": o.id, "name": name, "open": o.accepting_orders} for o, name in rows],
     }
 
@@ -206,6 +208,8 @@ class OrderInput:
     note: str
     message_ok: bool
     items: list[tuple[uuid.UUID, int]]
+    # (online payment id, paise paid for this outlet's order) when it was paid online.
+    paid: tuple[uuid.UUID, int] | None = None
 
 
 def _clean_text(s: str, limit: int) -> str:
@@ -270,14 +274,9 @@ def _total(lines: list[dict], gst_type) -> int:
     ).total
 
 
-def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInput) -> dict:
-    court = _court(sysdb, slug)
-    outlet = _outlet(sysdb, court, outlet_id)
-    if not outlet.accepting_orders:
-        raise OnlineError("outlet_closed", "This outlet is not taking orders right now", 409)
-
+def _wanted(items: list[tuple[uuid.UUID, int]]) -> dict[uuid.UUID, int]:
     wanted: dict[uuid.UUID, int] = {}
-    for item_id, qty in body.items:
+    for item_id, qty in items:
         wanted[item_id] = wanted.get(item_id, 0) + qty
     if not wanted:
         raise OnlineError("empty_order", "Choose at least one dish")
@@ -287,6 +286,61 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
         or max(wanted.values()) > MAX_QTY
     ):
         raise OnlineError("order_too_big", "That is a lot for one order. Split it into two.")
+    return wanted
+
+
+def _load_menu(db: Session, wanted: dict[uuid.UUID, int]) -> dict[uuid.UUID, MenuItem]:
+    """The dishes asked for, from the outlet's own menu (the session sees one shop only);
+    refuses any that are gone or sold out."""
+    menu = {
+        m.id: m
+        for m in db.scalars(
+            select(MenuItem).where(MenuItem.id.in_(list(wanted)), MenuItem.is_active)
+        )
+    }
+    if any(i not in menu for i in wanted):
+        raise OnlineError("items_unavailable", "Some dishes are no longer on the menu", 409)
+    sold_out = [menu[i].name for i in wanted if menu[i].is_sold_out]
+    if sold_out:
+        raise OnlineError(
+            "items_unavailable", "Sold out: " + ", ".join(sold_out), 409, {"names": sold_out}
+        )
+    return menu
+
+
+def quote(
+    sysdb: Session, slug: str, outlet_id: uuid.UUID, items: list[tuple[uuid.UUID, int]]
+) -> tuple[str, int]:
+    """What an order would cost at this outlet right now, with the same checks as placing
+    it (open, dishes on the menu and not sold out, size limits) and nothing written.
+    Returns (outlet name, total in paise)."""
+    court = _court(sysdb, slug)
+    outlet = _outlet(sysdb, court, outlet_id)
+    if not outlet.accepting_orders:
+        raise OnlineError("outlet_closed", "This outlet is not taking orders right now", 409)
+    wanted = _wanted(items)
+    with shop_session(outlet.shop_id) as db:
+        shop = db.scalar(select(Shop))
+        menu = _load_menu(db, wanted)
+        lines = [
+            {
+                "qty": wanted[m.id],
+                "unit_price_paise": m.price_paise,
+                "gst_rate_bp": m.gst_rate_bp,
+                "tax_inclusive": m.tax_inclusive,
+            }
+            for m in menu.values()
+        ]
+        return shop.name, _total(lines, shop.gst_type)
+
+
+def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInput) -> dict:
+    court = _court(sysdb, slug)
+    outlet = _outlet(sysdb, court, outlet_id)
+    if not outlet.accepting_orders:
+        raise OnlineError("outlet_closed", "This outlet is not taking orders right now", 409)
+
+    wanted = _wanted(body.items)
 
     with shop_session(outlet.shop_id) as db:
         existing = db.scalar(select(Order).where(Order.id == body.request_id))
@@ -294,23 +348,7 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
             return _placed(db, existing, outlet.shop_id, body.customer_id)
 
         shop = db.scalar(select(Shop))
-        menu = {
-            m.id: m
-            for m in db.scalars(
-                select(MenuItem).where(MenuItem.id.in_(list(wanted)), MenuItem.is_active)
-            )
-        }
-        gone = [str(i) for i in wanted if i not in menu]
-        if gone:
-            raise OnlineError("items_unavailable", "Some dishes are no longer on the menu", 409)
-        sold_out = [menu[i].name for i in wanted if menu[i].is_sold_out]
-        if sold_out:
-            raise OnlineError(
-                "items_unavailable",
-                "Sold out: " + ", ".join(sold_out),
-                409,
-                {"names": sold_out},
-            )
+        menu = _load_menu(db, wanted)
 
         now = utcnow()
         hour_ago = now - timedelta(hours=1)
@@ -320,7 +358,8 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
             .join(OnlineOrder, OnlineOrder.order_id == Order.id)
             .where(Order.state["customer_phone"].astext == body.phone, Order.opened_at > hour_ago)
         )
-        if (same_phone or 0) >= PHONE_ORDERS_PER_HOUR:
+        # A paid order is not a flood: real money is a stronger brake than a counter.
+        if body.paid is None and (same_phone or 0) >= PHONE_ORDERS_PER_HOUR:
             raise OnlineError(
                 "too_many_orders", "Too many orders from this number. Try later.", 429
             )
@@ -384,6 +423,9 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
             }
             for m in menu.values()
         ]
+        if body.paid is not None and _total(lines, shop.gst_type) != body.paid[1]:
+            # The prices moved between paying and placing: do not serve what was not paid for.
+            raise OnlineError("price_changed", "Prices changed while you were paying", 409)
         name = _clean_text(body.name, 40)
         events = [
             (
@@ -397,6 +439,7 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
                     "message_ok": body.message_ok,
                     "note": _clean_text(body.note, 120),
                     "source": "online",
+                    **({"paid_online_paise": body.paid[1]} if body.paid is not None else {}),
                 },
             ),
             (
@@ -432,6 +475,8 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
                 token=token,
                 business_date=today,
                 customer_id=body.customer_id,
+                payment_id=body.paid[0] if body.paid is not None else None,
+                paid_paise=body.paid[1] if body.paid is not None else None,
             )
         )
         try:

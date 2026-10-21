@@ -37,11 +37,12 @@ class PaymentError(Exception):
 
 
 class RazorpayApi(Protocol):
-    """The four Razorpay calls the shop needs. Tests use a fake; nothing else does."""
+    """The Razorpay calls the app needs. Tests use a fake; nothing else does."""
 
     def create_order(self, body: dict) -> dict: ...
     def fetch_payment(self, payment_id: str) -> dict: ...
     def capture(self, payment_id: str, amount: int) -> dict: ...
+    def refund(self, payment_id: str, amount: int) -> dict: ...
     def ping(self) -> None: ...
 
 
@@ -98,12 +99,20 @@ class _Http:
             "POST", f"/payments/{payment_id}/capture", {"amount": amount, "currency": "INR"}
         )
 
+    def refund(self, payment_id: str, amount: int) -> dict:
+        return self._call("POST", f"/payments/{payment_id}/refund", {"amount": amount})
+
     def ping(self) -> None:
         self._call("GET", "/orders?count=1")
 
 
 def _client() -> RazorpayApi:
     return _override if _override is not None else _Http(*keys())
+
+
+def client() -> RazorpayApi:
+    """The Razorpay client, for the other payment code in the app (food court orders)."""
+    return _client()
 
 
 def _hmac(secret: str, message: bytes) -> str:

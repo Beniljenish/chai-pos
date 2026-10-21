@@ -176,6 +176,11 @@ def attach_outlet(db: Session, court_id: uuid.UUID, owner_phone: str) -> FoodCou
     return outlet
 
 
+def outlet_of_court(db: Session, court_id: uuid.UUID, outlet_id: uuid.UUID) -> FoodCourtOutlet:
+    """An outlet, checked against the court in the URL (another court's is simply not found)."""
+    return _outlet(db, _court(db, court_id), outlet_id)
+
+
 def set_outlet_accepting(db: Session, court_id: uuid.UUID, outlet_id: uuid.UUID, on: bool) -> None:
     outlet = _outlet(db, _court(db, court_id), outlet_id)
     outlet.accepting_orders = on

@@ -15,7 +15,7 @@ from app.models import PlatformAdmin
 from app.schemas import _normalise_phone
 from app.services import auth as auth_service
 from app.services import customer_accounts as customer_service
-from app.services import online
+from app.services import online, onlinepay
 from app.services import platform as platform_service
 
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -76,6 +76,15 @@ class ResetIn(BaseModel):
     phone: str
 
     _phone = field_validator("phone")(_normalise_phone)
+
+
+class SettleIn(BaseModel):
+    amount_paise: int = Field(gt=0, le=100_000_000)
+    note: str = Field(default="", max_length=120)
+
+
+class RefundIn(BaseModel):
+    ref: str = Field(max_length=120)
 
 
 class AcceptingIn(BaseModel):
@@ -161,3 +170,36 @@ def reset_customer_password(body: ResetIn, a: Admin = Depends(current_admin)) ->
     """A customer forgot their password. Returns a temporary one, once, for the admin to
     tell them; they must choose their own at the next sign-in."""
     return _run(customer_service.admin_reset, a.db, body.phone)
+
+
+@router.get("/online-money")
+def online_money(a: Admin = Depends(current_admin)) -> dict:
+    """What customers paid online for each outlet, what has been settled with it, and the
+    refunds that still have to be made."""
+    return {
+        "outlets": onlinepay.outlets_report(a.db),
+        "refunds_due": onlinepay.refunds_due(a.db),
+    }
+
+
+@router.post("/courts/{court_id}/outlets/{outlet_id}/settlements", status_code=201)
+def settle_outlet(
+    court_id: uuid.UUID,
+    outlet_id: uuid.UUID,
+    body: SettleIn,
+    a: Admin = Depends(current_admin),
+) -> dict:
+    """Record that an outlet has been paid (some of) what it is owed."""
+    try:
+        outlet = platform_service.outlet_of_court(a.db, court_id, outlet_id)
+        onlinepay.settle(a.db, a.admin.id, outlet.shop_id, body.amount_paise, body.note)
+    except online.OnlineError as e:
+        raise fail(e) from None
+    return {"outlets": onlinepay.outlets_report(a.db)}
+
+
+@router.post("/refunds")
+def make_refund(body: RefundIn, a: Admin = Depends(current_admin)) -> dict:
+    """Give money back to a customer through Razorpay."""
+    _run(onlinepay.refund, a.db, body.ref)
+    return {"refunds_due": onlinepay.refunds_due(a.db)}

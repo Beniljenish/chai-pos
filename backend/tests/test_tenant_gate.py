@@ -82,9 +82,10 @@ ID_ROUTES = {
 # Two kinds of route are not shop routes, so this shop-versus-shop gate is the wrong tool:
 # the customer's (no login, no shop: chosen by a food court's own outlet list) and the
 # super admin's (a different kind of login that belongs to no shop). They are exercised by
-# tests/test_food_court.py (what a customer can and cannot reach) and tests/test_platform.py
+# tests/test_food_court.py (what a customer can and cannot reach), tests/test_online_payments.py
+# (one customer cannot read another's payment) and tests/test_platform.py
 # (who can reach the admin routes, in both directions).
-NOT_SHOP_ROUTES = ("/api/v1/public/", "/api/v1/platform/")
+NOT_SHOP_ROUTES = ("/api/v1/public/", "/api/v1/platform/", "/api/v1/customer/")
 
 DATE_ROUTES = {
     ("/api/v1/day-counts/{business_date}/sheet", "GET"),
