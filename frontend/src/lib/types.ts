@@ -19,6 +19,10 @@ export interface MenuItem {
   is_active: boolean;
   /** Run out for today: shown, but customers ordering online cannot pick it. */
   is_sold_out?: boolean;
+  /** What a customer ordering online sees (README, "9.15"). */
+  description?: string;
+  photo_url?: string;
+  is_veg?: boolean;
   recipe: { id: string; version: number; lines: RecipeLine[] } | null;
   modifier_ids: string[];
 }
@@ -469,4 +473,11 @@ export interface FoodCourtView {
   outlets?: { id: string; name: string; accepting_orders: boolean; is_me: boolean }[];
   /** What customers paid online for this outlet, and what the food court has paid it so far. */
   online_money?: { orders: number; paid_paise: number; settled_paise: number; owed_paise: number };
+  /** The outlet's own promise of how long an order usually takes (null: not said). */
+  prep_minutes?: number | null;
+  ratings?: {
+    average: number | null;
+    count: number;
+    recent: { rating: number; comment: string; name: string; at: string }[];
+  };
 }

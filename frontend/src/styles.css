@@ -4728,6 +4728,274 @@ button.save {
   flex-basis: 100%;
 }
 
+/* Food court extras: photos, options, hearts, notices, ratings (README, "9.15") */
+.veg {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  border: 1.6px solid #1b8a4b;
+  border-radius: 3px;
+  position: relative;
+  vertical-align: -2px;
+}
+.veg::after {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  border-radius: 50%;
+  background: #1b8a4b;
+}
+.veg.nv {
+  border-color: #b3261e;
+}
+.veg.nv::after {
+  background: #b3261e;
+}
+.cx-photo {
+  flex: none;
+  width: 62px;
+  height: 62px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--brand-soft);
+}
+.cx-dish > div {
+  min-width: 0;
+}
+.cx-desc,
+.cx-price {
+  display: block;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+.cx-desc {
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+.cx-heart {
+  flex: none;
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1.25rem;
+}
+.cx-heart.on,
+.heart {
+  color: #e23e72;
+}
+.cx-add.wide {
+  width: auto;
+  min-width: 64px;
+  padding: 0 var(--s3);
+  font-size: 0.9rem;
+}
+.cx-wait-note {
+  margin: 0 0 var(--s2);
+}
+.cx-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.cx-opts legend {
+  width: 100%;
+  padding: 0;
+  margin-bottom: var(--s1);
+  font-weight: 800;
+}
+.cx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s2) var(--s3);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  font-weight: 700;
+}
+.cx-chip.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.cx-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.cx-chip:focus-within {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.cx-favs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.cx-favs button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2);
+  border: none;
+  border-radius: 12px;
+  background: var(--steel);
+  text-align: left;
+}
+.cx-favs img,
+.cx-favs .cx-photo {
+  width: 44px;
+  height: 44px;
+}
+.cx-notify {
+  margin: var(--s2) 0 0;
+  text-align: center;
+}
+.cx-notify-card {
+  display: grid;
+  gap: var(--s3);
+  margin: var(--s3) 0;
+  padding: var(--s3) var(--s4);
+  background: var(--brand-soft);
+  border-radius: var(--radius-panel);
+}
+.cx-notify-card div {
+  display: grid;
+}
+.cx-rate {
+  display: grid;
+  gap: var(--s2);
+  margin: var(--s3) 0;
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.cx-stars {
+  display: flex;
+  justify-content: center;
+  gap: var(--s1);
+}
+.cx-stars button {
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #cfc9dc;
+  font-size: 2rem;
+  line-height: 1;
+}
+.cx-stars button.on {
+  color: #f0a500;
+}
+.cx-rated {
+  color: #b37a00;
+  text-align: center;
+}
+.cx-order-row {
+  display: grid;
+  gap: var(--s1);
+}
+.cx-again {
+  justify-self: end;
+  min-height: 34px;
+  padding: 0 var(--s3);
+  border: none;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+}
+.sound-switch {
+  min-height: 34px;
+  margin: 0 0 var(--s2) auto;
+  display: flex;
+  padding: 0 var(--s3);
+  border: none;
+  border-radius: 999px;
+  background: var(--steel);
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.sound-switch.on {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+}
+.online-alert {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin: 0 0 var(--s3);
+  padding: var(--s3) var(--s4);
+  border: none;
+  border-radius: 14px;
+  background: #e23e72;
+  color: #fff;
+  text-align: left;
+  animation: online-pulse 1.6s ease-in-out infinite;
+}
+.online-alert span:first-child {
+  font-size: 1.5rem;
+}
+.online-alert small {
+  display: block;
+  opacity: 0.9;
+}
+@keyframes online-pulse {
+  50% {
+    box-shadow: 0 0 0 6px rgba(226, 62, 114, 0.25);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .online-alert {
+    animation: none;
+  }
+}
+.fc-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: none;
+}
+.fc-stepper button {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.fc-ratings ul {
+  list-style: none;
+  margin: var(--s2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s1);
+}
+.fc-ratings li span[aria-label] {
+  color: #f0a500;
+}
+.menu-photo-preview {
+  border-radius: 12px;
+  object-fit: cover;
+}
+
 /* Manage -> Food court */
 .fc-switch {
   display: flex;

@@ -22,6 +22,8 @@ router = APIRouter(prefix="/public", tags=["public"])
 class ItemIn(BaseModel):
     menu_item_id: uuid.UUID
     qty: int = Field(ge=1, le=online.MAX_QTY)
+    # The options ticked (Large, less sugar...): ids only, priced by the server.
+    modifier_ids: list[uuid.UUID] = Field(default_factory=list, max_length=6)
 
 
 class PublicOrderIn(BaseModel):
@@ -83,7 +85,9 @@ def place_order(
                 phone=c.account.phone,
                 note=body.note,
                 message_ok=body.message_ok,
-                items=[(i.menu_item_id, i.qty) for i in body.items],
+                items=[
+                    online.Pick(i.menu_item_id, i.qty, tuple(i.modifier_ids)) for i in body.items
+                ],
             ),
         )
     except online.OnlineError as e:

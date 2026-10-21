@@ -18,7 +18,9 @@ function contentSecurityPolicy(apiUrl: string): Plugin {
     "script-src 'self'",
     "style-src 'self'",
     "font-src 'self'",
-    "img-src 'self' data:",
+    // https: because an owner can link a photo of a dish from anywhere. An image cannot run script;
+    // the cost is that the host of a photo sees the customer's address (no referrer is sent).
+    "img-src 'self' data: https:",
     `connect-src ${connect}`,
     "manifest-src 'self'",
     "worker-src 'self'",
@@ -66,6 +68,8 @@ export default defineConfig(({ mode }) => {
           // API calls are never cached by the service worker: offline data lives
           // in IndexedDB, where we control it, not in an HTTP cache.
           navigateFallbackDenylist: [/^\/api\//],
+          // Phone notifications: the push and click handlers (public/push-sw.js).
+          importScripts: ['push-sw.js'],
         },
       }),
     ],

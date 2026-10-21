@@ -7,16 +7,28 @@ set -eu
 
 docker compose up --build -d
 
+wait_for_api() {
+  tries=0
+  until docker compose exec -T api python -c "import urllib.request as u; u.urlopen('http://localhost:8000/health')" >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [ "$tries" -gt 180 ]; then
+      echo "The API did not start. See why with: docker compose logs api" >&2
+      exit 1
+    fi
+    sleep 2
+  done
+}
+
 echo "Waiting for the API (the first run installs packages and can take a few minutes)..."
-tries=0
-until docker compose exec -T api python -c "import urllib.request as u; u.urlopen('http://localhost:8000/health')" >/dev/null 2>&1; do
-  tries=$((tries + 1))
-  if [ "$tries" -gt 180 ]; then
-    echo "The API did not start. See why with: docker compose logs api" >&2
-    exit 1
-  fi
-  sleep 2
-done
+wait_for_api
+
+# Keys for "your order is ready" phone notifications, made once and kept on this computer only.
+if [ ! -f .local-vapid.env ]; then
+  docker compose exec -T api python -m scripts.make_vapid_keys > .local-vapid.env
+  echo "Made notification keys for this computer (.local-vapid.env). Restarting the API to use them..."
+  docker compose up -d --force-recreate api
+  wait_for_api
+fi
 
 has_shop=$(docker compose exec -T db psql -U chai -d chai_pos -tAc "select count(*) from shops" | tr -d '[:space:]')
 if [ "$has_shop" = "0" ]; then

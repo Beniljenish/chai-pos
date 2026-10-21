@@ -13,6 +13,7 @@ ingest(): events from a device, idempotent by event id, like bills.
 
 import hashlib
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -280,10 +281,15 @@ def ingest(ctx: OrderContext, events: list[dict]) -> list[tuple[uuid.UUID, str, 
         except IntegrityError:
             savepoint.rollback()
             out.append((ev["id"], "rejected", "id_conflict"))
-    from app.services import messages  # local: messages imports models only
+    from app.services import extras, messages  # local: both import models only
 
     for oid in touched:
-        messages.order_changed(ctx.db, recompute(ctx.db, oid))
+        order = recompute(ctx.db, oid)
+        messages.order_changed(ctx.db, order)
+        try:
+            extras.notify_ready(ctx.db, order)  # a phone notification: never breaks the sync
+        except Exception:  # noqa: BLE001
+            logging.getLogger(__name__).exception("ready notification failed")
     ctx.db.commit()
     return out
 

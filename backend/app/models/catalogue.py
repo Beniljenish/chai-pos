@@ -116,6 +116,10 @@ class MenuItem(IdMixin, TimestampMixin, TenantScoped, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Run out for today: still on the menu, but customers ordering online cannot pick it.
     is_sold_out: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # What an ordering customer sees (README, "9.15"). The photo is a link the owner pastes.
+    description: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    photo_url: Mapped[str] = mapped_column(String(500), default="", server_default="")
+    is_veg: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 class Recipe(IdMixin, TenantScoped, Base):

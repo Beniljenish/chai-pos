@@ -87,6 +87,9 @@ def _outlet(db: Session, court: FoodCourt, outlet_id: uuid.UUID) -> FoodCourtOut
 
 
 def list_courts(db: Session) -> list[dict]:
+    from app.services import extras  # local: extras imports online
+
+    ratings = extras.rating_by_shop(db)
     out = []
     for court in db.scalars(select(FoodCourt).order_by(FoodCourt.created_at)):
         rows = db.execute(
@@ -109,6 +112,9 @@ def list_courts(db: Session) -> list[dict]:
                     "owner_name": owner.name if owner else "",
                     "owner_phone": owner.phone if owner else "",
                     "accepting_orders": o.accepting_orders,
+                    "prep_minutes": o.prep_minutes,
+                    "rating": (ratings.get(shop.id) or (None, 0))[0],
+                    "rating_count": (ratings.get(shop.id) or (None, 0))[1],
                 }
             )
         out.append(

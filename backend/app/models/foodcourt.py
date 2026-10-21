@@ -64,6 +64,8 @@ class FoodCourtOutlet(IdMixin, Base):
     accepting_orders: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )
+    # The outlet's own promise of how long an order usually takes (null = not said).
+    prep_minutes: Mapped[int | None] = mapped_column(Integer)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -81,6 +83,8 @@ class OnlineOrder(IdMixin, TenantScoped, Base):
         UUID(as_uuid=True), ForeignKey("food_courts.id", ondelete="RESTRICT")
     )
     token: Mapped[str] = mapped_column(String(12))  # "JT-17": what the customer shows
+    # When the customer was told it is ready (a push notification), so it is sent only once.
+    ready_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Paid online (README, "9.14"): the Razorpay payment this order was part of, and how much of
     # it is this outlet's. Both null for an order to be paid at the counter.
     payment_id: Mapped[uuid.UUID | None] = mapped_column(

@@ -211,6 +211,7 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
                       <br />
                       <span className="muted">
                         Owner {o.owner_name} · {o.owner_phone}
+                        {o.rating !== null && ` · ${o.rating} ★ (${o.rating_count})`}
                       </span>
                     </span>
                     <span className={`cx-tag ${o.accepting_orders ? 'open' : 'shut'}`}>

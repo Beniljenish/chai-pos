@@ -18,7 +18,7 @@ from app.core.security import decode_customer_token
 from app.models import CustomerAccount, OnlinePayment
 from app.schemas import _normalise_phone
 from app.services import auth as auth_service
-from app.services import customer_accounts, online, onlinepay
+from app.services import customer_accounts, extras, online, onlinepay, webpush
 
 router = APIRouter(prefix="/customer", tags=["customer"])
 _bearer = HTTPBearer(auto_error=False)
@@ -73,6 +73,7 @@ class PasswordIn(BaseModel):
 class CheckoutItemIn(BaseModel):
     menu_item_id: uuid.UUID
     qty: int = Field(ge=1, le=online.MAX_QTY)
+    modifier_ids: list[uuid.UUID] = Field(default_factory=list, max_length=6)
 
 
 class CheckoutPartIn(BaseModel):
@@ -87,6 +88,25 @@ class CheckoutIn(BaseModel):
     slug: str = Field(max_length=60)
     message_ok: bool = False
     orders: list[CheckoutPartIn] = Field(min_length=1, max_length=onlinepay.MAX_OUTLETS)
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(min_length=20, max_length=200)
+    auth: str = Field(min_length=8, max_length=100)
+
+
+class PushSubscribeIn(BaseModel):
+    endpoint: str = Field(min_length=20, max_length=600, pattern=r"^https://")
+    keys: PushKeys
+
+
+class PushEndpointIn(BaseModel):
+    endpoint: str = Field(min_length=1, max_length=600)
+
+
+class RatingIn(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    comment: str = Field(default="", max_length=200)
 
 
 class RenameIn(BaseModel):
@@ -163,7 +183,9 @@ def checkout(body: CheckoutIn, response: Response, c: Customer = Depends(current
                     outlet_id=o.outlet_id,
                     request_id=o.request_id,
                     note=o.note,
-                    items=[(i.menu_item_id, i.qty) for i in o.items],
+                    items=[
+                        online.Pick(i.menu_item_id, i.qty, tuple(i.modifier_ids)) for i in o.items
+                    ],
                 )
                 for o in body.orders
             ],
@@ -190,5 +212,70 @@ def checkout_status(
         if op.status == "paid" and op.fulfilled_at is None:
             onlinepay.fulfil(c.db, op)
         return onlinepay.view(op)
+    except online.OnlineError as e:
+        raise fail(e) from None
+
+
+# ---------------------------------------------------------------- phone notifications
+@router.get("/push/key")
+def push_key(response: Response, c: Customer = Depends(current_customer)) -> dict:
+    """The public key a browser needs to subscribe, or null when push is not set up."""
+    _no_store(response)
+    return {"public_key": webpush.public_key()}
+
+
+@router.post("/push/subscribe", status_code=201)
+def push_subscribe(body: PushSubscribeIn, c: Customer = Depends(current_customer)) -> dict:
+    if not webpush.enabled():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            {"code": "push_off", "message": "Notifications are not set up"},
+        )
+    extras.subscribe(c.db, c.account, body.endpoint, body.keys.p256dh, body.keys.auth)
+    return {"ok": True}
+
+
+@router.post("/push/unsubscribe")
+def push_unsubscribe(body: PushEndpointIn, c: Customer = Depends(current_customer)) -> dict:
+    extras.unsubscribe(c.db, c.account, body.endpoint)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- favourites
+@router.get("/favourites")
+def favourites(response: Response, c: Customer = Depends(current_customer)) -> dict:
+    _no_store(response)
+    return {"favourites": extras.favourites(c.db, c.account.id)}
+
+
+@router.put("/favourites/{menu_item_id}")
+def add_favourite(menu_item_id: uuid.UUID, c: Customer = Depends(current_customer)) -> dict:
+    try:
+        extras.add_favourite(c.db, c.account.id, menu_item_id)
+    except online.OnlineError as e:
+        raise fail(e) from None
+    return {"favourites": extras.favourites(c.db, c.account.id)}
+
+
+@router.delete("/favourites/{menu_item_id}")
+def remove_favourite(menu_item_id: uuid.UUID, c: Customer = Depends(current_customer)) -> dict:
+    extras.remove_favourite(c.db, c.account.id, menu_item_id)
+    return {"favourites": extras.favourites(c.db, c.account.id)}
+
+
+# ---------------------------------------------------------------- rating a collected order
+@router.get("/orders/{status_key}/rating")
+def my_rating(status_key: str, response: Response, c: Customer = Depends(current_customer)) -> dict:
+    _no_store(response)
+    try:
+        return extras.my_rating(status_key, c.account.id)
+    except online.OnlineError as e:
+        raise fail(e) from None
+
+
+@router.post("/orders/{status_key}/rating", status_code=201)
+def rate(status_key: str, body: RatingIn, c: Customer = Depends(current_customer)) -> dict:
+    try:
+        return extras.rate(status_key, c.account.id, body.rating, body.comment)
     except online.OnlineError as e:
         raise fail(e) from None

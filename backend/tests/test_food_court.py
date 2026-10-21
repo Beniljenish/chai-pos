@@ -152,7 +152,7 @@ def test_the_catalogue_tells_a_till_it_is_in_a_court(client, shop_a, shop_b):
 def test_the_public_court_shows_names_and_open_only(client, shop_a, shop_b, court):
     pub = client.get(f"{API}/public/courts/{court['slug']}").json()
     assert set(pub) == {"name", "location", "online_payment", "outlets"}
-    assert all(set(o) == {"id", "name", "open"} for o in pub["outlets"])
+    assert all(set(o) == {"id", "name", "open", "prep_minutes"} for o in pub["outlets"])
     text = str(pub)
     assert str(shop_a.shop.id) not in text and "join_code" not in text
     assert client.get(f"{API}/public/courts/no-such-court-0000").status_code == 404
@@ -169,10 +169,22 @@ def test_a_closed_outlet_shows_closed_and_refuses_orders(client, shop_a, court):
 
 def test_the_public_menu_shows_only_what_a_customer_needs(client, shop_a, court):
     menu = client.get(f"{API}/public/courts/{court['slug']}/outlets/{court['a']}/menu").json()
-    assert set(menu) == {"outlet", "open", "gst_type", "items"}
+    assert set(menu) == {"outlet", "open", "prep_minutes", "gst_type", "items"}
     assert all(
         set(i)
-        == {"id", "name", "category", "price_paise", "gst_rate_bp", "tax_inclusive", "sold_out"}
+        == {
+            "id",
+            "name",
+            "category",
+            "price_paise",
+            "gst_rate_bp",
+            "tax_inclusive",
+            "sold_out",
+            "description",
+            "photo_url",
+            "is_veg",
+            "options",
+        }
         for i in menu["items"]
     )
     assert {i["name"] for i in menu["items"]} == {"Masala tea", "Orange juice"}

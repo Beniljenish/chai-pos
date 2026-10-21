@@ -40,7 +40,7 @@ class PartIn:
     outlet_id: uuid.UUID
     request_id: uuid.UUID
     note: str
-    items: list[tuple[uuid.UUID, int]]
+    items: list[online.Pick]
 
 
 _PAYMENT_WORDS = {
@@ -98,7 +98,7 @@ def start(
                 "amount_paise": amount,
                 "request_id": str(o.request_id),
                 "note": online._clean_text(o.note, 120),
-                "items": [[str(i), q] for i, q in o.items],
+                "items": [[str(i.item_id), i.qty, [str(m) for m in i.mods]] for i in o.items],
             }
         )
     if total > MAX_CHECKOUT_PAISE:
@@ -128,6 +128,12 @@ def start(
     db.add(op)
     db.commit()
     return op
+
+
+def _with_mods(row: list) -> list:
+    """A saved item is [dish id, qty, [option ids]]; payments made before options existed have
+    no third entry."""
+    return row if len(row) >= 3 else [row[0], row[1], []]
 
 
 def _refund(op: OnlinePayment, part: dict) -> None:
@@ -183,7 +189,10 @@ def fulfil(db: Session, op: OnlinePayment) -> None:
                     phone=account.phone,
                     note=part["note"],
                     message_ok=op.message_ok,
-                    items=[(uuid.UUID(i), q) for i, q in part["items"]],
+                    items=[
+                        online.Pick(uuid.UUID(row[0]), row[1], tuple(uuid.UUID(m) for m in row[2]))
+                        for row in map(_with_mods, part["items"])
+                    ],
                     paid=(op.id, part["amount_paise"]),
                 ),
             )

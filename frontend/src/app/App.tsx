@@ -12,6 +12,7 @@ import { useSession } from "./session";
 import { TablesScreen } from "./TablesScreen";
 import { hasTables } from "../lib/table";
 import { Icon } from "./icons";
+import { OnlineOrderAlert } from "./OnlineOrderAlert";
 
 function SyncBadge() {
   const { sync, worker } = useSession();
@@ -138,6 +139,7 @@ function Shell() {
         </button>
       </header>
       <div className="content">
+        {catalogue?.shop.online_ordering && <OnlineOrderAlert onOpen={() => setTab("tables")} />}
         {(notice || (sync?.needsLogin && sync.lastError)) && (
           <p className="banner" role="status">
             {notice ?? sync?.lastError}

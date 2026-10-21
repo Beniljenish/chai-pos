@@ -7,6 +7,9 @@ export interface AdminOutlet {
   owner_name: string;
   owner_phone: string;
   accepting_orders: boolean;
+  prep_minutes: number | null;
+  rating: number | null;
+  rating_count: number;
 }
 
 export interface AdminCourt {

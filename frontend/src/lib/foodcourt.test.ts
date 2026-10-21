@@ -4,20 +4,28 @@ import {
   allItemCount,
   byCategory,
   cartCount,
+  cartFromLines,
+  cartItems,
   cartTotal,
-  changeOutletQty,
-  changeQty,
+  changeLine,
+  changeOutletLine,
   cleanPhone,
   courtMatches,
   courtSlugFromPath,
+  dishCount,
   grandTotal,
   isOrderHome,
+  lineKey,
+  lineLabel,
   notPlacedText,
   outletsInCart,
+  pruneCart,
   rupeesToPaise,
   orderProblem,
   soldOutInCart,
   statusStep,
+  unitPrice,
+  type Cart,
   type PublicItem,
 } from './foodcourt';
 
@@ -29,43 +37,102 @@ const item = (id: string, name: string, price: number, extra: Partial<PublicItem
   gst_rate_bp: 500,
   tax_inclusive: true,
   sold_out: false,
+  description: '',
+  photo_url: '',
+  is_veg: true,
+  options: [],
   ...extra,
 });
+
+// A cart written the short way for tests: [dish id, qty, option ids]
+const cartOf = (...rows: [string, number, string[]?][]): Cart =>
+  rows.reduce((c, [id, qty, mods]) => changeLine(c, id, mods ?? [], qty), {} as Cart);
 const tea = item('t', 'Masala tea', 2000);
 const juice = item('j', 'Orange juice', 6000, { category: 'Juice' });
 
-describe('changeQty', () => {
+describe('changeLine', () => {
   it('adds and removes, and a zero leaves the cart', () => {
-    let c = changeQty({}, 't', 1);
-    c = changeQty(c, 't', 1);
-    expect(c).toEqual({ t: 2 });
-    expect(changeQty(changeQty(c, 't', -1), 't', -1)).toEqual({});
+    let c = changeLine({}, 't', [], 1);
+    c = changeLine(c, 't', [], 1);
+    expect(c).toEqual({ t: { itemId: 't', qty: 2, mods: [] } });
+    expect(changeLine(changeLine(c, 't', [], -1), 't', [], -1)).toEqual({});
   });
   it('never goes below zero or above 20', () => {
-    expect(changeQty({}, 't', -1)).toEqual({});
-    expect(changeQty({ t: 20 }, 't', 1)).toEqual({ t: 20 });
+    expect(changeLine({}, 't', [], -1)).toEqual({});
+    expect(changeLine(cartOf(['t', 20]), 't', [], 1)).toEqual(cartOf(['t', 20]));
+  });
+  it('makes a tea with options a different line from a plain tea, whatever order they were ticked in', () => {
+    const c = cartOf(['t', 1], ['t', 2, ['b', 'a']], ['t', 1, ['a', 'b']]);
+    expect(Object.keys(c).sort()).toEqual(['t', 't|a|b']);
+    expect(c['t|a|b'].qty).toBe(3);
+    expect(lineKey('t', ['b', 'a'])).toBe('t|a|b');
+    expect(dishCount(c, 't')).toBe(4);
+  });
+});
+
+describe('options', () => {
+  const large = { id: 'L', name: 'Large', price_delta_paise: 1000, is_size: true };
+  const less = { id: 'S', name: 'Less sugar', price_delta_paise: 0, is_size: false };
+  const masala = { ...tea, options: [large, less] };
+
+  it('prices an option into the total, the way the server does', () => {
+    // 2 x (₹20 + ₹10 Large) = ₹60, GST included, to the rupee: the number the backend test pins
+    expect(cartTotal([masala], cartOf(['t', 2, ['L', 'S']]), 'regular')).toBe(6000);
+    expect(cartTotal([masala], cartOf(['t', 1], ['t', 1, ['L']]), 'regular')).toBe(5000);
+    expect(unitPrice(masala, ['L', 'S'])).toBe(3000);
+  });
+
+  it('ignores an option the dish no longer offers instead of guessing', () => {
+    expect(cartTotal([masala], cartOf(['t', 1, ['gone']]), 'regular')).toBe(2000);
+  });
+
+  it('labels a line like the server and the outlet do, options in alphabetical order', () => {
+    expect(lineLabel(masala, ['S', 'L'])).toBe('Masala tea (Large, Less sugar)');
+    expect(lineLabel(masala, [])).toBe('Masala tea');
+  });
+
+  it('drops lines whose dish or option is gone, and says how many', () => {
+    const cart = cartOf(['t', 1], ['t', 1, ['L']], ['j', 1], ['t', 1, ['gone']]);
+    const { cart: kept, dropped } = pruneCart([masala], cart);
+    expect(dropped).toBe(2);
+    expect(Object.keys(kept).sort()).toEqual(['t', 't|L']);
+  });
+
+  it('turns an old order back into a cart, and a cart into what the server takes', () => {
+    const cart = cartFromLines([
+      { menu_item_id: 't', qty: 2, modifier_ids: ['L', 'S'] },
+      { menu_item_id: 'j', qty: 1, modifier_ids: [] },
+    ]);
+    expect(cartCount(cart)).toBe(3);
+    expect(cartItems(cart).sort((a, b) => a.menu_item_id.localeCompare(b.menu_item_id))).toEqual([
+      { menu_item_id: 'j', qty: 1, modifier_ids: [] },
+      { menu_item_id: 't', qty: 2, modifier_ids: ['L', 'S'] },
+    ]);
+    // more than the limit in an old order is clamped, never sent
+    expect(cartCount(cartFromLines([{ menu_item_id: 't', qty: 99, modifier_ids: [] }]))).toBe(20);
   });
 });
 
 describe('cartTotal', () => {
   it('is the till total: 2 teas and a juice, GST included, to the rupee', () => {
-    expect(cartTotal([tea, juice], { t: 2, j: 1 }, 'regular')).toBe(10000);
-    expect(cartCount({ t: 2, j: 1 })).toBe(3);
+    const cart = cartOf(['t', 2], ['j', 1]);
+    expect(cartTotal([tea, juice], cart, 'regular')).toBe(10000);
+    expect(cartCount(cart)).toBe(3);
   });
   it('is zero for an empty cart and ignores sold-out dishes', () => {
     expect(cartTotal([tea], {}, 'regular')).toBe(0);
-    expect(cartTotal([{ ...tea, sold_out: true }], { t: 2 }, 'regular')).toBe(0);
+    expect(cartTotal([{ ...tea, sold_out: true }], cartOf(['t', 2]), 'regular')).toBe(0);
   });
   it('adds GST on top for a price that excludes it', () => {
     const plus = item('p', 'Plus', 10000, { tax_inclusive: false });
-    expect(cartTotal([plus], { p: 1 }, 'regular')).toBe(10500);
-    expect(cartTotal([plus], { p: 1 }, 'unregistered')).toBe(10000);
+    expect(cartTotal([plus], cartOf(['p', 1]), 'regular')).toBe(10500);
+    expect(cartTotal([plus], cartOf(['p', 1]), 'unregistered')).toBe(10000);
   });
 });
 
 describe('soldOutInCart', () => {
   it('names dishes that sold out after they were picked', () => {
-    expect(soldOutInCart([{ ...tea, sold_out: true }, juice], { t: 1, j: 1 })).toEqual(['Masala tea']);
+    expect(soldOutInCart([{ ...tea, sold_out: true }, juice], cartOf(['t', 1], ['j', 1]))).toEqual(['Masala tea']);
   });
 });
 
@@ -118,17 +185,17 @@ describe('one cart across outlets', () => {
   };
 
   it('keeps a cart per outlet and drops an outlet when its cart empties', () => {
-    let carts = changeOutletQty({}, 'a', 't', 2);
-    carts = changeOutletQty(carts, 'b', 'j', 1);
+    let carts = changeOutletLine({}, 'a', 't', [], 2);
+    carts = changeOutletLine(carts, 'b', 'j', [], 1);
     expect(outletsInCart(carts)).toEqual(['a', 'b']);
     expect(allItemCount(carts)).toBe(3);
-    carts = changeOutletQty(carts, 'a', 't', -2);
+    carts = changeOutletLine(carts, 'a', 't', [], -2);
     expect(outletsInCart(carts)).toEqual(['b']);
-    expect(carts).toEqual({ b: { j: 1 } });
+    expect(carts).toEqual({ b: { j: { itemId: 'j', qty: 1, mods: [] } } });
   });
 
   it('adds each outlet total the way that outlet bills it', () => {
-    const carts = { a: { t: 2 }, b: { j: 1 } };
+    const carts = { a: cartOf(['t', 2]), b: cartOf(['j', 1]) };
     expect(grandTotal(menus, carts)).toBe(cartTotal(menus.a.items, carts.a, 'regular') + cartTotal(menus.b.items, carts.b, 'regular'));
     // an outlet whose menu has not loaded yet adds nothing instead of guessing
     expect(grandTotal({ a: menus.a }, carts)).toBe(cartTotal(menus.a.items, carts.a, 'regular'));

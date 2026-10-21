@@ -9,7 +9,7 @@ export interface PublicCourt {
   location: string;
   /** Whether "pay online" may be offered (the server has payment keys). */
   online_payment: boolean;
-  outlets: { id: string; name: string; open: boolean }[];
+  outlets: { id: string; name: string; open: boolean; prep_minutes: number | null }[];
 }
 
 export interface CourtRow {
@@ -23,6 +23,8 @@ export interface CourtRow {
 export interface PublicMenu {
   outlet: string;
   open: boolean;
+  /** The outlet's own promise of how long an order usually takes (null: not said). */
+  prep_minutes: number | null;
   gst_type: GstType;
   items: PublicItem[];
 }
@@ -40,6 +42,7 @@ export interface PublicOrder {
   items: { name: string; qty: number }[];
   total_paise: number;
   paid_online: boolean;
+  prep_minutes: number | null;
 }
 
 /** One online payment for a cart, and (once it is paid) what became of each outlet's part. */
@@ -70,7 +73,7 @@ export interface CheckoutBody {
     outlet_id: string;
     request_id: string;
     note: string;
-    items: { menu_item_id: string; qty: number }[];
+    items: { menu_item_id: string; qty: number; modifier_ids: string[] }[];
   }[];
 }
 
@@ -93,8 +96,26 @@ export interface HistoryRow {
   placed_at: string;
   status: OrderStatus;
   items: { name: string; qty: number }[];
+  /** What "order again" puts back in the cart. */
+  lines: { menu_item_id: string; qty: number; modifier_ids: string[] }[];
+  outlet_id: string;
   total_paise: number;
   status_key: string;
+  paid_online: boolean;
+  rating: number | null;
+}
+
+export interface Favourite {
+  menu_item_id: string;
+  name: string;
+  price_paise: number;
+  photo_url: string;
+  is_veg: boolean;
+  sold_out: boolean;
+  outlet_id: string;
+  outlet: string;
+  court: string;
+  court_slug: string;
 }
 
 export class PublicError extends Error {
@@ -148,6 +169,19 @@ export const publicApi = {
   changePassword: (token: string, current_password: string, new_password: string) =>
     call<Signed>('/customer/password', post({ current_password, new_password }), token),
   history: (token: string) => call<{ orders: HistoryRow[] }>('/customer/orders', undefined, token),
+  // ---- favourites, ratings, phone notifications
+  favourites: (token: string) => call<{ favourites: Favourite[] }>('/customer/favourites', undefined, token),
+  addFavourite: (token: string, itemId: string) =>
+    call<{ favourites: Favourite[] }>(`/customer/favourites/${itemId}`, { method: 'PUT' }, token),
+  removeFavourite: (token: string, itemId: string) =>
+    call<{ favourites: Favourite[] }>(`/customer/favourites/${itemId}`, { method: 'DELETE' }, token),
+  myRating: (token: string, key: string) =>
+    call<{ rating: number | null; comment: string }>(`/customer/orders/${key}/rating`, undefined, token),
+  rate: (token: string, key: string, rating: number, comment: string) =>
+    call<{ rating: number }>(`/customer/orders/${key}/rating`, post({ rating, comment }), token),
+  pushKey: (token: string) => call<{ public_key: string | null }>('/customer/push/key', undefined, token),
+  pushSubscribe: (token: string, sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    call<{ ok: boolean }>('/customer/push/subscribe', post(sub), token),
   // ---- browsing
   courts: (token: string) => call<{ courts: CourtRow[] }>('/public/courts', undefined, token),
   court: (slug: string) => call<PublicCourt>(slugPath(slug)),
@@ -161,7 +195,12 @@ export const publicApi = {
     token: string,
     slug: string,
     outletId: string,
-    body: { request_id: string; note: string; message_ok: boolean; items: { menu_item_id: string; qty: number }[] },
+    body: {
+      request_id: string;
+      note: string;
+      message_ok: boolean;
+      items: { menu_item_id: string; qty: number; modifier_ids: string[] }[];
+    },
   ) => call<PlacedOrder>(`${slugPath(slug)}/outlets/${outletId}/orders`, post(body), token),
 };
 

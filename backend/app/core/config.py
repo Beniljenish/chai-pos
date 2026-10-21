@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
     razorpay_webhook_secret: str = ""
+    # Web Push, for "your order is ready" on a customer's phone. Both keys, or push is off.
+    # Make a pair with `python -m scripts.make_vapid_keys`; the private one is a secret.
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = "mailto:owner@example.com"  # who the push service may contact
     # LOCAL TESTING ONLY: log in with just a phone number, any password. It refuses
     # to start unless the database is on this computer (or the compose "db"
     # service), so a copy of this setting can never switch it on against Supabase.

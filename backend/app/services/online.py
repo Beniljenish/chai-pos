@@ -22,10 +22,11 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.core.security import hash_password
@@ -37,6 +38,8 @@ from app.models import (
     FoodCourt,
     FoodCourtOutlet,
     MenuItem,
+    MenuItemModifier,
+    Modifier,
     OnlineOrder,
     Order,
     OrderEvent,
@@ -97,6 +100,7 @@ def view(db: Session, shop_id: uuid.UUID) -> dict:
     return {
         "court": {"id": court.id, "name": court.name, "slug": court.slug},
         "accepting_orders": mine.accepting_orders,
+        "prep_minutes": mine.prep_minutes,
         "outlets": [
             {
                 "id": o.id,
@@ -145,7 +149,10 @@ def public_court(sysdb: Session, slug: str) -> dict:
         "location": court.location,
         # Whether the customer may be offered "pay online" (the Razorpay keys are set).
         "online_payment": payments.online_enabled(),
-        "outlets": [{"id": o.id, "name": name, "open": o.accepting_orders} for o, name in rows],
+        "outlets": [
+            {"id": o.id, "name": name, "open": o.accepting_orders, "prep_minutes": o.prep_minutes}
+            for o, name in rows
+        ],
     }
 
 
@@ -178,10 +185,28 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
         items = db.scalars(
             select(MenuItem).where(MenuItem.is_active).order_by(MenuItem.category, MenuItem.name)
         ).all()
+        # The options each dish offers, as the till offers them (switched-off ones left out).
+        options: dict[uuid.UUID, list[dict]] = {}
+        for link, mod in db.execute(
+            select(MenuItemModifier, Modifier)
+            .join(Modifier, Modifier.id == MenuItemModifier.modifier_id)
+            .where(Modifier.is_active)
+            .order_by(Modifier.name)
+        ):
+            options.setdefault(link.menu_item_id, []).append(
+                {
+                    "id": mod.id,
+                    "name": mod.name,
+                    "price_delta_paise": mod.price_delta_paise,
+                    # a size changes the quantity made (Large); anything else is a tick box
+                    "is_size": mod.scale_factor != 1,
+                }
+            )
         # Only what a customer needs to choose and to see the price they will pay.
         return {
             "outlet": shop.name,
             "open": outlet.accepting_orders,
+            "prep_minutes": outlet.prep_minutes,
             "gst_type": shop.gst_type.value,
             "items": [
                 {
@@ -192,6 +217,10 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
                     "gst_rate_bp": i.gst_rate_bp,
                     "tax_inclusive": i.tax_inclusive,
                     "sold_out": i.is_sold_out,
+                    "description": i.description,
+                    "photo_url": i.photo_url,
+                    "is_veg": i.is_veg,
+                    "options": options.get(i.id, []),
                 }
                 for i in items
             ],
@@ -199,6 +228,15 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
 
 
 # ---------------------------------------------------------------- customer: order
+@dataclass(frozen=True)
+class Pick:
+    """One dish a customer chose, with the options (modifiers) they ticked."""
+
+    item_id: uuid.UUID
+    qty: int
+    mods: tuple[uuid.UUID, ...] = ()
+
+
 @dataclass
 class OrderInput:
     request_id: uuid.UUID
@@ -207,7 +245,7 @@ class OrderInput:
     phone: str
     note: str
     message_ok: bool
-    items: list[tuple[uuid.UUID, int]]
+    items: list[Pick]
     # (online payment id, paise paid for this outlet's order) when it was paid online.
     paid: tuple[uuid.UUID, int] | None = None
 
@@ -267,6 +305,9 @@ def _total(lines: list[dict], gst_type) -> int:
                 qty=ln["qty"],
                 gst_rate_bp=ln["gst_rate_bp"],
                 tax_inclusive=ln["tax_inclusive"],
+                modifier_deltas_paise=tuple(
+                    int(m["price_delta_paise"]) for m in ln.get("modifiers") or []
+                ),
             )
             for ln in live
         ],
@@ -274,10 +315,15 @@ def _total(lines: list[dict], gst_type) -> int:
     ).total
 
 
-def _wanted(items: list[tuple[uuid.UUID, int]]) -> dict[uuid.UUID, int]:
-    wanted: dict[uuid.UUID, int] = {}
-    for item_id, qty in items:
-        wanted[item_id] = wanted.get(item_id, 0) + qty
+# A line is a dish plus its set of options: 2 teas, and 1 Large tea, are two lines.
+LineKey = tuple[uuid.UUID, tuple[uuid.UUID, ...]]
+
+
+def _wanted(picks: list[Pick]) -> dict[LineKey, int]:
+    wanted: dict[LineKey, int] = {}
+    for p in picks:
+        key = (p.item_id, tuple(sorted(set(p.mods), key=str)))
+        wanted[key] = wanted.get(key, 0) + p.qty
     if not wanted:
         raise OnlineError("empty_order", "Choose at least one dish")
     if (
@@ -289,18 +335,19 @@ def _wanted(items: list[tuple[uuid.UUID, int]]) -> dict[uuid.UUID, int]:
     return wanted
 
 
-def _load_menu(db: Session, wanted: dict[uuid.UUID, int]) -> dict[uuid.UUID, MenuItem]:
+def _load_menu(db: Session, wanted: dict[LineKey, int]) -> dict[uuid.UUID, MenuItem]:
     """The dishes asked for, from the outlet's own menu (the session sees one shop only);
     refuses any that are gone or sold out."""
+    item_ids = {item_id for item_id, _ in wanted}
     menu = {
         m.id: m
         for m in db.scalars(
-            select(MenuItem).where(MenuItem.id.in_(list(wanted)), MenuItem.is_active)
+            select(MenuItem).where(MenuItem.id.in_(list(item_ids)), MenuItem.is_active)
         )
     }
-    if any(i not in menu for i in wanted):
+    if any(i not in menu for i in item_ids):
         raise OnlineError("items_unavailable", "Some dishes are no longer on the menu", 409)
-    sold_out = [menu[i].name for i in wanted if menu[i].is_sold_out]
+    sold_out = [menu[i].name for i in item_ids if menu[i].is_sold_out]
     if sold_out:
         raise OnlineError(
             "items_unavailable", "Sold out: " + ", ".join(sold_out), 409, {"names": sold_out}
@@ -308,12 +355,94 @@ def _load_menu(db: Session, wanted: dict[uuid.UUID, int]) -> dict[uuid.UUID, Men
     return menu
 
 
-def quote(
-    sysdb: Session, slug: str, outlet_id: uuid.UUID, items: list[tuple[uuid.UUID, int]]
-) -> tuple[str, int]:
+def _load_mods(db: Session, wanted: dict[LineKey, int]) -> dict[LineKey, list[dict]]:
+    """The options for each line, built here from the outlet's own definitions and saved on the
+    order exactly as the till saves them (name, price change, size factor, stock change). Nothing
+    about an option's price or stock effect is taken from the phone, and an option the dish does
+    not offer, or one switched off, is refused."""
+    ids = {mid for _, mods in wanted for mid in mods}
+    if not ids:
+        return {key: [] for key in wanted}
+    rows = {
+        m.id: m
+        for m in db.scalars(
+            select(Modifier)
+            .where(Modifier.id.in_(ids), Modifier.is_active)
+            .options(selectinload(Modifier.lines))
+        )
+    }
+    allowed = {
+        (r.menu_item_id, r.modifier_id)
+        for r in db.scalars(
+            select(MenuItemModifier).where(
+                MenuItemModifier.menu_item_id.in_({i for i, _ in wanted}),
+                MenuItemModifier.modifier_id.in_(ids),
+            )
+        )
+    }
+    out: dict[LineKey, list[dict]] = {}
+    for key in wanted:
+        item_id, mods = key
+        snaps = []
+        for mid in mods:
+            if rows.get(mid) is None or (item_id, mid) not in allowed:
+                raise OnlineError("items_unavailable", "An option is no longer available", 409)
+        for mid in sorted(mods, key=lambda i: rows[i].name):  # a steady order: "Large, Less sugar"
+            mod = rows[mid]
+            snaps.append(
+                {
+                    "modifier_id": str(mod.id),
+                    "name": mod.name,
+                    "price_delta_paise": mod.price_delta_paise,
+                    "scale_factor": str(mod.scale_factor),
+                    "lines": [
+                        {"ingredient_id": str(ln.ingredient_id), "qty_delta": str(ln.qty_delta)}
+                        for ln in mod.lines
+                    ],
+                }
+            )
+        if sum(1 for sn in snaps if Decimal(sn["scale_factor"]) != 1) > 1:
+            raise OnlineError("bad_options", "Choose one size", 422)
+        out[key] = snaps
+    return out
+
+
+def _cart_lines(
+    menu: dict[uuid.UUID, MenuItem],
+    wanted: dict[LineKey, int],
+    snaps: dict[LineKey, list[dict]],
+    *,
+    ids: bool = False,
+) -> list[dict]:
+    out = []
+    for key, qty in wanted.items():
+        m = menu[key[0]]
+        line = {
+            "menu_item_id": str(m.id),
+            "name": m.name,
+            "qty": qty,
+            "unit_price_paise": m.price_paise,
+            "gst_rate_bp": m.gst_rate_bp,
+            "tax_inclusive": m.tax_inclusive,
+            "modifiers": snaps[key],
+            "note": "",
+        }
+        if ids:
+            line["line_id"] = str(uuid.uuid4())
+        out.append(line)
+    return out
+
+
+def line_label(line: dict) -> str:
+    """ "Masala tea (Large, Less sugar)": what the customer and the outlet read."""
+    mods = [m["name"] for m in line.get("modifiers") or []]
+    return f"{line['name']} ({', '.join(mods)})" if mods else line["name"]
+
+
+def quote(sysdb: Session, slug: str, outlet_id: uuid.UUID, items: list[Pick]) -> tuple[str, int]:
     """What an order would cost at this outlet right now, with the same checks as placing
-    it (open, dishes on the menu and not sold out, size limits) and nothing written.
-    Returns (outlet name, total in paise)."""
+    it (open, dishes on the menu and not sold out, options offered, size limits) and nothing
+    written. Returns (outlet name, total in paise)."""
     court = _court(sysdb, slug)
     outlet = _outlet(sysdb, court, outlet_id)
     if not outlet.accepting_orders:
@@ -322,15 +451,7 @@ def quote(
     with shop_session(outlet.shop_id) as db:
         shop = db.scalar(select(Shop))
         menu = _load_menu(db, wanted)
-        lines = [
-            {
-                "qty": wanted[m.id],
-                "unit_price_paise": m.price_paise,
-                "gst_rate_bp": m.gst_rate_bp,
-                "tax_inclusive": m.tax_inclusive,
-            }
-            for m in menu.values()
-        ]
+        lines = _cart_lines(menu, wanted, _load_mods(db, wanted))
         return shop.name, _total(lines, shop.gst_type)
 
 
@@ -349,6 +470,7 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
 
         shop = db.scalar(select(Shop))
         menu = _load_menu(db, wanted)
+        snaps = _load_mods(db, wanted)
 
         now = utcnow()
         hour_ago = now - timedelta(hours=1)
@@ -409,20 +531,7 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
         )
         db.add(order)
         db.flush()
-        lines = [
-            {
-                "line_id": str(uuid.uuid4()),
-                "menu_item_id": str(m.id),
-                "name": m.name,
-                "qty": wanted[m.id],
-                "unit_price_paise": m.price_paise,
-                "gst_rate_bp": m.gst_rate_bp,
-                "tax_inclusive": m.tax_inclusive,
-                "modifiers": [],
-                "note": "",
-            }
-            for m in menu.values()
-        ]
+        lines = _cart_lines(menu, wanted, snaps, ids=True)
         if body.paid is not None and _total(lines, shop.gst_type) != body.paid[1]:
             # The prices moved between paying and placing: do not serve what was not paid for.
             raise OnlineError("price_changed", "Prices changed while you were paying", 409)
@@ -527,7 +636,7 @@ def public_order(key: str) -> dict:
             "token": online.token,
             "outlet": shop.name,
             "status": public_state(order.state),
-            "items": [{"name": ln["name"], "qty": ln["qty"]} for ln in lines if ln["qty"] > 0],
+            "items": [{"name": line_label(ln), "qty": ln["qty"]} for ln in lines if ln["qty"] > 0],
             "total_paise": _total(lines, shop.gst_type),
             # Paid in the app (README, "9.14"): the page says "Paid", not "Pay at the counter".
             "paid_online": online.payment_id is not None,

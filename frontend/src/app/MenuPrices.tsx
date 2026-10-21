@@ -16,7 +16,17 @@ const RATES = [
   { bp: 4000, label: '40% (e.g. aerated sugary drinks)' },
 ];
 
-type Draft = { name: string; category: string; price: string; gst_rate_bp: number; tax_inclusive: boolean; is_active: boolean };
+type Draft = {
+  name: string;
+  category: string;
+  price: string;
+  gst_rate_bp: number;
+  tax_inclusive: boolean;
+  is_active: boolean;
+  description: string;
+  photo_url: string;
+  is_veg: boolean;
+};
 const toDraft = (m: MenuItem): Draft => ({
   name: m.name,
   category: m.category,
@@ -24,8 +34,21 @@ const toDraft = (m: MenuItem): Draft => ({
   gst_rate_bp: m.gst_rate_bp,
   tax_inclusive: m.tax_inclusive,
   is_active: m.is_active,
+  description: m.description ?? '',
+  photo_url: m.photo_url ?? '',
+  is_veg: m.is_veg ?? true,
 });
-const blank: Draft = { name: '', category: 'Tea', price: '', gst_rate_bp: 500, tax_inclusive: true, is_active: true };
+const blank: Draft = {
+  name: '',
+  category: 'Tea',
+  price: '',
+  gst_rate_bp: 500,
+  tax_inclusive: true,
+  is_active: true,
+  description: '',
+  photo_url: '',
+  is_veg: true,
+};
 
 export function MenuPrices() {
   const { reloadCatalogue } = useSession();
@@ -140,7 +163,9 @@ export function MenuItemEditor({
   }, [item]);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const pricePaise = Math.round(Number(d.price) * 100);
-  const valid = d.name.trim() && d.category.trim() && Number.isFinite(pricePaise) && pricePaise >= 0 && d.price !== '';
+  const photoOk = d.photo_url.trim() === '' || d.photo_url.trim().startsWith('https://');
+  const valid =
+    d.name.trim() && d.category.trim() && Number.isFinite(pricePaise) && pricePaise >= 0 && d.price !== '' && photoOk;
 
   async function save() {
     setBusy(true);
@@ -151,6 +176,9 @@ export function MenuItemEditor({
       price_paise: pricePaise,
       gst_rate_bp: d.gst_rate_bp,
       tax_inclusive: d.tax_inclusive,
+      description: d.description.trim(),
+      photo_url: d.photo_url.trim(),
+      is_veg: d.is_veg,
     };
     try {
       let saved = savedItem;
@@ -201,6 +229,37 @@ export function MenuItemEditor({
         <input type="checkbox" checked={d.tax_inclusive} onChange={(e) => set({ tax_inclusive: e.target.checked })} />
         Price includes GST (customer pays exactly the menu price)
       </label>
+      <fieldset>
+        <legend>What online customers see</legend>
+        <label>
+          Short description
+          <input
+            value={d.description}
+            maxLength={200}
+            placeholder="Strong tea with ginger and cardamom"
+            onChange={(e) => set({ description: e.target.value })}
+          />
+        </label>
+        <label>
+          Photo link <span className="muted">(an https:// address of a picture)</span>
+          <input
+            value={d.photo_url}
+            maxLength={500}
+            inputMode="url"
+            placeholder="https://…/masala-tea.jpg"
+            aria-invalid={!photoOk}
+            onChange={(e) => set({ photo_url: e.target.value })}
+          />
+        </label>
+        {!photoOk && <p className="error">The photo link must start with https://</p>}
+        {d.photo_url.trim().startsWith('https://') && (
+          <img className="menu-photo-preview" src={d.photo_url.trim()} alt="" width={96} height={96} />
+        )}
+        <label className="check">
+          <input type="checkbox" checked={d.is_veg} onChange={(e) => set({ is_veg: e.target.checked })} />
+          Vegetarian (shows the green mark; unticked shows the red non-veg mark)
+        </label>
+      </fieldset>
       {item && (
         <label className="check">
           <input type="checkbox" checked={d.is_active} onChange={(e) => set({ is_active: e.target.checked })} />

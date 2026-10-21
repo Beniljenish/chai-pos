@@ -16,7 +16,15 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import create_customer_token, hash_password, verify_password
-from app.models import CustomerAccount, FoodCourt, OnlineOrder, Order, Shop
+from app.models import (
+    CustomerAccount,
+    FoodCourt,
+    FoodCourtOutlet,
+    OnlineOrder,
+    Order,
+    OrderFeedback,
+    Shop,
+)
 from app.services import auth as auth_service
 from app.services import online
 from app.services.online import OnlineError
@@ -129,28 +137,43 @@ def history(db: Session, customer_id: uuid.UUID, limit: int = 50) -> list[dict]:
     """Their orders across every outlet, newest first. `db` is a system session: the
     orders live in different shops, and the only filter that matters is the customer."""
     rows = db.execute(
-        select(OnlineOrder, Order, Shop, FoodCourt)
+        select(OnlineOrder, Order, Shop, FoodCourt, FoodCourtOutlet, OrderFeedback.rating)
         .join(Order, Order.id == OnlineOrder.order_id)
         .join(Shop, Shop.id == OnlineOrder.shop_id)
         .join(FoodCourt, FoodCourt.id == OnlineOrder.court_id)
+        .join(FoodCourtOutlet, FoodCourtOutlet.shop_id == OnlineOrder.shop_id)
+        .outerjoin(OrderFeedback, OrderFeedback.online_order_id == OnlineOrder.id)
         .where(OnlineOrder.customer_id == customer_id)
         .order_by(Order.opened_at.desc())
         .limit(limit)
     ).all()
     out = []
-    for oo, order, shop, court in rows:
+    for oo, order, shop, court, outlet, rating in rows:
         lines = [ln for ln in order.state["lines"] if ln["qty"] > 0]
         out.append(
             {
                 "token": oo.token,
                 "outlet": shop.name,
+                "outlet_id": outlet.id,  # which outlet tab "order again" goes to
                 "court": court.name,
                 "court_slug": court.slug,
                 "placed_at": order.opened_at.isoformat(),
                 "status": online.public_state(order.state),
-                "items": [{"name": ln["name"], "qty": ln["qty"]} for ln in lines],
+                "items": [{"name": online.line_label(ln), "qty": ln["qty"]} for ln in lines],
+                # what "order again" puts back in the cart: dish ids and option ids only; prices
+                # and availability are looked up fresh
+                "lines": [
+                    {
+                        "menu_item_id": ln["menu_item_id"],
+                        "qty": ln["qty"],
+                        "modifier_ids": [m["modifier_id"] for m in ln.get("modifiers") or []],
+                    }
+                    for ln in lines
+                ],
                 "total_paise": online._total(order.state["lines"], shop.gst_type),
                 "status_key": online.status_key(oo.shop_id, order.id),
+                "paid_online": oo.payment_id is not None,
+                "rating": rating,
             }
         )
     return out

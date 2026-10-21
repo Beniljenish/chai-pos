@@ -8,11 +8,11 @@ and off. Making courts, and adding or removing outlets, is the super admin's
 from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import Caller, require_owner
-from app.services import online, onlinepay
+from app.services import extras, online, onlinepay
 
 router = APIRouter(tags=["food court"])
 
@@ -32,8 +32,12 @@ def fail(e: online.OnlineError) -> HTTPException:
     return HTTPException(e.status, {"code": e.code, "message": e.message, **e.extra})
 
 
-class AcceptingIn(BaseModel):
-    accepting_orders: bool
+class OutletSettingsIn(BaseModel):
+    """What an owner can change about their outlet's place in the court. Send only what changes;
+    a usual wait of 0 means "not said"."""
+
+    accepting_orders: bool | None = None
+    prep_minutes: int | None = Field(default=None, ge=0, le=180)
 
 
 @router.get("/food-court")
@@ -42,15 +46,21 @@ def my_food_court(caller: Caller = Depends(require_owner), db: Session = Depends
     if out.get("court") is not None:
         # What customers paid online for this outlet, and what the operator has paid it so far.
         out["online_money"] = onlinepay.outlet_money(db, caller.ctx.shop_id)
+        out["ratings"] = extras.ratings_for_shop(db, caller.ctx.shop_id)
     return out
 
 
 @router.patch("/food-court/me")
 def set_accepting(
-    body: AcceptingIn, caller: Caller = Depends(require_owner), db: Session = Depends(system_db)
+    body: OutletSettingsIn,
+    caller: Caller = Depends(require_owner),
+    db: Session = Depends(system_db),
 ):
     try:
-        online.set_accepting(db, caller.ctx.shop_id, body.accepting_orders)
+        if body.accepting_orders is not None:
+            online.set_accepting(db, caller.ctx.shop_id, body.accepting_orders)
+        if "prep_minutes" in body.model_fields_set:
+            extras.set_prep_minutes(db, caller.ctx.shop_id, body.prep_minutes or None)
     except online.OnlineError as e:
         raise fail(e) from None
     return online.view(db, caller.ctx.shop_id)

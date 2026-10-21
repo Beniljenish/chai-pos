@@ -8,12 +8,21 @@
  * outlet and the admin see the money. Screenshots for review.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const ADMIN = process.env.E2E_ADMIN ?? '9840000099';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 const phone = { width: 390, height: 844 };
+
+/** Add a dish from an outlet's menu. Dishes with options open a sheet; this picks the options asked for. */
+async function addDish(page: Page, name: string, options: string[] = []) {
+  await page.getByLabel(`Add ${name}`).click();
+  const choose = page.getByRole('dialog', { name });
+  for (const o of options) await choose.locator('label', { hasText: o }).click(); // as a person does
+  await choose.getByRole('button', { name: /^Add to cart/ }).click();
+}
 
 test('a customer signs up, orders from two outlets in one cart and follows the tokens', async ({ page, browser }) => {
   test.setTimeout(120_000);
@@ -80,6 +89,10 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await expect(page.getByLabel('QR code for the food court')).toBeVisible();
   await expect(page.getByRole('list').filter({ hasText: 'E2E Anna Biryani' })).toBeVisible();
   await shot(page, 'foodcourt-2-owner');
+  // the till rings for a customer's order: one switch per tablet (browsers need a tap first)
+  const sound = page.getByRole('switch', { name: /Sound/ });
+  await sound.click();
+  await expect(sound).toHaveAttribute('aria-checked', 'true');
 
   // the owner opened theirs in another browser; the admin's page shows it after a reload, and
   // can open Anna's (an outlet that has not opened cannot be ordered from)
@@ -121,23 +134,29 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   const tabs = customer.getByRole('tablist', { name: 'Outlets' });
   await expect(tabs.getByRole('tab')).toHaveCount(2);
   await tabs.getByRole('tab').filter({ hasNotText: 'E2E Anna Biryani' }).click();
-  await customer.getByLabel('Add Masala tea').click();
-  await customer.getByLabel('Add one more Masala tea').click();
-  await customer.getByLabel('Add Orange juice').click();
-  await expect(customer.getByText('3 items · 1 outlet · ₹100')).toBeVisible(); // 2 × ₹20 + ₹60
+  // dishes show what the owner set; a heart saves one; a dish with options opens a sheet
+  await customer.getByRole('button', { name: 'Save Masala tea to favourites' }).click();
+  await expect(customer.getByRole('button', { name: 'Remove Masala tea from favourites' })).toHaveAttribute('aria-pressed', 'true');
+  await addDish(customer, 'Masala tea', ['Large', 'Less sugar']);
+  await addDish(customer, 'Masala tea', ['Large', 'Less sugar']); // the same choice again: one line, two of it
+  await addDish(customer, 'Orange juice');
+  await expect(customer.getByText('3 items · 1 outlet · ₹120')).toBeVisible(); // 2 × (₹20 + ₹10 Large) + ₹60
   await tabs.getByRole('tab', { name: /E2E Anna Biryani/ }).click();
-  await customer.getByLabel('Add Masala tea').click();
+  await addDish(customer, 'Masala tea');
   await expect(tabs.getByLabel('1 in cart')).toBeVisible();
-  await expect(customer.getByText('4 items · 2 outlets · ₹120')).toBeVisible();
+  await expect(customer.getByText('4 items · 2 outlets · ₹140')).toBeVisible();
   await shot(customer, 'foodcourt-5-menu');
   await customer.getByRole('button', { name: 'View cart' }).click();
 
   await expect(customer.getByRole('region', { name: 'E2E Anna Biryani' })).toContainText('1 × Masala tea');
+  await expect(customer.getByRole('region', { name: 'Demo Tea Stall (placeholder)' })).toContainText(
+    '2 × Masala tea (Large, Less sugar)',
+  );
   await expect(customer.getByText('Ordering as')).toContainText('Ravi');
   // when pretend online payment is on, the cart offers a choice: this run pays at the counters
   const counter = customer.getByLabel(/Pay at the counters/);
   if (await counter.count()) await counter.check();
-  await expect(customer.getByText('You pay ₹120 at the counters')).toBeVisible();
+  await expect(customer.getByText('You pay ₹140 at the counters')).toBeVisible();
   await shot(customer, 'foodcourt-6-cart');
   await customer.getByRole('button', { name: 'Place 2 orders' }).click();
 
@@ -150,11 +169,18 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await expect(customer.getByText('Order received')).toHaveCount(2);
   await shot(customer, 'foodcourt-7-tokens');
 
+  // ---- the till rings, on whatever screen it is showing (it is on Manage), until someone taps it
+  const alertBanner = page.getByRole('alert').filter({ hasText: 'New online order' });
+  await expect(alertBanner).toContainText(token, { timeout: 30_000 });
+  await shot(page, 'foodcourt-8a-till-alert');
+  await alertBanner.click(); // opens Tables
+  await expect(alertBanner).toHaveCount(0);
+
   // ---- the owner's outlet sees its order first on the Tables screen, and marks it ready
   await page.locator('.tabs').getByRole('button', { name: 'Tables', exact: true }).click();
   const online = page.getByRole('region', { name: 'Online orders' });
   await expect(online).toContainText(token, { timeout: 30_000 });
-  await expect(online).toContainText('2 × Masala tea');
+  await expect(online).toContainText('2 × Masala tea (Large, Less sugar)'); // the options reach the till
   await expect(online).toContainText('Ravi'); // the name and number come from the account
   await shot(page, 'foodcourt-8-outlet');
   await page.getByRole('button', { name: /^Kitchen/ }).click();
@@ -203,12 +229,33 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await customer.getByRole('button', { name: 'Save and continue' }).click();
   await expect(customer.getByRole('heading', { name: 'Where are you eating?' })).toBeVisible();
 
+  // the dish hearted earlier is on the front page
+  await expect(customer.getByRole('region', { name: 'Your favourites' })).toContainText('Masala tea');
+  await shot(customer, 'foodcourt-9a-favourites');
+
+  // ---- the owner tells customers the usual wait, and describes a dish
+  await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
+  await page.locator('.subnav').getByRole('button', { name: 'Food court', exact: true }).click();
+  await page.getByRole('button', { name: '5 minutes more' }).click();
+  await expect(page.getByText('5 min', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '5 minutes more' }).click();
+  await expect(page.getByText('10 min', { exact: true })).toBeVisible();
+  await openSection(page, 'Shop & GST'); // on a phone the section list is behind a back button
+  await page.locator('#menu-title').locator('..').locator('.sop-name', { hasText: 'Masala tea' }).click();
+  const editor = page.getByRole('dialog', { name: 'Masala tea' });
+  await editor.getByLabel('Short description').fill('Strong tea with ginger');
+  await editor.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(editor).toHaveCount(0);
+
   // ---- now the same customer pays online (pretend money): the cart offers it, a payment page
   // opens in its own tab, and the page moves on by itself to a token marked paid
   await customer.getByRole('button', { name: /E2E Food Court/ }).click();
   await tabs.getByRole('tab').filter({ hasNotText: 'E2E Anna Biryani' }).click();
-  await customer.getByLabel('Add Masala tea').click();
-  await customer.getByLabel('Add one more Masala tea').click();
+  await expect(customer.getByText('Usually ready in about 10 min')).toBeVisible();
+  await expect(customer.getByText('Strong tea with ginger')).toBeVisible();
+  await shot(customer, 'foodcourt-9b-menu-details');
+  await addDish(customer, 'Masala tea');
+  await addDish(customer, 'Masala tea');
   await customer.getByRole('button', { name: 'View cart' }).click();
   await expect(customer.getByText('How do you want to pay?')).toBeVisible();
   await expect(customer.getByLabel(/Pay online/)).toBeChecked(); // the default when it is on
@@ -229,7 +276,8 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await shot(customer, 'foodcourt-11-paid-token');
 
   // ---- the outlet's till says it was paid, and what the outlet is owed shows on its own screen
-  await page.getByRole('button', { name: /^Floor/ }).click(); // back from the kitchen view
+  await page.locator('.tabs').getByRole('button', { name: 'Tables', exact: true }).click(); // from Manage
+  await page.getByRole('button', { name: /^Floor/ }).click(); // Tables remembers it was on the kitchen view
   await expect(online).toContainText(paidToken, { timeout: 30_000 });
   await expect(online).toContainText('Paid online ₹40');
   await shot(page, 'foodcourt-12-till-paid');
@@ -249,10 +297,49 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await expect(money).toContainText('Owed ₹25');
   await shot(admin, 'foodcourt-13-admin-money');
 
-  // leave the kitchen as we found it: the paid order is made and marked ready
+  // ---- the outlet makes it and hands it over: bill it (already paid, so as UPI)
   await page.locator('.tabs').getByRole('button', { name: 'Tables', exact: true }).click();
   await page.getByRole('button', { name: /^Kitchen/ }).click();
   await page.getByRole('button', { name: 'Masala tea ready' }).click();
+  await page.getByRole('button', { name: /^Floor/ }).click();
+  await online.locator('li', { hasText: paidToken }).getByRole('button').click();
+  await page.locator('.till-handle').click();
+  await page.getByRole('button', { name: 'Settle', exact: true }).click();
+  const settle = page.getByRole('dialog', { name: /^Settle/ });
+  await settle.getByRole('radio', { name: 'UPI' }).click();
+  await settle.getByRole('button', { name: 'Settle and print receipt' }).click();
+  const start = page.getByRole('dialog', { name: 'Start shift' });
+  if (await start.isVisible()) {
+    await start.getByLabel('Cash in the drawer now (₹)').fill('500');
+    await start.getByRole('button', { name: /^Start shift/ }).click();
+  }
+  await page.getByRole('dialog', { name: /^Bill / }).getByRole('button', { name: 'Back to tables' }).click();
+
+  // ---- the customer sees it collected and rates it, once
+  await expect(customer.getByText('Collected', { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(customer.getByText('How was it?')).toBeVisible();
+  await customer.getByRole('radio', { name: '4 stars' }).click();
+  await customer.getByPlaceholder('Anything to add? (optional)').fill('Tea great, idli a bit cold');
+  await shot(customer, 'foodcourt-14-rate');
+  await customer.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(customer.getByText(/Thanks for rating/)).toBeVisible();
+  await expect(customer.getByText('How was it?')).toHaveCount(0);
+
+  // ---- My orders shows the rating, and "order again" refills the cart from that order
+  await customer.getByRole('button', { name: 'My orders' }).click();
+  await expect(customer.getByLabel('You rated it 4 out of 5')).toBeVisible();
+  await customer.getByRole('button', { name: `Order ${paidToken} again` }).click();
+  await expect(customer.getByRole('heading', { name: 'Your cart' })).toBeVisible();
+  await expect(customer.getByRole('region', { name: 'Demo Tea Stall (placeholder)' })).toContainText('2 × Masala tea');
+  await shot(customer, 'foodcourt-15-order-again');
+
+  // ---- the owner and the admin see the rating
+  await page.locator('.tabs').getByRole('button', { name: 'Manage', exact: true }).click();
+  await openSection(page, 'Food court');
+  await expect(page.getByRole('region', { name: 'Ratings' })).toContainText('4 ★');
+  await expect(page.getByRole('region', { name: 'Ratings' })).toContainText('Tea great, idli a bit cold');
+  await admin.reload();
+  await expect(admin.getByRole('region', { name: 'E2E Food Court' })).toContainText('4 ★ (1)');
 
   await customer.context().close();
   await admin.context().close();

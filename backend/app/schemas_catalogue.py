@@ -84,6 +84,17 @@ class IngredientOut(ORM):
 
 
 # --- menu items ---
+def _secure_photo(v: str) -> str:
+    # Shown in an <img> on customers' phones: a plain https address, or nothing.
+    v = v.strip()
+    if v and not v.startswith("https://"):
+        raise ValueError("The photo link must start with https://")
+    return v
+
+
+PhotoLink = Annotated[str, Field(max_length=500), AfterValidator(_secure_photo)]
+
+
 class MenuItemCreate(BaseModel):
     name: Name
     category: Annotated[str, Field(min_length=1, max_length=40)] = "Tea"
@@ -91,6 +102,9 @@ class MenuItemCreate(BaseModel):
     gst_rate_bp: GstRate = 500  # restaurant service: 5% without ITC
     tax_inclusive: bool = True
     hsn_sac: Annotated[str, Field(pattern=r"^\d{4,8}$")] = "996331"
+    description: Annotated[str, Field(max_length=200)] = ""
+    photo_url: PhotoLink = ""
+    is_veg: bool = True
 
 
 class MenuItemUpdate(BaseModel):
@@ -101,6 +115,9 @@ class MenuItemUpdate(BaseModel):
     tax_inclusive: bool | None = None
     is_active: bool | None = None
     is_sold_out: bool | None = None
+    description: Annotated[str, Field(max_length=200)] | None = None
+    photo_url: PhotoLink | None = None
+    is_veg: bool | None = None
 
 
 class MenuItemOut(ORM):
@@ -113,6 +130,9 @@ class MenuItemOut(ORM):
     hsn_sac: str
     is_active: bool
     is_sold_out: bool = False
+    description: str = ""
+    photo_url: str = ""
+    is_veg: bool = True
 
 
 class ModifierIdsIn(BaseModel):

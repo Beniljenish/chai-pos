@@ -13,7 +13,16 @@ import {
   byCategory,
   cartCount,
   cartTotal,
-  changeOutletQty,
+  cartFromLines,
+  cartItems,
+  changeOutletLine,
+  dishCount,
+  lineLabel,
+  pruneCart,
+  unitPrice,
+  type PublicItem,
+  type PublicOption,
+  type Cart,
   cleanPhone,
   courtMatches,
   grandTotal,
@@ -27,7 +36,10 @@ import {
   type Carts,
   type PayChoice,
 } from '../lib/foodcourt';
+import { chime, unlockSound } from '../lib/chime';
 import { formatRupees } from '../lib/gst';
+import { enablePush, pushState, type PushState } from '../lib/push';
+import { Sheet } from './Sheet';
 import {
   PublicError,
   payPageUrl,
@@ -35,6 +47,7 @@ import {
   type Account,
   type CheckoutView,
   type CourtRow,
+  type Favourite,
   type HistoryRow,
   type PublicCourt,
   type PublicMenu,
@@ -288,7 +301,11 @@ function NewPassword({ auth, onDone, onLogOut }: { auth: Auth; onDone(s: Signed)
 }
 
 // ---------------------------------------------------------------- the signed-in shop
-type Screen = { kind: 'home' } | { kind: 'court'; slug: string } | { kind: 'orders' } | { kind: 'status'; key: string };
+type Screen =
+  | { kind: 'home' }
+  | { kind: 'court'; slug: string; outlet?: string; cart?: boolean }
+  | { kind: 'orders' }
+  | { kind: 'status'; key: string };
 
 function Shop({
   slug,
@@ -325,11 +342,19 @@ function Shop({
   return (
     <main className="cx">
       {screen.kind === 'home' ? (
-        <Home auth={auth} onGuard={guard} onPick={(s) => setScreen({ kind: 'court', slug: s })} onOrders={() => goOrders(screen)} />
+        <Home
+          auth={auth}
+          onGuard={guard}
+          onPick={(s) => setScreen({ kind: 'court', slug: s })}
+          onPickFavourite={(f) => setScreen({ kind: 'court', slug: f.court_slug, outlet: f.outlet_id })}
+          onOrders={() => goOrders(screen)}
+        />
       ) : screen.kind === 'court' ? (
         <CourtFlow
           key={screen.slug}
           slug={screen.slug}
+          focusOutlet={screen.outlet}
+          startInCart={screen.cart === true}
           auth={auth}
           onGuard={guard}
           onHome={goHome}
@@ -342,6 +367,13 @@ function Shop({
           onGuard={guard}
           onBack={() => setScreen(back)}
           onOpen={(key) => setScreen({ kind: 'status', key })}
+          onReorder={(row) => {
+            // Put the old order back as that outlet's cart, then open the cart: it checks the
+            // outlet's menu as it loads and leaves out anything that is gone.
+            const carts = { ...recallCarts(row.court_slug), [row.outlet_id]: cartFromLines(row.lines) };
+            store(cartKey(row.court_slug), JSON.stringify(carts));
+            setScreen({ kind: 'court', slug: row.court_slug, outlet: row.outlet_id, cart: true });
+          }}
           onAuth={onAuth}
           onLogOut={onLogOut}
         />
@@ -353,7 +385,7 @@ function Shop({
             </button>
             <h1>Your order</h1>
           </header>
-          <StatusCard orderKey={screen.key} />
+          <StatusCard orderKey={screen.key} token={auth.token} />
         </>
       )}
     </main>
@@ -376,13 +408,23 @@ function Home({
   auth,
   onGuard,
   onPick,
+  onPickFavourite,
   onOrders,
 }: {
   auth: Auth;
   onGuard(e: unknown): void;
   onPick(slug: string): void;
+  onPickFavourite(f: Favourite): void;
   onOrders(): void;
 }) {
+  const [favs, setFavs] = useState<Favourite[]>([]);
+  useEffect(() => {
+    publicApi
+      .favourites(auth.token)
+      .then((r) => setFavs(r.favourites))
+      .catch(() => undefined); // favourites are a nicety: the list of courts matters more
+  }, [auth.token]);
+
   const [courts, setCourts] = useState<CourtRow[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
@@ -426,6 +468,33 @@ function Home({
         <p className="muted" role="status">
           Loading…
         </p>
+      )}
+      {favs.length > 0 && query === '' && (
+        <section className="cx-group" aria-label="Your favourites">
+          <h2>Your favourites</h2>
+          <ul className="cx-favs">
+            {favs.map((f) => (
+              <li key={f.menu_item_id}>
+                <button onClick={() => onPickFavourite(f)}>
+                  {f.photo_url ? <img src={f.photo_url} alt="" loading="lazy" /> : <span className="cx-photo" aria-hidden="true" />}
+                  <span className="cx-name">
+                    <strong>
+                      <VegMark veg={f.is_veg} />
+                      {f.name}
+                    </strong>
+                    <small className="muted">
+                      {f.outlet} · {formatRupees(f.price_paise)}
+                      {f.sold_out ? ' · sold out' : ''}
+                    </small>
+                  </span>
+                  <span className="heart" aria-hidden="true">
+                    ♥
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {courts && courts.length === 0 && <p className="cx-note">No food courts are set up yet.</p>}
       {courts && courts.length > 0 && shown.length === 0 && <p className="muted">No food court matches “{query}”.</p>}
@@ -475,6 +544,8 @@ type CourtView = 'browse' | 'cart' | 'paying' | 'placed';
 
 function CourtFlow({
   slug,
+  focusOutlet,
+  startInCart,
   auth,
   onGuard,
   onHome,
@@ -482,6 +553,8 @@ function CourtFlow({
   onLogOut,
 }: {
   slug: string;
+  focusOutlet?: string;
+  startInCart: boolean;
   auth: Auth;
   onGuard(e: unknown): void;
   onHome(): void;
@@ -493,7 +566,8 @@ function CourtFlow({
   const [active, setActive] = useState<string | null>(null);
   const [menus, setMenus] = useState<Record<string, PublicMenu>>({});
   const [carts, setCarts] = useState<Carts>(() => recallCarts(slug));
-  const [view, setView] = useState<CourtView>('browse');
+  const [view, setView] = useState<CourtView>(startInCart ? 'cart' : 'browse');
+  const [favs, setFavs] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<Result[]>([]);
   const [paidPaise, setPaidPaise] = useState<number | null>(null);
   const [checkout, setCheckout] = useState<{ view: CheckoutView; blocked: boolean } | null>(null);
@@ -504,10 +578,25 @@ function CourtFlow({
       .then((c) => {
         setCourt(c);
         document.title = c.name;
-        setActive((a) => a ?? c.outlets.find((o) => o.open)?.id ?? c.outlets[0]?.id ?? null);
+        setActive(
+          (a) =>
+            a ??
+            (c.outlets.some((o) => o.id === focusOutlet) ? focusOutlet : undefined) ??
+            c.outlets.find((o) => o.open)?.id ??
+            c.outlets[0]?.id ??
+            null,
+        );
       })
       .catch((e) => setMissing(e instanceof PublicError && e.status === 404));
   }, [slug]);
+
+  // Which dishes are hearted, for the hearts on the menu.
+  useEffect(() => {
+    publicApi
+      .favourites(auth.token)
+      .then((r) => setFavs(new Set(r.favourites.map((f) => f.menu_item_id))))
+      .catch(() => undefined);
+  }, [auth.token]);
 
   // A payment this phone started and did not see through (the page was closed): pick it up.
   useEffect(() => {
@@ -562,6 +651,28 @@ function CourtFlow({
 
   /** The payment went through and the orders were placed (or refunded): show the tokens, and take
    * what was paid for out of the cart so it cannot be ordered twice. */
+  async function toggleFav(itemId: string) {
+    const on = favs.has(itemId);
+    setFavs((f) => {
+      const next = new Set(f);
+      if (on) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+    try {
+      const r = await (on ? publicApi.removeFavourite(auth.token, itemId) : publicApi.addFavourite(auth.token, itemId));
+      setFavs(new Set(r.favourites.map((f) => f.menu_item_id)));
+    } catch (e) {
+      onGuard(e);
+      setFavs((f) => {
+        const back = new Set(f);
+        if (on) back.add(itemId);
+        else back.delete(itemId);
+        return back;
+      });
+    }
+  }
+
   function finishPaid(view: CheckoutView) {
     const names = new Set(view.orders.map((o) => o.outlet));
     const rest = Object.fromEntries(Object.entries(carts).filter(([id]) => !names.has(nameOf(id))));
@@ -625,6 +736,7 @@ function CourtFlow({
   if (view === 'placed') {
     return (
       <Placed
+        token={auth.token}
         results={results}
         paidPaise={paidPaise}
         more={allItemCount(carts) > 0 ? 'cart' : 'browse'}
@@ -672,7 +784,9 @@ function CourtFlow({
               menu={menus[active] ?? null}
               cart={carts[active] ?? {}}
               loadMenu={loadMenu}
-              change={(itemId, delta) => updateCarts(changeOutletQty(carts, active, itemId, delta))}
+              favs={favs}
+              onFav={(id) => void toggleFav(id)}
+              change={(itemId, mods, delta) => updateCarts(changeOutletLine(carts, active, itemId, mods, delta))}
             />
           )}
         </>
@@ -691,21 +805,31 @@ function CourtFlow({
   );
 }
 
+/** The green (vegetarian) or red (non-vegetarian) square every Indian menu uses. */
+function VegMark({ veg }: { veg: boolean }) {
+  return <span className={`veg ${veg ? '' : 'nv'}`} role="img" aria-label={veg ? 'Vegetarian' : 'Non-vegetarian'} />;
+}
+
 function OutletMenu({
   outletId,
   menu,
   cart,
   loadMenu,
+  favs,
+  onFav,
   change,
 }: {
   slug: string;
   outletId: string;
   menu: PublicMenu | null;
-  cart: Carts[string];
+  cart: Cart;
   loadMenu(id: string): Promise<boolean>;
-  change(itemId: string, delta: number): void;
+  favs: Set<string>;
+  onFav(itemId: string): void;
+  change(itemId: string, mods: string[], delta: number): void;
 }) {
   const [failed, setFailed] = useState(false);
+  const [choosing, setChoosing] = useState<PublicItem | null>(null);
 
   const load = useCallback(() => {
     void loadMenu(outletId).then((ok) => setFailed(!ok));
@@ -726,31 +850,58 @@ function OutletMenu({
         </p>
       )}
       {menu && !menu.open && <p className="cx-note">This outlet is not taking orders right now.</p>}
+      {menu?.open && menu.prep_minutes && (
+        <p className="muted cx-wait-note">Usually ready in about {menu.prep_minutes} min</p>
+      )}
       {menu &&
         byCategory(menu.items).map((g) => (
           <section key={g.category} aria-label={g.category}>
             <h2>{g.category}</h2>
             <ul className="cx-list">
               {g.items.map((i) => {
-                const qty = cart[i.id] ?? 0;
+                const qty = dishCount(cart, i.id);
+                const hasOptions = i.options.length > 0;
+                const canOrder = menu.open && !i.sold_out;
                 return (
                   <li key={i.id} className={`cx-dish ${i.sold_out ? 'gone' : ''}`}>
+                    {i.photo_url ? (
+                      <img className="cx-photo" src={i.photo_url} alt="" loading="lazy" width={62} height={62} />
+                    ) : null}
                     <div>
-                      <strong>{i.name}</strong>
+                      <strong>
+                        <VegMark veg={i.is_veg} />
+                        {i.name}
+                      </strong>
+                      {i.description && <span className="cx-desc">{i.description}</span>}
                       {i.sold_out && <span className="muted"> Sold out today</span>}
+                      <span className="muted cx-price num">
+                        {hasOptions ? 'from ' : ''}
+                        {formatRupees(i.price_paise)}
+                      </span>
                     </div>
-                    <span className="num">{formatRupees(i.price_paise)}</span>
-                    {i.sold_out || !menu.open ? null : qty === 0 ? (
-                      <button className="cx-add" aria-label={`Add ${i.name}`} onClick={() => change(i.id, 1)}>
+                    <button
+                      className={`cx-heart ${favs.has(i.id) ? 'on' : ''}`}
+                      aria-pressed={favs.has(i.id)}
+                      aria-label={`${favs.has(i.id) ? 'Remove' : 'Save'} ${i.name} ${favs.has(i.id) ? 'from' : 'to'} favourites`}
+                      onClick={() => onFav(i.id)}
+                    >
+                      {favs.has(i.id) ? '♥' : '♡'}
+                    </button>
+                    {!canOrder ? null : hasOptions ? (
+                      <button className="cx-add wide" aria-label={`Add ${i.name}`} onClick={() => setChoosing(i)}>
+                        {qty > 0 ? `Add · ${qty}` : 'Add'}
+                      </button>
+                    ) : qty === 0 ? (
+                      <button className="cx-add" aria-label={`Add ${i.name}`} onClick={() => change(i.id, [], 1)}>
                         +
                       </button>
                     ) : (
                       <span className="cx-step">
-                        <button aria-label={`Remove one ${i.name}`} onClick={() => change(i.id, -1)}>
+                        <button aria-label={`Remove one ${i.name}`} onClick={() => change(i.id, [], -1)}>
                           −
                         </button>
                         <span aria-label={`${qty} ${i.name}`}>{qty}</span>
-                        <button aria-label={`Add one more ${i.name}`} onClick={() => change(i.id, 1)}>
+                        <button aria-label={`Add one more ${i.name}`} onClick={() => change(i.id, [], 1)}>
                           +
                         </button>
                       </span>
@@ -766,7 +917,78 @@ function OutletMenu({
           Sold out since you picked it: {gone.join(', ')}. Open your cart to remove it.
         </p>
       )}
+      {choosing && (
+        <OptionsSheet
+          item={choosing}
+          onClose={() => setChoosing(null)}
+          onAdd={(mods) => {
+            change(choosing.id, mods, 1);
+            setChoosing(null);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** The options for one dish: pick a size (if it has sizes) and tick any extras, then add. The
+ * price shown is only a guide: the server prices the order from its own options. */
+function OptionsSheet({ item, onClose, onAdd }: { item: PublicItem; onClose(): void; onAdd(mods: string[]): void }) {
+  const sizes = item.options.filter((o) => o.is_size);
+  const extras = item.options.filter((o) => !o.is_size);
+  const [size, setSize] = useState<string | null>(null); // null: the regular size
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
+  const mods = [...(size ? [size] : []), ...ticked];
+  const delta = (o: PublicOption) => (o.price_delta_paise ? ` ${o.price_delta_paise > 0 ? '+' : '−'}${formatRupees(Math.abs(o.price_delta_paise))}` : '');
+
+  return (
+    <Sheet title={item.name} onClose={onClose}>
+      <div className="cx-form">
+        {item.description && <p className="muted">{item.description}</p>}
+        {sizes.length > 0 && (
+          <fieldset className="cx-opts">
+            <legend>Size</legend>
+            <label className={`cx-chip ${size === null ? 'on' : ''}`}>
+              <input type="radio" name="size" checked={size === null} onChange={() => setSize(null)} />
+              Regular
+            </label>
+            {sizes.map((o) => (
+              <label key={o.id} className={`cx-chip ${size === o.id ? 'on' : ''}`}>
+                <input type="radio" name="size" checked={size === o.id} onChange={() => setSize(o.id)} />
+                {o.name}
+                {delta(o)}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {extras.length > 0 && (
+          <fieldset className="cx-opts">
+            <legend>Make it</legend>
+            {extras.map((o) => (
+              <label key={o.id} className={`cx-chip ${ticked.has(o.id) ? 'on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={ticked.has(o.id)}
+                  onChange={() =>
+                    setTicked((t) => {
+                      const next = new Set(t);
+                      if (next.has(o.id)) next.delete(o.id);
+                      else next.add(o.id);
+                      return next;
+                    })
+                  }
+                />
+                {o.name}
+                {delta(o)}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        <button className="primary" onClick={() => onAdd(mods)}>
+          Add to cart · {formatRupees(unitPrice(item, mods))}
+        </button>
+      </div>
+    </Sheet>
   );
 }
 
@@ -817,6 +1039,26 @@ function CartScreen({
   }, []);
 
   const ready = outletIds.every((id) => menus[id] !== undefined);
+  const [notice, setNotice] = useState<string | null>(null);
+  const pruned = useRef(false);
+
+  // "Order again" can meet a changed menu: once every menu has loaded, take out what is gone and say so.
+  useEffect(() => {
+    if (!ready || pruned.current || outletIds.length === 0) return;
+    pruned.current = true;
+    let next = carts;
+    let dropped = 0;
+    for (const id of outletIds) {
+      const r = pruneCart(menus[id].items, carts[id]);
+      dropped += r.dropped;
+      next = r.dropped > 0 ? { ...next, [id]: r.cart } : next;
+    }
+    if (dropped > 0) {
+      setCarts(Object.fromEntries(Object.entries(next).filter(([, c]) => Object.keys(c).length > 0)));
+      setNotice(`${dropped} dish${dropped === 1 ? ' is' : 'es are'} no longer on the menu and ${dropped === 1 ? 'was' : 'were'} left out.`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
   const blocked = outletIds.some((id) => menus[id] && (!menus[id].open || soldOutInCart(menus[id].items, carts[id]).length > 0));
   const total = grandTotal(menus, carts);
   const unique = useMemo(() => (id: string) => (requestIds.current[id] ??= crypto.randomUUID()), []);
@@ -828,13 +1070,12 @@ function CartScreen({
     let next = carts;
     const problems: string[] = [];
     for (const id of outletIds) {
-      const menu = menus[id];
       try {
         const placed = await publicApi.place(auth.token, slug, id, {
           request_id: unique(id),
           note: (notes[id] ?? '').trim(),
           message_ok: consent,
-          items: menu.items.filter((i) => (carts[id][i.id] ?? 0) > 0).map((i) => ({ menu_item_id: i.id, qty: carts[id][i.id] })),
+          items: cartItems(carts[id]),
         });
         results.push({ id, outlet: nameOf(id), key: placed.status_key });
         delete requestIds.current[id];
@@ -866,7 +1107,7 @@ function CartScreen({
       outlet_id: id,
       request_id: unique(id),
       note: (notes[id] ?? '').trim(),
-      items: menus[id].items.filter((i) => (carts[id][i.id] ?? 0) > 0).map((i) => ({ menu_item_id: i.id, qty: carts[id][i.id] })),
+      items: cartItems(carts[id]),
     }));
     // A new payment whenever the cart changes: one id must never mean two different carts.
     const key = JSON.stringify([orders.map((o) => [o.outlet_id, o.items, o.note]), consent]);
@@ -903,6 +1144,11 @@ function CartScreen({
         </button>
         <h1>Your cart</h1>
       </header>
+      {notice && (
+        <p className="cx-note" role="status">
+          {notice}
+        </p>
+      )}
       {outletIds.length === 0 && <p className="muted">Your cart is empty.</p>}
       {outletIds.map((id) => {
         const menu = menus[id];
@@ -914,23 +1160,33 @@ function CartScreen({
             {menu && !menu.open && <p className="error">This outlet is not taking orders right now. Remove its dishes to continue.</p>}
             {gone.length > 0 && <p className="error">Sold out: {gone.join(', ')}. Remove it to continue.</p>}
             <ul className="cx-summary" aria-label={`${nameOf(id)} order`}>
-              {(menu?.items ?? [])
-                .filter((i) => (cart[i.id] ?? 0) > 0)
-                .map((i) => (
-                  <li key={i.id}>
-                    <span>
-                      {cart[i.id]} × {i.name}
-                    </span>
-                    <span className="cx-step">
-                      <button aria-label={`Remove one ${i.name}`} onClick={() => setCarts(changeOutletQty(carts, id, i.id, -1))}>
-                        −
-                      </button>
-                      <button aria-label={`Add one more ${i.name}`} onClick={() => setCarts(changeOutletQty(carts, id, i.id, 1))}>
-                        +
-                      </button>
-                    </span>
-                  </li>
-                ))}
+              {menu &&
+                Object.values(cart).map((line) => {
+                  const item = menu.items.find((i) => i.id === line.itemId);
+                  if (!item) return null;
+                  const label = lineLabel(item, line.mods);
+                  return (
+                    <li key={`${line.itemId}|${line.mods.join(',')}`}>
+                      <span>
+                        {line.qty} × {label}
+                      </span>
+                      <span className="cx-step">
+                        <button
+                          aria-label={`Remove one ${label}`}
+                          onClick={() => setCarts(changeOutletLine(carts, id, line.itemId, line.mods, -1))}
+                        >
+                          −
+                        </button>
+                        <button
+                          aria-label={`Add one more ${label}`}
+                          onClick={() => setCarts(changeOutletLine(carts, id, line.itemId, line.mods, 1))}
+                        >
+                          +
+                        </button>
+                      </span>
+                    </li>
+                  );
+                })}
               {menu && (
                 <li className="cx-total">
                   <strong>Subtotal</strong>
@@ -1106,12 +1362,14 @@ function Paying({
 
 /** After placing: a token per outlet that went through, and a plain note on any that did not. */
 function Placed({
+  token,
   results,
   paidPaise,
   more,
   onMore,
   onOrders,
 }: {
+  token: string;
   results: Result[];
   paidPaise: number | null;
   more: 'cart' | 'browse';
@@ -1130,7 +1388,7 @@ function Placed({
         <p>{placed.length === 0 ? 'Nothing was placed' : `Show ${placed.length === 1 ? 'it' : 'each'} at ${placed.length === 1 ? 'the' : 'its own'} counter`}</p>
       </header>
       {placed.map((r) => (
-        <StatusCard key={r.key} orderKey={r.key!} />
+        <StatusCard key={r.key} orderKey={r.key!} token={token} />
       ))}
       {failed.map((r) => (
         <p key={r.id} className="cx-note" role="alert">
@@ -1148,9 +1406,10 @@ function Placed({
 }
 
 // ---------------------------------------------------------------- one order's live token card
-function StatusCard({ orderKey: key }: { orderKey: string }) {
+function StatusCard({ orderKey: key, token }: { orderKey: string; token: string }) {
   const [order, setOrder] = useState<PublicOrder | null>(null);
   const [lost, setLost] = useState(false);
+  const last = useRef<string | null>(null);
 
   const done = order?.status === 'collected' || order?.status === 'declined';
 
@@ -1159,7 +1418,17 @@ function StatusCard({ orderKey: key }: { orderKey: string }) {
     const poll = () =>
       publicApi
         .order(key)
-        .then((o) => live && (setOrder(o), setLost(false)))
+        .then((o) => {
+          if (!live) return;
+          // The moment it turns ready while this page is open: a chime, a buzz and the tab title.
+          if (o.status === 'ready' && last.current !== null && last.current !== 'ready') {
+            chime();
+            document.title = `🔔 ${o.token} is ready`;
+          }
+          last.current = o.status;
+          setOrder(o);
+          setLost(false);
+        })
         .catch((e) => live && e instanceof PublicError && e.status === 404 && setLost(true));
     void poll();
     if (done) return () => void (live = false);
@@ -1193,7 +1462,12 @@ function StatusCard({ orderKey: key }: { orderKey: string }) {
         </div>
         <h2>{text.title}</h2>
         <p className="muted">{text.detail}</p>
+        {order.status === 'received' && order.prep_minutes && (
+          <p className="muted">Usually ready in about {order.prep_minutes} min</p>
+        )}
       </section>
+      {!done && <NotifyPrompt token={token} />}
+      {order.status === 'collected' && <RateOrder token={token} orderKey={key} />}
       <ul className="cx-summary" aria-label="Your order">
         {order.items.map((i) => (
           <li key={i.name}>
@@ -1211,6 +1485,110 @@ function StatusCard({ orderKey: key }: { orderKey: string }) {
   );
 }
 
+/** "Tell me when it is ready" for people who will close the page. Only shown when the server has
+ * notification keys, the browser can do it, and the customer has not already said yes or no. */
+function NotifyPrompt({ token }: { token: string }) {
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void pushState(token).then((s) => live && setState(s));
+    return () => void (live = false);
+  }, [token]);
+
+  if (state === 'on') return <p className="muted cx-notify">🔔 We will notify you when it is ready.</p>;
+  if (state !== 'ask') return null;
+  return (
+    <div className="cx-notify-card">
+      <div>
+        <strong>Get a notification when it is ready</strong>
+        <span className="muted">So you can close this page and do something else.</span>
+      </div>
+      <button
+        className="primary"
+        disabled={busy}
+        onClick={() => {
+          unlockSound(); // the same tap lets this page chime too
+          setBusy(true);
+          void enablePush(token).then((s) => {
+            setState(s);
+            setBusy(false);
+          });
+        }}
+      >
+        Allow notifications
+      </button>
+    </div>
+  );
+}
+
+/** One tap to rate a collected order, once. */
+function RateOrder({ token, orderKey }: { token: string; orderKey: string }) {
+  const [mine, setMine] = useState<{ rating: number | null; comment: string } | null>(null);
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    publicApi
+      .myRating(token, orderKey)
+      .then((r) => live && setMine(r))
+      .catch(() => undefined);
+    return () => void (live = false);
+  }, [token, orderKey]);
+
+  if (mine === null) return null;
+  if (mine.rating !== null) {
+    return (
+      <p className="cx-rated" role="status">
+        Thanks for rating: {'★'.repeat(mine.rating)}
+        {'☆'.repeat(5 - mine.rating)}
+      </p>
+    );
+  }
+  return (
+    <form
+      className="cx-rate"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (stars === 0) return;
+        setBusy(true);
+        setError(null);
+        publicApi
+          .rate(token, orderKey, stars, comment.trim())
+          .then(() => setMine({ rating: stars, comment: comment.trim() }))
+          .catch(() => setError('Could not send your rating. Please try again.'))
+          .finally(() => setBusy(false));
+      }}
+    >
+      <strong>How was it?</strong>
+      <div className="cx-stars" role="radiogroup" aria-label="Your rating">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={stars === n}
+            aria-label={`${n} star${n === 1 ? '' : 's'}`}
+            className={n <= stars ? 'on' : ''}
+            onClick={() => setStars(n)}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+      <input value={comment} onChange={(e) => setComment(e.target.value)} maxLength={200} placeholder="Anything to add? (optional)" />
+      {error && <p className="error">{error}</p>}
+      <button className="primary" disabled={stars === 0 || busy}>
+        {busy ? 'Sending…' : 'Send'}
+      </button>
+    </form>
+  );
+}
+
 // ---------------------------------------------------------------- my orders and my account
 const WHEN = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
@@ -1219,6 +1597,7 @@ function Orders({
   onGuard,
   onBack,
   onOpen,
+  onReorder,
   onAuth,
   onLogOut,
 }: {
@@ -1226,6 +1605,7 @@ function Orders({
   onGuard(e: unknown): void;
   onBack(): void;
   onOpen(key: string): void;
+  onReorder(row: HistoryRow): void;
   onAuth(s: Signed): void;
   onLogOut(): void;
 }) {
@@ -1268,7 +1648,7 @@ function Orders({
       {rows && rows.length === 0 && <p className="cx-note">You have not ordered yet.</p>}
       <ul className="cx-list" aria-label="Orders">
         {rows?.map((o) => (
-          <li key={o.status_key}>
+          <li key={o.status_key} className="cx-order-row">
             <button className="cx-outlet cx-history" onClick={() => onOpen(o.status_key)}>
               <span className="cx-name">
                 <strong>
@@ -1281,8 +1661,18 @@ function Orders({
               <span className="cx-right">
                 <span className={`cx-tag st-${o.status}`}>{STATUS_TEXT[o.status].title.split(',')[0]}</span>
                 <small className="num">{formatRupees(o.total_paise)}</small>
+                {o.rating !== null && (
+                  <small className="cx-rated" aria-label={`You rated it ${o.rating} out of 5`}>
+                    {'★'.repeat(o.rating)}
+                  </small>
+                )}
               </span>
             </button>
+            {o.lines.length > 0 && (
+              <button className="cx-again" onClick={() => onReorder(o)} aria-label={`Order ${o.token} again`}>
+                ↻ Order again
+              </button>
+            )}
           </li>
         ))}
       </ul>

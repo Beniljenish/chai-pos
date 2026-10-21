@@ -187,7 +187,9 @@ export function TablesScreen() {
                         <strong>{onlineToken(o.state)}</strong>
                         <span>
                           {o.state.customer_name.slice((onlineToken(o.state) ?? '').length + 1)}
-                          <span className="muted"> · {lines.map((ln) => `${ln.qty} × ${ln.name}`).join(', ')}</span>
+                          <span className="muted"> · {lines
+                              .map((ln) => `${ln.qty} × ${ln.name}${ln.modifiers.length ? ` (${ln.modifiers.map((m) => m.name).join(', ')})` : ''}`)
+                              .join(', ')}</span>
                         </span>
                         {paidOnline[o.id] !== undefined && (
                           <span className="flag paid-online" title="Already paid in the app. Do not collect money; bill it as UPI.">

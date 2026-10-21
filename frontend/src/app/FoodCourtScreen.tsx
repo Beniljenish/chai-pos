@@ -30,6 +30,18 @@ export function FoodCourtScreen() {
     void load();
   }, [load]);
 
+  async function setPrep(minutes: number) {
+    setBusy(true);
+    setError(null);
+    try {
+      setV(await api.patch<FoodCourtView>('/food-court/me', { prep_minutes: Math.max(0, Math.min(180, minutes)) }));
+    } catch (e) {
+      setError(explainError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function toggle() {
     setBusy(true);
     setError(null);
@@ -82,6 +94,44 @@ export function FoodCourtScreen() {
               <span />
             </button>
           </div>
+
+          <div className="panel-inline fc-switch">
+            <div>
+              <strong>Usual wait</strong>
+              <p className="muted">
+                {v.prep_minutes
+                  ? `Customers are told "usually ready in about ${v.prep_minutes} min".`
+                  : 'Customers are not told a wait. Set one so they know what to expect.'}
+              </p>
+            </div>
+            <span className="fc-stepper" role="group" aria-label="Usual wait in minutes">
+              <button disabled={busy || !v.prep_minutes} aria-label="5 minutes less" onClick={() => void setPrep((v.prep_minutes ?? 0) - 5)}>
+                −
+              </button>
+              <strong className="num">{v.prep_minutes ? `${v.prep_minutes} min` : 'not set'}</strong>
+              <button disabled={busy} aria-label="5 minutes more" onClick={() => void setPrep((v.prep_minutes ?? 0) + 5)}>
+                +
+              </button>
+            </span>
+          </div>
+
+          {v.ratings && v.ratings.count > 0 && (
+            <section className="panel-inline fc-ratings" aria-label="Ratings">
+              <h2>
+                {v.ratings.average} ★ <span className="muted">from {v.ratings.count} rating{v.ratings.count === 1 ? '' : 's'}</span>
+              </h2>
+              <ul>
+                {v.ratings.recent
+                  .filter((r) => r.comment)
+                  .slice(0, 5)
+                  .map((r) => (
+                    <li key={r.at}>
+                      <span aria-label={`${r.rating} stars`}>{'★'.repeat(r.rating)}</span> “{r.comment}” <span className="muted">· {r.name}</span>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
 
           {v.online_money && v.online_money.orders + v.online_money.settled_paise > 0 && (
             <section className="panel-inline fc-money" aria-label="Online payments">

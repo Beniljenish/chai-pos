@@ -27,6 +27,10 @@ services:
       # with this on unless its database is this compose 'db' (or localhost).
       DEV_LOGIN: "true"
       FAKE_PAYMENTS: "true"
+    # Phone-notification keys for this computer only (./local.sh makes the file; it is not committed).
+    env_file:
+      - path: .local-vapid.env
+        required: false
     command: >
       sh -c "alembic upgrade heads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app"
