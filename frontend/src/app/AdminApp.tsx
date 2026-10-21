@@ -182,6 +182,7 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
                 <div>
                   <h2>{c.name}</h2>
                   <p className="muted">
+                    {c.location ? `${c.location} · ` : ''}
                     {c.outlets.length} outlet{c.outlets.length === 1 ? '' : 's'}
                   </p>
                   <code className="admin-link">{link}</code>
@@ -230,11 +231,13 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
         })
       )}
 
+      <CustomerReset token={token} onSignedOut={onSignedOut} />
+
       {sheet?.kind === 'court' && (
         <NewCourt
           onClose={() => setSheet(null)}
-          onSave={async (name) => {
-            const ok = await run(() => adminApi.createCourt(token, name));
+          onSave={async (name, location) => {
+            const ok = await run(() => adminApi.createCourt(token, name, location));
             if (ok) setSheet(null);
             return ok;
           }}
@@ -261,8 +264,64 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
   );
 }
 
-function NewCourt({ onClose, onSave }: { onClose(): void; onSave(name: string): Promise<boolean> }) {
+/** A customer forgot their password: type their number, read the temporary one to them. */
+function CustomerReset({ token, onSignedOut }: { token: string; onSignedOut(): void }) {
+  const [phone, setPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ name: string; temporary_password: string } | null>(null);
+  const clean = cleanPhone(phone);
+
+  async function reset(e: FormEvent) {
+    e.preventDefault();
+    if (clean === null) return;
+    setBusy(true);
+    setError(null);
+    setDone(null);
+    try {
+      setDone(await adminApi.resetCustomer(token, clean));
+      setPhone('');
+    } catch (err) {
+      if (err instanceof AdminError && err.status === 401) onSignedOut();
+      else setError(err instanceof AdminError ? err.message : 'Could not reach the server.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="admin-court" aria-label="Forgotten customer password">
+      <h2>Forgotten customer password</h2>
+      <form className="admin-form" onSubmit={reset}>
+        <label>
+          Customer's mobile number
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
+        </label>
+        <button className="primary" disabled={busy || clean === null}>
+          Reset password
+        </button>
+      </form>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {done && (
+        <div role="status">
+          <p className="muted">
+            Temporary password for <strong>{done.name}</strong> (shown once):
+          </p>
+          <p className="admin-temp">{done.temporary_password}</p>
+          <p className="muted">Tell them to log in with it; the app will ask them for a new one.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function NewCourt({ onClose, onSave }: { onClose(): void; onSave(name: string, location: string): Promise<boolean> }) {
   const [name, setName] = useState('');
+  const [location, setLocation] = useState('');
   const [busy, setBusy] = useState(false);
   return (
     <Sheet title="New food court" onClose={onClose}>
@@ -271,13 +330,17 @@ function NewCourt({ onClose, onSave }: { onClose(): void; onSave(name: string): 
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
-          await onSave(name.trim());
+          await onSave(name.trim(), location.trim());
           setBusy(false);
         }}
       >
         <label>
           Name customers will see
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Marina Food Court" autoFocus />
+        </label>
+        <label>
+          Where it is <span className="muted">(customers pick by this)</span>
+          <input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={120} placeholder="Marina Beach, Chennai" />
         </label>
         <button className="primary" disabled={busy || name.trim().length < 2}>
           Create food court

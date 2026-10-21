@@ -22,6 +22,21 @@ export function changeQty(cart: Cart, id: string, delta: number): Cart {
   return next === 0 ? rest : { ...rest, [id]: next };
 }
 
+/** One cart per outlet, together: a customer can take dishes from several outlets of a
+ * court and place them all at once (one order, and one token, per outlet). */
+export type Carts = Record<string, Cart>;
+
+export function changeOutletQty(carts: Carts, outletId: string, itemId: string, delta: number): Carts {
+  const next = changeQty(carts[outletId] ?? {}, itemId, delta);
+  const { [outletId]: _gone, ...rest } = carts;
+  return Object.keys(next).length === 0 ? rest : { ...rest, [outletId]: next };
+}
+
+/** Outlets that have something in the cart, in the order they were first picked. */
+export const outletsInCart = (carts: Carts): string[] => Object.keys(carts).filter((id) => cartCount(carts[id]) > 0);
+
+export const allItemCount = (carts: Carts): number => Object.values(carts).reduce((n, c) => n + cartCount(c), 0);
+
 export const cartCount = (cart: Cart): number => Object.values(cart).reduce((a, b) => a + b, 0);
 
 /** What the customer will pay at the counter: the same GST code the till uses, so
@@ -36,6 +51,11 @@ export function cartTotal(items: PublicItem[], cart: Cart, gstType: GstType): nu
       taxInclusive: i.tax_inclusive,
     }));
   return lines.length === 0 ? 0 : computeBill(lines, gstType).total;
+}
+
+/** The whole cart at the counters: each outlet's total, worked out the way that outlet's bill will be. */
+export function grandTotal(menus: Record<string, { items: PublicItem[]; gst_type: GstType }>, carts: Carts): number {
+  return outletsInCart(carts).reduce((sum, id) => (menus[id] ? sum + cartTotal(menus[id].items, carts[id], menus[id].gst_type) : sum), 0);
 }
 
 /** Items that were picked and have since sold out (the menu refreshes while they browse). */
@@ -82,6 +102,35 @@ export const courtPath = (slug: string): string => `/order/${encodeURIComponent(
 export function courtSlugFromPath(pathname: string): string | null {
   const m = /^\/order\/([a-z0-9-]{1,60})\/?$/.exec(pathname);
   return m ? m[1] : null;
+}
+
+/** The customer area's front door: /order, with no court chosen yet. */
+export const isOrderHome = (pathname: string): boolean => /^\/order\/?$/.test(pathname);
+
+export const ORDER_HOME = '/order';
+
+/** Case-insensitive match on a court's name or place, for the picker's search box. */
+export function courtMatches(c: { name: string; location: string }, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return q === '' || `${c.name} ${c.location}`.toLowerCase().includes(q);
+}
+
+/** What went wrong with sign-up, log-in or a password change, in words for a customer. */
+export function accountProblem(status: number, code?: string, serverMessage?: string): string {
+  if (status === 429 && serverMessage) return serverMessage;
+  switch (code) {
+    case 'phone_taken':
+      return 'This number already has an account. Log in instead.';
+    case 'weak_password':
+      return serverMessage || 'Choose a stronger password.';
+    case 'wrong_password':
+      return 'Your current password is not right.';
+    case 'name_required':
+      return 'Enter your name.';
+  }
+  if (status === 401) return 'Phone number or password is wrong.';
+  if (status === 422) return 'Check your name, a 10-digit mobile number and a password.';
+  return 'Could not do that. Please try again.';
 }
 
 /** Why an order was refused, in words for a customer. */

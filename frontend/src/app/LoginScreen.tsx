@@ -81,6 +81,9 @@ export function LoginScreen() {
         <button className="primary" disabled={busy}>
           {busy ? 'Logging in…' : 'Log in'}
         </button>
+        <p className="login-customer">
+          Want to order food at a food court? <a href="/order">Create a customer account or log in</a>
+        </p>
       </form>
     </main>
   );

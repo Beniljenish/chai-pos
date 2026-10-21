@@ -4449,6 +4449,198 @@ button.save {
   background: var(--leaf);
 }
 
+/* Customer accounts and the shared cart (README, "9.13") */
+.cx-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: var(--s4);
+  background: var(--brand-soft);
+  border-radius: 14px;
+}
+.cx-tabs button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--brand);
+  font-weight: 800;
+  border-radius: 11px;
+}
+.cx-tabs button[aria-selected='true'] {
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.cx-who {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin: var(--s3) 0;
+  padding: var(--s2) var(--s3);
+  background: var(--brand-soft);
+  color: var(--ink);
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+.cx-hero .cx-who {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.cx-who button {
+  flex: none;
+  min-height: 34px;
+  padding: 0 var(--s3);
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--brand);
+  font-weight: 800;
+}
+.cx-search {
+  width: 100%;
+  margin-bottom: var(--s3);
+}
+.cx-search::-webkit-search-cancel-button {
+  display: none;
+}
+.cx-name {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+}
+.cx-outlet:disabled {
+  opacity: 0.6;
+}
+.cx-where {
+  margin: 0 0 var(--s2);
+}
+.cx-chips {
+  display: flex;
+  gap: var(--s2);
+  margin: var(--s3) calc(var(--s4) * -1);
+  padding: 0 var(--s4) var(--s1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cx-chips button {
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--s4);
+  border: none;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.cx-chips button[aria-selected='true'] {
+  background: var(--brand);
+  color: #fff;
+}
+.cx-chips button.shut {
+  opacity: 0.55;
+}
+.cx-chips b {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent, #e23e72);
+  color: #fff;
+  font-size: 0.72rem;
+}
+.cx-group {
+  margin: var(--s4) 0;
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.cx-group h2 {
+  margin: 0 0 var(--s2);
+  font-size: 1rem;
+  color: var(--brand);
+}
+.cx-group .cx-summary {
+  margin: 0 0 var(--s2);
+  padding: 0;
+  box-shadow: none;
+}
+.cx-summary li {
+  align-items: center;
+  gap: var(--s3);
+}
+.cx-summary li > span:first-child {
+  flex: 1;
+}
+.cx-as {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.cx-as > span:nth-child(2) {
+  flex: 1;
+}
+.cx-card {
+  margin: var(--s4) 0;
+}
+.cx-card .cx-token {
+  margin-top: var(--s1);
+}
+.cx-outlet-name {
+  margin: 0;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.cx-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s3) 0;
+}
+.cx-history {
+  align-items: flex-start;
+}
+.cx-right {
+  margin-left: auto;
+  display: grid;
+  justify-items: end;
+  gap: var(--s1);
+}
+.cx-right .cx-tag {
+  margin-left: 0;
+}
+.cx-tag.st-ready {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+}
+.cx-tag.st-received {
+  background: var(--turmeric-soft);
+  color: #7a4d06;
+}
+.cx-tag.st-collected,
+.cx-tag.st-declined {
+  background: var(--steel);
+  color: var(--ink-soft);
+}
+.login-customer {
+  margin: var(--s3) 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.admin-temp {
+  margin: var(--s2) 0;
+  padding: var(--s3);
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-radius: 12px;
+  user-select: all;
+}
+
 /* Manage -> Food court */
 .fc-switch {
   display: flex;

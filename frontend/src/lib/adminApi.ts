@@ -13,6 +13,7 @@ export interface AdminCourt {
   id: string;
   name: string;
   slug: string;
+  location: string;
   outlets: AdminOutlet[];
 }
 
@@ -75,7 +76,11 @@ export const adminApi = {
   login: (phone: string, password: string) =>
     call<{ access_token: string; name: string }>('/login', null, body({ phone, password })),
   courts: (t: string) => call<{ courts: AdminCourt[] }>('/courts', t),
-  createCourt: (t: string, name: string) => call<{ courts: AdminCourt[] }>('/courts', t, body({ name })),
+  createCourt: (t: string, name: string, location: string) =>
+    call<{ courts: AdminCourt[] }>('/courts', t, body({ name, location })),
+  /** A forgotten customer password: returns a temporary one, once, for the admin to read out. */
+  resetCustomer: (t: string, phone: string) =>
+    call<{ name: string; phone: string; temporary_password: string }>('/customers/reset-password', t, body({ phone })),
   addOutlet: (
     t: string,
     courtId: string,

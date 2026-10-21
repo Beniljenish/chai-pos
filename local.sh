@@ -33,7 +33,11 @@ fi
 docker compose exec -T -e NEW_ADMIN_PHONE=9000000099 -e NEW_ADMIN_NAME="Super admin" \
   api python -m scripts.new_platform_admin >/dev/null
 
+# A food court with the demo shop in it, so a customer has something to order from.
+docker compose exec -T api python -m scripts.local_court || true
+
 echo
 echo "Open  http://localhost:5173  and log in as the owner 9000000000 (no password in local test mode)."
 echo "Super admin (food courts and outlets): http://localhost:5173/admin  with 9000000099."
+echo "Customers (people who order food): http://localhost:5173/order  Create account, then pick Demo Food Court."
 echo "The app takes a minute to appear the first time. Stop with: docker compose down"

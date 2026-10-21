@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  accountProblem,
+  allItemCount,
   byCategory,
   cartCount,
   cartTotal,
+  changeOutletQty,
   changeQty,
   cleanPhone,
+  courtMatches,
   courtSlugFromPath,
+  grandTotal,
+  isOrderHome,
+  outletsInCart,
   orderProblem,
   soldOutInCart,
   statusStep,
@@ -98,5 +105,55 @@ describe('words for the customer', () => {
   });
   it('fills the progress bar', () => {
     expect(['received', 'ready', 'collected', 'declined'].map((s) => statusStep(s as never))).toEqual([1, 2, 3, 0]);
+  });
+});
+
+describe('one cart across outlets', () => {
+  const juice = item('j', 'Orange juice', 6000, { gst_rate_bp: 0 });
+  const menus = {
+    a: { items: [tea], gst_type: 'regular' as const },
+    b: { items: [juice], gst_type: 'regular' as const },
+  };
+
+  it('keeps a cart per outlet and drops an outlet when its cart empties', () => {
+    let carts = changeOutletQty({}, 'a', 't', 2);
+    carts = changeOutletQty(carts, 'b', 'j', 1);
+    expect(outletsInCart(carts)).toEqual(['a', 'b']);
+    expect(allItemCount(carts)).toBe(3);
+    carts = changeOutletQty(carts, 'a', 't', -2);
+    expect(outletsInCart(carts)).toEqual(['b']);
+    expect(carts).toEqual({ b: { j: 1 } });
+  });
+
+  it('adds each outlet total the way that outlet bills it', () => {
+    const carts = { a: { t: 2 }, b: { j: 1 } };
+    expect(grandTotal(menus, carts)).toBe(cartTotal(menus.a.items, carts.a, 'regular') + cartTotal(menus.b.items, carts.b, 'regular'));
+    // an outlet whose menu has not loaded yet adds nothing instead of guessing
+    expect(grandTotal({ a: menus.a }, carts)).toBe(cartTotal(menus.a.items, carts.a, 'regular'));
+  });
+});
+
+describe('the customer front door', () => {
+  it('knows /order from a court page', () => {
+    expect(isOrderHome('/order')).toBe(true);
+    expect(isOrderHome('/order/')).toBe(true);
+    expect(isOrderHome('/order/marina-1a2b')).toBe(false);
+    expect(isOrderHome('/')).toBe(false);
+    expect(courtSlugFromPath('/order')).toBeNull();
+  });
+
+  it('searches courts by name or place', () => {
+    const c = { name: 'Marina Food Court', location: 'Marina Beach, Chennai' };
+    expect(courtMatches(c, '')).toBe(true);
+    expect(courtMatches(c, 'chennai')).toBe(true);
+    expect(courtMatches(c, '  MARINA ')).toBe(true);
+    expect(courtMatches(c, 'adyar')).toBe(false);
+  });
+
+  it('explains account problems in words', () => {
+    expect(accountProblem(409, 'phone_taken')).toMatch(/already has an account/);
+    expect(accountProblem(401)).toMatch(/wrong/);
+    expect(accountProblem(429, undefined, 'Too many wrong passwords. Try again in 15 minutes.')).toMatch(/15 minutes/);
+    expect(accountProblem(422, 'weak_password', 'Use at least 8 characters')).toBe('Use at least 8 characters');
   });
 });
