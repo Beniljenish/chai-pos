@@ -4222,3 +4222,11 @@ button.save {
 .margin .chips {
   margin-bottom: var(--s3);
 }
+
+.login-test-note {
+  margin: 0;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius-control);
+  background: var(--turmeric-soft);
+  color: var(--turmeric);
+}

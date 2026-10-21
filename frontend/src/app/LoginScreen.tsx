@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { HttpError, NetworkError } from '../lib/api';
 import { useSession } from './session';
 
@@ -8,13 +8,22 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Local testing only: the server says so, and then no password is asked for.
+  const [noPassword, setNoPassword] = useState(false);
+
+  useEffect(() => {
+    fetch(`${__API_URL__}/auth/dev-login`)
+      .then((r) => (r.ok ? r.json() : { enabled: false }))
+      .then((d: { enabled?: boolean }) => setNoPassword(d.enabled === true))
+      .catch(() => setNoPassword(false)); // offline or an old server: the normal form
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await login(phone, password);
+      await login(phone, noPassword && !password ? '-' : password);
     } catch (err) {
       if (err instanceof NetworkError) setError('No internet. Logging in needs a connection; billing does not.');
       else if (err instanceof HttpError && err.status === 401) setError('Phone number or password is wrong.');
@@ -52,16 +61,22 @@ export function LoginScreen() {
             autoFocus
           />
         </label>
-        <label>
-          Password
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
+        {noPassword ? (
+          <p className="login-test-note" role="note">
+            <strong>Local test mode:</strong> no password needed. Passwords are set at go-live.
+          </p>
+        ) : (
+          <label>
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+        )}
         {error && <p className="error" role="alert">{error}</p>}
         <button className="primary" disabled={busy}>
           {busy ? 'Logging in…' : 'Log in'}

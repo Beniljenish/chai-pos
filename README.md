@@ -23,7 +23,9 @@ docker compose up --build          # database + API (:8000) + app (http://localh
 ```
 
 In a second terminal, the first time only, fill the database with four weeks of
-demo data. Pick any password of 8+ characters; it becomes every demo login's:
+demo data. Pick any password of 8+ characters; it becomes every demo login's
+(you will not need it in local test mode, see below, but it is the real one if you
+switch test mode off):
 
 ```bash
 docker compose exec -e DEMO_PASSWORD=<your password> api python -m scripts.local_demo
@@ -35,6 +37,7 @@ by themselves. A new migration: `docker compose restart api` applies it.
 
 - Look at the database: any Postgres tool (TablePlus, DBeaver, pgAdmin) on
   `localhost:5433`, database `chai_pos`, user and password `chai`.
+- **Local test mode (no password).** Docker Compose runs the API with `DEV_LOGIN=true`: the login screen shows "Local test mode" and only asks for the mobile number. The API refuses to start with this on unless its database is on this computer (localhost, 127.0.0.1 or the compose `db`), and never with `ENV=prod`, so the setting cannot be copied onto Supabase by accident. To test real passwords, remove that line from `docker-compose.yml`. Staff set their own passwords at go-live (the owner sets a temporary one, they change it on first login: README, "Phase 3g: staff accounts").
 - Forgot the demo password: `./reset-password.sh` asks for a new one and keeps your data.
 - Start again from empty: `docker compose down -v` (deletes the local data only).
 - Stop: Ctrl+C, or `docker compose down` (keeps the data).

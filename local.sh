@@ -20,11 +20,9 @@ done
 
 has_shop=$(docker compose exec -T db psql -U chai -d chai_pos -tAc "select count(*) from shops" | tr -d '[:space:]')
 if [ "$has_shop" = "0" ]; then
-  printf "Pick a password for the demo logins (8+ characters; it is not stored anywhere else): "
-  stty -echo 2>/dev/null || true
-  read -r pw
-  stty echo 2>/dev/null || true
-  echo
+  # Local test mode logs in by phone number alone, so the demo logins get a random
+  # password nobody needs to know. ./reset-password.sh sets a real one if wanted.
+  pw=$(openssl rand -hex 16)
   echo "Loading four weeks of demo data (about a minute)..."
   docker compose exec -T -e DEMO_PASSWORD="$pw" api python -m scripts.local_demo
 else
@@ -32,5 +30,5 @@ else
 fi
 
 echo
-echo "Open  http://localhost:5173  and log in as the owner 9000000000."
+echo "Open  http://localhost:5173  and log in as the owner 9000000000 (no password in local test mode)."
 echo "The app takes a minute to appear the first time. Stop with: docker compose down"

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import Caller, get_caller_even_if_password_pending
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.schemas import LoginIn, PasswordChangeIn, RefreshIn, TokenPair, UserOut
 from app.services import auth as auth_service
@@ -17,6 +18,13 @@ def login(body: LoginIn, db: Session = Depends(get_db)) -> TokenPair:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(e)) from None
     except auth_service.AuthError as e:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(e)) from None
+
+
+@router.get("/dev-login")
+def dev_login() -> dict:
+    """Whether this server is in local test mode (no password needed). Public:
+    the login screen asks before anyone has signed in."""
+    return {"enabled": get_settings().dev_login}
 
 
 @router.post("/refresh", response_model=TokenPair)

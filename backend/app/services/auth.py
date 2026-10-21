@@ -111,6 +111,8 @@ def login(db: Session, phone: str, password: str) -> TokenPair:
         )
     # verify_password runs even when user is None (constant-ish timing).
     ok = verify_password(password, user.password_hash if user else None)
+    if get_settings().dev_login and user is not None:
+        ok = True  # local testing only: config refuses this setting against a remote database
     if user is not None and not ok:
         user.failed_logins += 1
         if user.failed_logins >= MAX_FAILED_LOGINS:

@@ -23,6 +23,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://chai:chai@db:5432/chai_pos
       JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-0123456789}
+      # Local testing only: log in with the phone number alone. The API refuses to start
+      # with this on unless its database is this compose 'db' (or localhost).
+      DEV_LOGIN: "true"
     command: >
       sh -c "alembic upgrade heads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app"

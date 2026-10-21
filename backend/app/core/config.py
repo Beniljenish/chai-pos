@@ -1,7 +1,10 @@
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+
+LOCAL_DB_HOSTS = {"localhost", "127.0.0.1", "::1", "db"}
 
 
 class Settings(BaseSettings):
@@ -45,6 +48,22 @@ class Settings(BaseSettings):
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
     razorpay_webhook_secret: str = ""
+    # LOCAL TESTING ONLY: log in with just a phone number, any password. It refuses
+    # to start unless the database is on this computer (or the compose "db"
+    # service), so a copy of this setting can never switch it on against Supabase.
+    dev_login: bool = False
+
+    @model_validator(mode="after")
+    def dev_login_only_with_a_local_database(self):
+        if self.dev_login:
+            host = make_url(self.database_url).host or ""
+            if self.env == "prod" or host not in LOCAL_DB_HOSTS:
+                raise ValueError(
+                    "DEV_LOGIN lets anyone in without a password: it is only allowed "
+                    "with a database on this computer (localhost or the compose 'db'), "
+                    "and never with ENV=prod"
+                )
+        return self
 
     @field_validator("jwt_secret")
     @classmethod
