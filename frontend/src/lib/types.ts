@@ -464,14 +464,7 @@ export interface MarginItem {
 }
 
 export interface FoodCourtView {
-  court: null | {
-    id: string;
-    name: string;
-    slug: string;
-    role: 'host' | 'member';
-    /** Only the host is given the code. */
-    join_code: string | null;
-  };
+  court: null | { id: string; name: string; slug: string };
   accepting_orders?: boolean;
-  outlets?: { id: string; name: string; accepting_orders: boolean; is_me: boolean; is_host: boolean }[];
+  outlets?: { id: string; name: string; accepting_orders: boolean; is_me: boolean }[];
 }

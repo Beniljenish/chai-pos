@@ -102,6 +102,7 @@ jobs:
           pip install .
           alembic upgrade heads
           python -m scripts.seed
+          NEW_ADMIN_PHONE=9840000099 NEW_ADMIN_PASSWORD=$SEED_PASSWORD python -m scripts.new_platform_admin
           nohup uvicorn app.main:app --port 8000 > ../uvicorn.log 2>&1 &
           for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 1; done
       - name: Install app and browser

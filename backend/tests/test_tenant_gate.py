@@ -68,7 +68,6 @@ ID_ROUTES = {
     ),
     "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
-    "/api/v1/food-court/outlets/{outlet_id}": ("outlet", {"DELETE": None}),
     "/api/v1/wastage/{entry_id}/decision": ("wastage", {"POST": {"accept": False}}),
     "/api/v1/devices/{device_id}/report": (
         "device",
@@ -80,10 +79,12 @@ ID_ROUTES = {
 # Routes keyed by a business DATE, not an id: there is no foreign id to smuggle.
 # Their risk is different (shop A reading shop B's count for the same date), so
 # each one must appear here AND be exercised by test_day_counts_are_per_shop.
-# The customer-facing routes have no login and no shop: they are chosen by a food
-# court's own outlet list. They are exercised by tests/test_food_court.py
-# (what a customer can and cannot reach), not by this shop-versus-shop gate.
-PUBLIC_PREFIX = "/api/v1/public/"
+# Two kinds of route are not shop routes, so this shop-versus-shop gate is the wrong tool:
+# the customer's (no login, no shop: chosen by a food court's own outlet list) and the
+# super admin's (a different kind of login that belongs to no shop). They are exercised by
+# tests/test_food_court.py (what a customer can and cannot reach) and tests/test_platform.py
+# (who can reach the admin routes, in both directions).
+NOT_SHOP_ROUTES = ("/api/v1/public/", "/api/v1/platform/")
 
 DATE_ROUTES = {
     ("/api/v1/day-counts/{business_date}/sheet", "GET"),
@@ -94,7 +95,7 @@ DATE_ROUTES = {
 
 
 def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
-    if key in ("bill", "area", "table", "order", "supplier", "po", "customer", "wastage", "outlet"):
+    if key in ("bill", "area", "table", "order", "supplier", "po", "customer", "wastage"):
         return getattr(cat, f"{key}_id")
     if key.startswith("cat."):
         return getattr(cat, key[4:])["id"]
@@ -137,9 +138,6 @@ def _with_bill(client, shop) -> Catalogue:
         json={"ingredient_id": cat.milk["id"], "qty": "100", "reason": "spilled"},
         headers=h,
     ).json()["id"]
-    # A food court with this shop as an outlet (shop A must not be able to touch it).
-    court = client.post("/api/v1/food-court", json={"name": "Gate court"}, headers=h).json()
-    cat.outlet_id = next(o["id"] for o in court["outlets"] if o["is_me"])
     cat.order_id = str(uuid.uuid4())
     r = client.post(
         "/api/v1/sync/orders",
@@ -170,7 +168,7 @@ def test_every_id_route_is_covered():
     actual = {
         (path, method.upper())
         for path, ops in app.openapi()["paths"].items()
-        if "{" in path and path.startswith("/api/") and not path.startswith(PUBLIC_PREFIX)
+        if "{" in path and path.startswith("/api/") and not path.startswith(NOT_SHOP_ROUTES)
         for method in ops
     }
     covered = {(t, m) for t, (_, calls) in ID_ROUTES.items() for m in calls}

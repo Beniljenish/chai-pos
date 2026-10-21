@@ -33,10 +33,15 @@ class FoodCourt(IdMixin, Base):
 
     name: Mapped[str] = mapped_column(String(80))
     slug: Mapped[str] = mapped_column(String(60), unique=True)  # the public address
-    # What an outlet's owner types to join. Rotating it does not remove anyone.
-    join_code: Mapped[str] = mapped_column(String(12))
-    host_shop_id: Mapped[uuid.UUID] = mapped_column(
+    # RETIRED: outlets were first invited by a code, before the super admin existed.
+    # Kept (unused) so removing it can be a later, separate step.
+    join_code: Mapped[str | None] = mapped_column(String(12))
+    host_shop_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("shops.id", ondelete="RESTRICT")
+    )
+    # The super admin who made it (a food court belongs to no shop).
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_admins.id", ondelete="RESTRICT")
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

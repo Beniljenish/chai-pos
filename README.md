@@ -38,7 +38,7 @@ by themselves. A new migration: `docker compose restart api` applies it.
 - Look at the database: any Postgres tool (TablePlus, DBeaver, pgAdmin) on
   `localhost:5433`, database `chai_pos`, user and password `chai`.
 - **Local test mode (no password).** Docker Compose runs the API with `DEV_LOGIN=true`: the login screen shows "Local test mode" and only asks for the mobile number. The API refuses to start with this on unless its database is on this computer (localhost, 127.0.0.1 or the compose `db`), and never with `ENV=prod`, so the setting cannot be copied onto Supabase by accident. To test real passwords, remove that line from `docker-compose.yml`. Staff set their own passwords at go-live (the owner sets a temporary one, they change it on first login: README, "Phase 3g: staff accounts").
-- **A second outlet owner** (to try joining a food court): `./new-outlet.sh` asks for the outlet's name and the owner's mobile number and makes the shop and login. Log in as that number in a private window (a browser holds one login at a time), then Manage → Food court → Join, and type the host's code.
+- **Food courts and outlets** are made by the **super admin**: open `http://localhost:5173/admin` and sign in with `9000000099` (no password in local test mode). Create a food court, then **Add outlet**: a brand-new outlet (a shop and its owner's login; tick the sample menu to try ordering), or an existing shop by its owner's number. Then sign in as that outlet's owner in a private window (a browser holds one login at a time) and switch on Manage → Food court → Taking online orders. `./new-outlet.sh` makes an outlet's shop and login from the terminal instead, and the admin page then attaches it.
 - Forgot the demo password: `./reset-password.sh` asks for a new one and keeps your data.
 - Start again from empty: `docker compose down -v` (deletes the local data only).
 - Stop: Ctrl+C, or `docker compose down` (keeps the data).
@@ -697,13 +697,12 @@ Chosen from a mockup. Several shops (outlets) share one food court. A customer s
 - **How an order travels.** The customer's order is an ordinary takeaway `Order`, written as the same events a till writes (`open`, `kot`) by a stand-in "Online ordering" device and user. So the outlet gets, with no new code on its side: the kitchen screen, the "your order is ready" message (when the customer agreed), billing with GST and an invoice number, the receipt message, and the reports.
   - *Trade-off:* the stand-in user and device (code `ON`) are hidden from the Staff and Tablets lists. The token is written at the front of the customer's name ("JT-17 Ravi") because the order rules are pinned to the app by shared test cases; adding a field there would change both.
   - The customer's page says **Received → Ready → Collected**. There is no "Preparing" step: the order machinery has no such event, and adding one would change those pinned rules.
-- **Getting an outlet an account.** There is no sign-up screen: a shop exists because someone with access to the database made it (`python -m scripts.new_shop`, which `./new-outlet.sh` wraps for local use). On staging that is you, with the database URL you type yourself. A screen where the host adds an outlet, and a public sign-up, are both possible later; sign-up needs a way to stop strangers creating shops, so it is not built.
-- **Setup** (Manage → Food court). The host makes the court and gets a join code. Another outlet's owner types the code to join; nothing is shared until then. Each outlet switches **Taking online orders** itself (off until it does), and the host can remove an outlet.
+- **Who sets it up: the super admin** (README, 9.12). Owners no longer make, join or leave a food court. Each outlet's owner sees the court, its QR and one switch, **Taking online orders** (Manage → Food court), which is off until the owner turns it on.
 - **What a customer can reach (`/api/v1/public/...`, no login).** The outlet list (names and open/closed), one outlet's menu (dish names, categories, prices, sold out), placing an order, and reading that one order back. Nothing else.
   - The shop a request touches comes from the food court's own outlet list, never from anything the customer sends. A dish id from another outlet, or an outlet from another court, is refused.
   - The order link is signed (HMAC over the shop and order ids): changing one character, or pairing one shop's id with another's order, finds nothing.
   - Limits: 5 orders per hour per phone number, 40 open online orders per outlet, 20 of one dish, 15 dishes, 40 items in all. A double tap is one order (the page sends one id per order).
-  - `FoodCourt` and `FoodCourtOutlet` belong to no single shop, so they are not tenant-scoped: every function that reads them is given the shop id from the token and checks the rest by hand. All three new tables have row-level security on.
+  - `FoodCourt` and `FoodCourtOutlet` belong to no single shop, so they are not tenant-scoped: every function that reads them is given the shop id from the token (or the super admin's ids) and checks the rest by hand. All the food court tables have row-level security on.
 - **Sold out.** A switch beside each dish under Menu prices & GST. It switches itself back on in the daily cron, so a forgotten switch never hides a dish for good.
 - **Migration** `027da6efe82c`: three new tables and one column with a default, nothing removed. Apply it to Supabase by hand before this code is merged (README, "Parallel migrations").
 - **Not built, on purpose:**
@@ -711,6 +710,23 @@ Chosen from a mockup. Several shops (outlets) share one food court. A customer s
   - **One cart across outlets.** One outlet per order keeps each invoice, stock deduction and refund inside one shop.
   - **A phone check (OTP).** The phone number is typed, not proved. For pickup orders the worst case is a message to a wrong number, which is why the customer ticks "message me" and why orders per number are limited.
   - **A sound or push when an order arrives.** The Tables screen shows "Online orders (n)" first and refreshes with the other live orders.
+
+### 9.12 The super admin: food courts and their outlets
+Chosen from a mockup, replacing the first design where one outlet's owner "hosted" the court and invited the others by a code. A food court belongs to nobody's shop, so someone above the shops has to make it: the **super admin**.
+- **Who they are.** A row in `platform_admins`, deliberately not a `User` (a user always has a shop and a role inside it, and every shop-level check is built on that). Signing in is `POST /platform/login`; the token has `type: platform`, no shop and no role.
+  - **The two worlds never mix, in both directions, and both are tested.** Every shop route requires a shop and `type: access`, so a platform token is refused there. Every `/platform` route requires a platform token, so a shop owner's or cashier's token is refused there. A switched-off admin is out at once, not when the token expires.
+  - Wrong passwords lock the account for a while, the same rule as shop users. A wrong number and a wrong password get the same answer.
+  - The token lasts 8 hours and is kept in the browser tab only. The admin page is used rarely, so there is no refresh token (those belong to a shop).
+  - **There is no screen that makes a super admin**: `python -m scripts.new_platform_admin` (`NEW_ADMIN_PHONE`, `NEW_ADMIN_PASSWORD`), run by someone with the database. `./local.sh` makes one for local use (9000000099).
+- **The admin page is `/admin`** (a page like `/order/<court>`; signing in decides who may do anything). It lists courts with their QR, link and outlets, and has:
+  - **New food court.**
+  - **Add outlet**, two ways: a **new** outlet (a shop, its owner's login with an optional temporary password the owner must replace at first login, and optionally the sample menu), or an **existing** shop attached by its owner's mobile number. A cashier's number does not attach a shop, and a shop in one court cannot be in two.
+  - **Open or close** an outlet, and **remove** one. Removing only takes the shop out of the court: its shop, menu, login and orders are untouched. The admin can close an outlet, and its owner can open it again (the owner's switch is the owner's).
+  - **Print the QR** for one court.
+- **API:** `/api/v1/platform/...` (`api/v1/platform.py`, `services/platform.py`). Outlet ids are checked against the court in the URL: an outlet of another court is simply not found. These routes carry ids but are not shop routes, so the shop-versus-shop gate excludes `/platform` (as it does `/public`) and `tests/test_platform.py` covers who can reach them.
+- **Migration** `b4bb997f2f3c`, on top of `027da6efe82c`: the `platform_admins` table (row-level security on), `food_courts.host_shop_id` and `join_code` made optional, and `food_courts.created_by`. Nothing removed: `join_code` is retired but kept so dropping it can be a later, separate step. Apply both to Supabase by hand before merging.
+- **Moved into the app:** making a shop (`services/shops.py`) and the sample menu (`services/sample.py`), because the deployed app does not include `scripts/`. `scripts/new_shop.py` and `scripts/seed.py` now call them.
+- **Not built:** several admins with different powers, a way to sign an admin out everywhere, and changing an admin's password in a screen (`./reset-password.sh` resets them locally).
 
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 

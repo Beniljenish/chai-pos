@@ -55,6 +55,37 @@ def decode_access_token(token: str) -> dict:
     return payload
 
 
+PLATFORM_TOKEN_HOURS = 8
+
+
+def create_platform_token(admin_id: uuid.UUID) -> str:
+    """A super admin's token. It has no shop and no role, and a different `type`, so
+    every shop route (which requires a shop and type "access") refuses it."""
+    s = get_settings()
+    now = datetime.now(UTC)
+    payload = {
+        "sub": str(admin_id),
+        "type": "platform",
+        "iat": now,
+        "exp": now + timedelta(hours=PLATFORM_TOKEN_HOURS),
+        "jti": uuid.uuid4().hex,
+    }
+    return jwt.encode(payload, s.jwt_secret, algorithm=s.jwt_algorithm)
+
+
+def decode_platform_token(token: str) -> uuid.UUID:
+    s = get_settings()
+    payload = jwt.decode(
+        token,
+        s.jwt_secret,
+        algorithms=[s.jwt_algorithm],
+        options={"require": ["exp", "sub", "type"]},
+    )
+    if payload["type"] != "platform":
+        raise jwt.InvalidTokenError("not a platform token")
+    return uuid.UUID(payload["sub"])
+
+
 def new_refresh_token() -> tuple[str, str]:
     """Returns (raw token for the client, sha256 hash to store)."""
     raw = secrets.token_urlsafe(48)

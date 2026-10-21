@@ -4553,3 +4553,105 @@ button.save {
 .online-orders .order-list button > span:nth-child(2) {
   flex: 1;
 }
+
+/* Platform admin (/admin) */
+.admin {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 var(--s4) var(--s6);
+}
+.admin-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 calc(var(--s4) * -1) var(--s4);
+  padding: var(--s3) var(--s4);
+  background: var(--ink);
+  color: #fff;
+}
+.admin-bar .quiet {
+  color: #fff;
+}
+.admin-card {
+  max-width: 380px;
+  margin: var(--s6) auto;
+  padding: var(--s5);
+  display: grid;
+  gap: var(--s3);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.admin-card h1 {
+  margin: 0;
+}
+.admin-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s3);
+}
+.admin-court {
+  margin: var(--s4) 0;
+  padding: var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.admin-court-head {
+  display: flex;
+  gap: var(--s4);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.admin-court-head .fc-qr-card {
+  width: 170px;
+  margin: 0;
+  padding: var(--s2);
+  box-shadow: none;
+}
+.admin-court-head .fc-qr {
+  width: 150px;
+}
+.admin-court h2 {
+  margin: 0;
+}
+.admin-link {
+  display: block;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+}
+.admin-outlets {
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: 0;
+}
+.admin-outlets li {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--line);
+}
+.admin-outlets li > span:first-child {
+  flex: 1;
+}
+.admin-form {
+  display: grid;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
+}
+.admin-attach {
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+.danger {
+  color: var(--chilli);
+}
+@media print {
+  /* The admin page lists several courts: print only the one whose button was pressed. */
+  .admin-court:not([data-printing='true']) .fc-qr-card {
+    display: none;
+  }
+}

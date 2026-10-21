@@ -28,12 +28,13 @@ from sqlalchemy import select
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.db.tenancy import mark_system
-from app.models import User
+from app.models import PlatformAdmin, User
 db = mark_system(SessionLocal())
-users = db.scalars(select(User)).all()
+users = [*db.scalars(select(User)).all(), *db.scalars(select(PlatformAdmin)).all()]
 for u in users:
     u.password_hash = hash_password(os.environ['PW'])
-    u.must_change_password = False
+    if hasattr(u, 'must_change_password'):
+        u.must_change_password = False
 db.commit()
 print(f'Password changed for {len(users)} logins.')
 "

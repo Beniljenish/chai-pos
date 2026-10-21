@@ -246,3 +246,7 @@ __all__ += ["PurchaseOrder", "PurchaseOrderLine", "Supplier"]
 from app.models.foodcourt import FoodCourt, FoodCourtOutlet, OnlineOrder  # noqa: E402
 
 __all__ += ["FoodCourt", "FoodCourtOutlet", "OnlineOrder"]
+
+from app.models.platform import PlatformAdmin  # noqa: E402
+
+__all__ += ["PlatformAdmin"]

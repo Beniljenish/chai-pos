@@ -13,33 +13,40 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.db.tenancy import mark_system
 from app.models import Message
-from tests.conftest import FakeDevice, build_catalogue, make_shop
+from tests.conftest import FakeDevice, build_catalogue, make_shop, platform_headers
 
 API = "/api/v1"
 
 
+def _attach(client, admin, court_id, shop):
+    r = client.post(
+        f"{API}/platform/courts/{court_id}/outlets/attach",
+        json={"owner_phone": shop.owner.phone},
+        headers=admin,
+    )
+    assert r.status_code == 201, r.text
+
+
 @pytest.fixture
 def court(client, shop_a, shop_b):
-    """A's food court with B as the second outlet; both take orders."""
+    """A food court the super admin made, with A and B as its outlets; both take orders."""
     build_catalogue(client, shop_a)
     build_catalogue(client, shop_b)
-    made = client.post(
-        f"{API}/food-court", json={"name": "Marina Food Court"}, headers=shop_a.owner_h
-    )
+    admin = platform_headers(client)
+    made = client.post(f"{API}/platform/courts", json={"name": "Marina Food Court"}, headers=admin)
     assert made.status_code == 201, made.text
-    code = made.json()["court"]["join_code"]
-    joined = client.post(f"{API}/food-court/join", json={"code": code}, headers=shop_b.owner_h)
-    assert joined.status_code == 200, joined.text
+    row = made.json()["courts"][0]
     for s in (shop_a, shop_b):
+        _attach(client, admin, row["id"], s)
         client.patch(
             f"{API}/food-court/me", json={"accepting_orders": True}, headers=s.owner_h
         ).raise_for_status()
-    slug = made.json()["court"]["slug"]
-    pub = client.get(f"{API}/public/courts/{slug}").json()
+    pub = client.get(f"{API}/public/courts/{row['slug']}").json()
     by_name = {o["name"]: o["id"] for o in pub["outlets"]}
     return {
-        "slug": slug,
-        "code": code,
+        "slug": row["slug"],
+        "id": row["id"],
+        "admin": admin,
         "a": by_name[shop_a.shop.name],
         "b": by_name[shop_b.shop.name],
     }
@@ -89,74 +96,46 @@ def _events(client, shop, order_id, events):
 
 
 # ---------------------------------------------------------------- setup
-def test_a_host_creates_a_court_and_another_shop_joins_with_the_code(client, shop_a, shop_b):
-    made = client.post(
-        f"{API}/food-court", json={"name": "Marina Food Court"}, headers=shop_a.owner_h
-    )
-    v = made.json()
-    assert v["court"]["role"] == "host" and len(v["court"]["join_code"]) == 8
-    assert re.fullmatch(r"marina-food-court-[0-9a-f]{4}", v["court"]["slug"])
-    assert [o["is_me"] for o in v["outlets"]] == [True]
-
-    assert (
-        client.post(
-            f"{API}/food-court/join", json={"code": "NOPE0000"}, headers=shop_b.owner_h
-        ).status_code
-        == 404
-    )
-    ok = client.post(
-        f"{API}/food-court/join",
-        json={"code": v["court"]["join_code"].lower()},  # typed in lower case
-        headers=shop_b.owner_h,
-    ).json()
-    assert (
-        ok["court"]["role"] == "member" and ok["court"]["join_code"] is None
-    )  # only the host has it
-    assert len(ok["outlets"]) == 2 and ok["accepting_orders"] is False
-
-
-def test_a_shop_is_in_one_court_and_only_an_owner_manages_it(client, shop_a, shop_b):
-    client.post(
-        f"{API}/food-court", json={"name": "One"}, headers=shop_a.owner_h
-    ).raise_for_status()
-    assert (
-        client.post(f"{API}/food-court", json={"name": "Two"}, headers=shop_a.owner_h).status_code
-        == 409
-    )
+def test_an_owner_sees_their_court_and_cannot_make_join_or_leave_one(client, shop_a, shop_b, court):
+    view = client.get(f"{API}/food-court", headers=shop_a.owner_h).json()
+    assert set(view["court"]) == {"id", "name", "slug"}  # no code, no role: nothing to hand out
+    assert view["court"]["name"] == "Marina Food Court"
+    assert {(o["name"], o["is_me"]) for o in view["outlets"]} == {
+        (shop_a.shop.name, True),
+        (shop_b.shop.name, False),
+    }
     assert client.get(f"{API}/food-court", headers=shop_a.cashier_h).status_code == 403
-    assert client.get(f"{API}/food-court", headers=shop_b.owner_h).json() == {"court": None}
+    # the owner-run routes are gone: making, joining and leaving are the super admin's
+    for method, path in (
+        ("POST", "/food-court"),
+        ("POST", "/food-court/join"),
+        ("POST", "/food-court/code"),
+        ("DELETE", f"/food-court/outlets/{uuid.uuid4()}"),
+    ):
+        r = client.request(method, f"{API}{path}", json={}, headers=shop_a.owner_h)
+        assert r.status_code in (404, 405), (method, path, r.status_code)
 
 
-def _my_outlet(client, shop):
-    outlets = client.get(f"{API}/food-court", headers=shop.owner_h).json()["outlets"]
-    return next(o for o in outlets if o["is_me"])
-
-
-def test_host_removes_an_outlet_but_a_member_cannot_remove_others(client, shop_a, shop_b, court):
-    a_outlet, b_outlet = _my_outlet(client, shop_a)["id"], _my_outlet(client, shop_b)["id"]
-    assert (
-        client.delete(f"{API}/food-court/outlets/{a_outlet}", headers=shop_b.owner_h).status_code
-        == 403
+def test_a_shop_not_in_a_court_sees_none(client, shop_a):
+    assert client.get(f"{API}/food-court", headers=shop_a.owner_h).json() == {"court": None}
+    r = client.patch(
+        f"{API}/food-court/me", json={"accepting_orders": True}, headers=shop_a.owner_h
     )
-    assert (
-        client.delete(f"{API}/food-court/outlets/{a_outlet}", headers=shop_a.owner_h).status_code
-        == 409
-    )  # host stays
-    assert (
-        client.delete(f"{API}/food-court/outlets/{b_outlet}", headers=shop_a.owner_h).status_code
-        == 200
-    )
-    assert client.get(f"{API}/food-court", headers=shop_b.owner_h).json() == {"court": None}
+    assert r.status_code == 404
 
 
 def test_the_catalogue_tells_a_till_it_is_in_a_court(client, shop_a, shop_b):
+    build_catalogue(client, shop_a)
+
     def flag(s):
         return client.get(f"{API}/catalogue", headers=s.cashier_h).json()["shop"]["online_ordering"]
 
     assert flag(shop_a) is False
-    client.post(
-        f"{API}/food-court", json={"name": "Court"}, headers=shop_a.owner_h
-    ).raise_for_status()
+    admin = platform_headers(client)
+    row = client.post(f"{API}/platform/courts", json={"name": "Court"}, headers=admin).json()[
+        "courts"
+    ][0]
+    _attach(client, admin, row["id"], shop_a)
     assert flag(shop_a) is True and flag(shop_b) is False
 
 
@@ -166,7 +145,7 @@ def test_the_public_court_shows_names_and_open_only(client, shop_a, shop_b, cour
     assert set(pub) == {"name", "outlets"}
     assert all(set(o) == {"id", "name", "open"} for o in pub["outlets"])
     text = str(pub)
-    assert str(shop_a.shop.id) not in text and court["code"] not in text
+    assert str(shop_a.shop.id) not in text and "join_code" not in text
     assert client.get(f"{API}/public/courts/no-such-court-0000").status_code == 404
 
 
@@ -194,9 +173,15 @@ def test_an_outlet_of_another_court_is_not_found_under_this_one(client, shop_a, 
     other = make_shop(client, "Elsewhere")
     build_catalogue(client, other)
     made = client.post(
-        f"{API}/food-court", json={"name": "Elsewhere"}, headers=other.owner_h
+        f"{API}/platform/courts", json={"name": "Elsewhere"}, headers=court["admin"]
     ).json()
-    their_outlet = made["outlets"][0]["id"]
+    elsewhere = next(c for c in made["courts"] if c["name"] == "Elsewhere")
+    _attach(client, court["admin"], elsewhere["id"], other)
+    their_outlet = next(
+        c
+        for c in client.get(f"{API}/platform/courts", headers=court["admin"]).json()["courts"]
+        if c["name"] == "Elsewhere"
+    )["outlets"][0]["id"]
     r = client.get(f"{API}/public/courts/{court['slug']}/outlets/{their_outlet}/menu")
     assert r.status_code == 404
     assert (

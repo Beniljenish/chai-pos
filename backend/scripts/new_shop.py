@@ -13,54 +13,10 @@ Optional:
 """
 
 import os
-import re
-import secrets
 import sys
 
-from sqlalchemy import select
-
-from app.core.security import hash_password
-from app.db.session import SessionLocal
-from app.db.tenancy import mark_system
-from app.models import Device, GstType, Role, Shop, User
-from app.schemas import _normalise_phone
-from scripts import seed
-
-
-def create_shop(
-    name: str, owner_phone: str, owner_name: str = "Owner", password: str | None = None
-) -> tuple[Shop, User]:
-    phone = _normalise_phone(owner_phone)
-    initials = "".join(w[0] for w in re.findall(r"[A-Za-z]+", name))[:2].upper() or "SH"
-    db = mark_system(SessionLocal())
-    try:
-        if db.scalar(select(User.id).where(User.phone == phone)) is not None:
-            raise ValueError(f"The number {phone} already has a login")
-        shop = Shop(
-            name=name.strip(),
-            gst_type=GstType.unregistered,
-            state_code="33",
-            address="",
-            invoice_prefix=initials,
-        )
-        db.add(shop)
-        db.flush()
-        owner = User(
-            shop_id=shop.id,
-            name=owner_name.strip() or "Owner",
-            phone=phone,
-            role=Role.owner,
-            password_hash=hash_password(password or secrets.token_urlsafe(24)),
-            # The person who typed the password knows it: the owner picks their own at first login.
-            must_change_password=bool(password),
-        )
-        db.add_all([owner, Device(shop_id=shop.id, name="Counter 1", code="C1")])
-        db.commit()
-        db.refresh(shop)
-        db.refresh(owner)
-        return shop, owner
-    finally:
-        db.close()
+from app.services.sample import seed_catalogue
+from app.services.shops import ShopError, create_shop
 
 
 def main() -> None:
@@ -76,10 +32,10 @@ def main() -> None:
         sys.exit("NEW_OWNER_PASSWORD must be 8 characters or more")
     try:
         shop, owner = create_shop(name, phone, os.environ.get("NEW_OWNER_NAME", "Owner"), password)
-    except ValueError as e:
+    except ShopError as e:
         sys.exit(str(e))
     if os.environ.get("SAMPLE_MENU") == "1":
-        seed.seed_catalogue(shop, owner)
+        seed_catalogue(shop, owner)
     print(
         f"Created {shop.name}: owner {owner.phone}"
         + (" (with the sample menu)" if os.environ.get("SAMPLE_MENU") == "1" else "")

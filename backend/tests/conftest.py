@@ -38,6 +38,8 @@ def _clean():
     yield
     with engine.begin() as conn:
         conn.execute(text("TRUNCATE shops CASCADE"))
+        # Food courts and super admins belong to no shop, so the line above misses them.
+        conn.execute(text("TRUNCATE food_courts, platform_admins CASCADE"))
 
 
 @pytest.fixture
@@ -349,3 +351,18 @@ class FakeDevice:
             json={"device_id": self.device_id, "bills": bills},
             headers=headers or self.shop.cashier_h,
         )
+
+
+PLATFORM_PHONE = "9840000099"
+
+
+def platform_headers(client: TestClient, phone: str = PLATFORM_PHONE) -> dict:
+    """A super admin, made as scripts/new_platform_admin.py makes one, signed in through
+    the real endpoint."""
+    from app.services import platform
+
+    with mark_system(SessionLocal()) as db:
+        platform.make_admin(db, "Test admin", phone, PASSWORD)
+    r = client.post("/api/v1/platform/login", json={"phone": phone, "password": PASSWORD})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}

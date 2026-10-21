@@ -52,7 +52,6 @@ from app.services import orders as order_service
 
 ONLINE_USER_NAME = "Online ordering"  # the stand-in author of customers' orders
 ONLINE_DEVICE_CODE = "ON"
-JOIN_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O/1/I to misread
 MAX_QTY = 20
 MAX_LINES = 15
 MAX_TOTAL_QTY = 40
@@ -77,49 +76,18 @@ def system_session() -> Session:
     return mark_system(SessionLocal())
 
 
-# ---------------------------------------------------------------- owner: setup
-def _slug(name: str) -> str:
-    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] or "court"
-    return f"{base}-{secrets.token_hex(2)}"
-
-
-def _code() -> str:
-    return "".join(secrets.choice(JOIN_ALPHABET) for _ in range(8))
-
-
+# ---------------------------------------------------------------- owner: their place in a court
 def my_outlet(db: Session, shop_id: uuid.UUID) -> FoodCourtOutlet | None:
     return db.scalar(select(FoodCourtOutlet).where(FoodCourtOutlet.shop_id == shop_id))
 
 
-def create_court(db: Session, shop_id: uuid.UUID, name: str) -> FoodCourt:
-    if my_outlet(db, shop_id) is not None:
-        raise OnlineError("already_in_a_court", "This shop is already in a food court", 409)
-    court = FoodCourt(name=name.strip(), slug=_slug(name), join_code=_code(), host_shop_id=shop_id)
-    db.add(court)
-    db.flush()
-    db.add(FoodCourtOutlet(court_id=court.id, shop_id=shop_id))
-    db.commit()
-    return court
-
-
-def join_court(db: Session, shop_id: uuid.UUID, code: str) -> FoodCourt:
-    if my_outlet(db, shop_id) is not None:
-        raise OnlineError("already_in_a_court", "This shop is already in a food court", 409)
-    court = db.scalar(select(FoodCourt).where(FoodCourt.join_code == code.strip().upper()))
-    if court is None:
-        raise OnlineError("bad_code", "That code is not right", 404)
-    db.add(FoodCourtOutlet(court_id=court.id, shop_id=shop_id))
-    db.commit()
-    return court
-
-
 def view(db: Session, shop_id: uuid.UUID) -> dict:
-    """The food court this shop is in, as its owner sees it."""
+    """The food court this shop is in, as its owner sees it. The owner does not make,
+    join or leave courts: the super admin does (services/platform.py)."""
     mine = my_outlet(db, shop_id)
     if mine is None:
         return {"court": None}
     court = db.get(FoodCourt, mine.court_id)
-    host = court.host_shop_id == shop_id
     rows = db.execute(
         select(FoodCourtOutlet, Shop.name)
         .join(Shop, Shop.id == FoodCourtOutlet.shop_id)
@@ -127,14 +95,7 @@ def view(db: Session, shop_id: uuid.UUID) -> dict:
         .order_by(FoodCourtOutlet.joined_at)
     ).all()
     return {
-        "court": {
-            "id": court.id,
-            "name": court.name,
-            "slug": court.slug,
-            "role": "host" if host else "member",
-            # Only the host hands out the code.
-            "join_code": court.join_code if host else None,
-        },
+        "court": {"id": court.id, "name": court.name, "slug": court.slug},
         "accepting_orders": mine.accepting_orders,
         "outlets": [
             {
@@ -142,7 +103,6 @@ def view(db: Session, shop_id: uuid.UUID) -> dict:
                 "name": name,
                 "accepting_orders": o.accepting_orders,
                 "is_me": o.shop_id == shop_id,
-                "is_host": o.shop_id == court.host_shop_id,
             }
             for o, name in rows
         ],
@@ -155,32 +115,6 @@ def set_accepting(db: Session, shop_id: uuid.UUID, on: bool) -> None:
         raise OnlineError("not_in_a_court", "This shop is not in a food court", 404)
     mine.accepting_orders = on
     db.commit()
-
-
-def remove_outlet(db: Session, shop_id: uuid.UUID, outlet_id: uuid.UUID) -> None:
-    """The host removes any outlet of its court; anyone else only removes itself.
-    An outlet of another court is simply not found."""
-    mine = my_outlet(db, shop_id)
-    target = db.get(FoodCourtOutlet, outlet_id)
-    if mine is None or target is None or target.court_id != mine.court_id:
-        raise OnlineError("not_found", "No such outlet", 404)
-    court = db.get(FoodCourt, mine.court_id)
-    if target.shop_id != shop_id and court.host_shop_id != shop_id:
-        raise OnlineError("not_allowed", "Only the host can remove another outlet", 403)
-    if target.shop_id == court.host_shop_id:
-        raise OnlineError("host_stays", "The host cannot leave its own food court", 409)
-    db.delete(target)
-    db.commit()
-
-
-def new_join_code(db: Session, shop_id: uuid.UUID) -> str:
-    mine = my_outlet(db, shop_id)
-    court = db.get(FoodCourt, mine.court_id) if mine else None
-    if court is None or court.host_shop_id != shop_id:
-        raise OnlineError("not_allowed", "Only the host can change the code", 403)
-    court.join_code = _code()
-    db.commit()
-    return court.join_code
 
 
 # ---------------------------------------------------------------- customer: read

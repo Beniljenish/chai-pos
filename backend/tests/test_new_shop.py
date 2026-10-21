@@ -6,13 +6,15 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.db.tenancy import mark_system
 from app.models import Device, MenuItem, Role, Shop
+from app.services import shops
+from app.services.sample import seed_catalogue
 from scripts import new_shop
 
 API = "/api/v1"
 
 
 def test_a_new_shop_gets_an_owner_who_must_choose_their_own_password(client):
-    shop, owner = new_shop.create_shop("Anna Biryani", "98411 00000", "Anna", "temp-pass-123")
+    shop, owner = shops.create_shop("Anna Biryani", "98411 00000", "Anna", "temp-pass-123")
     assert shop.name == "Anna Biryani" and shop.invoice_prefix == "AB"
     assert owner.phone == "9841100000" and owner.role == Role.owner and owner.must_change_password
     # the temporary password works, and until it is replaced nothing else does
@@ -28,7 +30,7 @@ def test_a_new_shop_gets_an_owner_who_must_choose_their_own_password(client):
 
 
 def test_without_a_password_nobody_knows_one(client):
-    _, owner = new_shop.create_shop("Dosa Dhaba", "9841100001")
+    _, owner = shops.create_shop("Dosa Dhaba", "9841100001")
     assert not owner.must_change_password
     assert (
         client.post(
@@ -39,18 +41,16 @@ def test_without_a_password_nobody_knows_one(client):
 
 
 def test_a_number_that_already_has_a_login_is_refused(client, shop_a):
-    with pytest.raises(ValueError, match="already has a login"):
-        new_shop.create_shop("Copycat", shop_a.owner.phone)
-    with pytest.raises(ValueError):
-        new_shop.create_shop("Bad number", "12345")
+    with pytest.raises(shops.ShopError, match="already has a login"):
+        shops.create_shop("Copycat", shop_a.owner.phone)
+    with pytest.raises(shops.ShopError):
+        shops.create_shop("Bad number", "12345")
 
 
 def test_the_new_shop_is_separate_and_can_have_the_sample_menu(client, shop_a, monkeypatch):
-    shop, owner = new_shop.create_shop("Fresh Juice Bar", "9841100002", password="temp-pass-123")
+    shop, owner = shops.create_shop("Fresh Juice Bar", "9841100002", password="temp-pass-123")
     monkeypatch.setenv("SAMPLE_MENU", "1")
-    from scripts import seed
-
-    seed.seed_catalogue(shop, owner)
+    seed_catalogue(shop, owner)
     with mark_system(SessionLocal()) as db:
         names = set(db.scalars(select(MenuItem.name).where(MenuItem.shop_id == shop.id)))
         other = set(db.scalars(select(MenuItem.name).where(MenuItem.shop_id == shop_a.shop.id)))
