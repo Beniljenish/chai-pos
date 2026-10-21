@@ -433,3 +433,28 @@ export interface ShiftReport {
   }[];
   cash_outside_shifts: { bills: number; total_paise: number };
 }
+
+export interface AlertItem {
+  id: string;
+  kind: string;
+  urgency: 'act' | 'look' | 'info';
+  period: 'today' | 'week';
+  title: string;
+  detail: string;
+  at: string | null;
+  section: string;
+}
+
+export interface MarginItem {
+  menu_item_id: string;
+  name: string;
+  category: string;
+  price_paise: number;
+  net_paise: number;
+  sold_28d: number;
+  cost_paise: number | null;
+  margin_paise: number | null;
+  margin_pct: number | null;
+  status: 'ok' | 'incomplete' | 'no_recipe';
+  missing: string[];
+}

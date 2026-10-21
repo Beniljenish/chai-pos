@@ -4103,3 +4103,122 @@ button.save {
 .subnav-items button > span:first-of-type {
   white-space: nowrap; /* "Day end" stays on one line beside its badge */
 }
+
+/* Alerts */
+.alert-list,
+.margin-list {
+  list-style: none;
+  margin: 0 0 var(--s4);
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.alert {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--s3);
+  align-items: start;
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.alert-dot {
+  width: 12px;
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--ink-faint, #a39dba);
+}
+.alert-act .alert-dot {
+  background: var(--chilli);
+}
+.alert-look .alert-dot {
+  background: var(--turmeric);
+}
+.alert-info .alert-dot {
+  background: var(--leaf);
+}
+.alert p {
+  margin: var(--s1) 0 var(--s2);
+  color: var(--ink-soft);
+}
+.alert time {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.alert-level {
+  margin-left: var(--s2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+.alerts-clear {
+  padding: var(--s4);
+  background: var(--leaf-soft);
+  color: var(--leaf);
+  border-radius: var(--radius-panel);
+  font-weight: 700;
+}
+
+/* Margin */
+.margin-list li {
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+.margin-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.margin-pct {
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.margin-pct.margin-bad {
+  background: var(--chilli-soft);
+  color: var(--chilli);
+}
+.margin-pct.margin-near {
+  background: var(--turmeric-soft);
+  color: var(--turmeric);
+}
+.margin-pct.margin-ok {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+}
+.margin-list p {
+  margin: var(--s1) 0;
+}
+.warn-line {
+  color: var(--turmeric);
+  font-weight: 600;
+}
+.margin-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--steel);
+}
+.margin-cost {
+  background: #c9bfdb;
+}
+.margin-kept.margin-bad {
+  background: var(--chilli);
+}
+.margin-kept.margin-near {
+  background: var(--turmeric);
+}
+.margin-kept.margin-ok {
+  background: var(--leaf);
+}
+.margin .chips {
+  margin-bottom: var(--s3);
+}

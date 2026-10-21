@@ -9,7 +9,7 @@ const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
 const shot = (page: Page, name: string) => page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage: true });
 
-test('owner: menu search, this week against last, stock bars', async ({ page }) => {
+test('owner: menu search, this week against last, alerts, margin, stock bars', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -47,6 +47,21 @@ test('owner: menu search, this week against last, stock bars', async ({ page }) 
   await expect(compare).toContainText('Today so far'); // a part-day gets no percentage
   await shot(page, 'insights-2-sales');
 
+  // ---- Alerts and Margin: both load, the margin list is orderable, nothing says "error"
+  await openSection(page, 'Alerts');
+  await expect(page.getByRole('heading', { name: 'Alerts' })).toBeVisible();
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await shot(page, 'insights-3-alerts');
+  await openSection(page, 'Margin');
+  const margin = page.locator('.margin-list li', { hasText: 'Masala tea' });
+  await expect(margin).toBeVisible();
+  await expect(margin).toContainText(/keeps|Add a price for/);
+  const sorts = page.getByRole('group', { name: 'Order the list' });
+  await sorts.getByRole('button', { name: 'By sales' }).click();
+  await expect(sorts.getByRole('button', { name: 'By sales' })).toHaveAttribute('aria-pressed', 'true');
+  await shot(page, 'insights-4-margin');
+
   // ---- Stock: bars against the reorder level, three ways to order ----
   await openSection(page, 'Stock');
   const order = page.getByRole('group', { name: 'Order the list' });
@@ -54,5 +69,5 @@ test('owner: menu search, this week against last, stock bars', async ({ page }) 
   await order.getByRole('button', { name: 'A–Z' }).click();
   await expect(order.getByRole('button', { name: 'A–Z' })).toHaveAttribute('aria-pressed', 'true');
   await order.getByRole('button', { name: 'Low only' }).click();
-  await shot(page, 'insights-3-stock');
+  await shot(page, 'insights-5-stock');
 });

@@ -667,6 +667,26 @@ Benil chose these from a mockup. All four are in the app only: no new routes, no
   - The bars are drawn from the numbers the server already sends. They are display only; the ledger's numbers are the ones that count.
   - *Left out of the mockup:* the "about half a day left" line under Milk. It would be a guess from the last week's sales, shown as if it were a fact.
 
+### 9.10 Alerts, margin per item, and what the daily email now says
+Chosen from a mockup. No migration: every number is worked out from records the app already keeps, so there is nothing new to store or to get out of step.
+- **Alerts** (Manage → Alerts, `services/alerts.py`, `GET /reports/alerts`). The rules are fixed and plain, so each alert can be explained in a sentence:
+  - **Drawer short**: a closed shift counted ₹20 or more under what the bills say (over by ₹100 or more is "take a look").
+  - **Void burst**: 3 or more voids by one person within an hour.
+  - **Discounts above the usual**: more than ₹50 in a day and 3 times the last 14 days' daily average.
+  - **Large wastage waiting** for approval.
+  - **Price up**: an ingredient's latest purchase cost 5% or more above the purchase before it. News, not a warning.
+  - **Over the recipe**: used 10% or more over the recipe across at least 3 closed days.
+  - *Trade-off:* the thresholds are constants in one file, not settings. A shop with very different numbers (a ₹5 tea at huge volume) will want them changed, and that is a better conversation after the pilot week than a settings screen now.
+  - *Not built:* a rule has to be explainable from the records. "Sugar over the recipe for 3 days" is; "this cashier seems suspicious" is not.
+- **Margin** (Manage → Margin, `services/margin.py`, `GET /reports/margin`). Cost is the item's current recipe times the latest price paid for each ingredient (`cost_per_unit_paise`, set on each stock-in). A made-here ingredient (decoction) costs its inputs over the batch's yield. Revenue is the price without GST, using the shared GST code.
+  - **An item with an unpriced ingredient gets no margin**, and says which one. Showing "100% kept" because milk's price was never entered would be a lie.
+  - The standard serving only: size and add-on options are not included.
+  - Colours: under 50% kept is pink, up to 67% amber, above green. A guess to be set from the pilot shop's real numbers.
+- **The daily email** (`reports.enqueue_daily`) gains three sections: **Needs you** (the alerts above, except price news), **Stock to reorder** (the same list as Purchases suggests) and **Prices**. It is the existing morning email (7 am IST, from the Vercel cron), not a second one, so there is nothing new to switch on.
+  - *Not built:* WhatsApp. It needs a paid business account and approved message templates, and those are keys and approvals the owner must set up himself. The email carries the same text, so adding WhatsApp later is a delivery change, not a rewrite.
+- **Manage counts:** an **Alerts** badge ("3 new") counts alerts to act on or look at. Waiting wastage and price news are left out of it: Day end already shows the first, and the second is not a problem.
+- **Demo data note:** the demo generator moves a fake clock, but a void is stamped with the real time, so a freshly generated demo shows all its voids as one burst. That is the generator, not the rule.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

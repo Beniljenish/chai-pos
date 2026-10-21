@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.common import unprocessable
 from app.api.deps import Caller, require_owner
-from app.services import insights
+from app.services import alerts, insights, margin
 
 router = APIRouter(tags=["reports"])
 
@@ -35,3 +35,15 @@ def gst(month: str = Query(max_length=7), caller: Caller = Depends(require_owner
 @router.get("/reports/stock-value")
 def stock_value(caller: Caller = Depends(require_owner)) -> dict:
     return insights.stock_value(caller.db)
+
+
+@router.get("/reports/margin")
+def item_margin(caller: Caller = Depends(require_owner)) -> dict:
+    """What each item costs to make and keeps, worst margin first."""
+    return margin.margin_report(caller.db)
+
+
+@router.get("/reports/alerts")
+def needs_you(business_date: date | None = None, caller: Caller = Depends(require_owner)) -> dict:
+    """What needs the owner on a day (default today), worked out from the records."""
+    return {"alerts": alerts.build(caller.db, business_date)}

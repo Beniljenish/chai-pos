@@ -6,6 +6,8 @@ export const ICON = {
   today: 'M4 5h16v16H4zM4 10h16M9 3v4M15 3v4',
   manage: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
   sales: 'M3 17l6-6 4 4 8-8M15 7h6v6',
+  alerts: 'M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6zM10 19a2 2 0 0 0 4 0',
+  margin: 'M5 19L19 5M7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   reports: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
   khata: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6',
   stock: 'M3 7l9-4 9 4-9 4zM3 7v10l9 4 9-4V7M12 11v10',

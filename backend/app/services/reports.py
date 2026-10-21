@@ -29,7 +29,7 @@ from app.models import (
     User,
     WastageEntry,
 )
-from app.services import dayend
+from app.services import alerts, dayend, purchases
 from app.services.email import b64, enqueue
 
 PAYMENT = {"cash": "Cash", "upi": "UPI", "card": "Card", "split": "Split", "credit": "Credit"}
@@ -311,6 +311,10 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
     if not shop.email_daily:
         return
     f = daily_figures(db, d)
+    found = alerts.build(db, d)
+    needs = [a for a in found if a["urgency"] != "info"]
+    news = [a for a in found if a["urgency"] == "info"]
+    low = [r["name"] for r in purchases.suggest(db)]
     subject = f"Sales {day_label(d)}: {rupees(f['total'])} from {f['bills']} bill" + (
         "" if f["bills"] == 1 else "s"
     )
@@ -334,6 +338,25 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         )
         + "".join(f"<p>{escape(x)}</p>" for x in f["money"])
         + f"<p>{escape(status)}</p>"
+        + (
+            "<h3 style='font-size:15px;color:#b3261e'>Needs you</h3>"
+            + "".join(f"<p><b>{escape(a['title'])}</b><br>{escape(a['detail'])}</p>" for a in needs)
+            if needs
+            else ""
+        )
+        + (
+            "<h3 style='font-size:15px'>Stock to reorder</h3><p>"
+            + escape(", ".join(low))
+            + " (the reorder list is under Manage → Purchases)</p>"
+            if low
+            else ""
+        )
+        + (
+            "<h3 style='font-size:15px'>Prices</h3>"
+            + "".join(f"<p><b>{escape(a['title'])}</b><br>{escape(a['detail'])}</p>" for a in news)
+            if news
+            else ""
+        )
         + (
             "<h3 style='font-size:15px'>Cash drawer</h3><p>"
             + "<br>".join(escape(x) for x in f["shifts"])
@@ -372,6 +395,9 @@ def enqueue_daily(db: Session, shop: Shop, d: date) -> None:
         f"{subject}\n"
         + "\n".join(f"{a}: {b}" for a, b in modes)
         + f"\nGST {rupees(f['gst'])}\n{status}"
+        + "".join(f"\nNeeds you: {a['title']}. {a['detail']}" for a in needs)
+        + (f"\nStock to reorder: {', '.join(low)}" if low else "")
+        + "".join(f"\nPrices: {a['title']}. {a['detail']}" for a in news)
         + "".join(f"\nTablet: {x}" for x in f["tablets"])
         + (f"\nVoided: {f['voids']} bill(s), {rupees(f['voided_total'])}" if f["voids"] else "")
         + "".join(f"\nCash: {x}" for x in f["shifts"])

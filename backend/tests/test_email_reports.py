@@ -266,3 +266,29 @@ def test_test_email_button(client, shop_a, sent):
     assert client.post("/api/v1/shop/test-email", headers=shop_a.cashier_h).status_code == 403
     email.set_transport(None)
     assert client.post("/api/v1/shop/test-email", headers=h).json()["status"] == "waiting"
+
+
+def test_daily_summary_carries_what_needs_the_owner(client, shop_a, cat, sent, monkeypatch):
+    from tests.test_phase7 import _stock_in
+
+    monkeypatch.setattr(get_settings(), "cron_secret", "s3cret")
+    _settings(client, shop_a, report_email=OWNER_EMAIL)
+    # milk gets dearer (+7%), and one item sits below its reorder level
+    _stock_in(client, shop_a, cat.milk["id"], 10000, 54000)
+    _stock_in(client, shop_a, cat.milk["id"], 10000, 58000)
+    client.patch(
+        f"/api/v1/ingredients/{cat.sugar['id']}",
+        json={"reorder_level": "500"},
+        headers=shop_a.owner_h,
+    ).raise_for_status()
+    d = FakeDevice(client, shop_a)
+    when = datetime.now(UTC) - timedelta(days=1)
+    bill = d.bill([("Orange juice", 3, [])], sold_at=when, bill_discount=6000)
+    assert d.sync([bill]).json()["results"][0]["status"] == "accepted"
+
+    _cron(client, business_date(when) + timedelta(days=1))
+    (daily,) = [m for m in sent.messages if m.subject.startswith("Sales ")]
+    assert "Needs you: Discounts above the usual" in daily.text
+    assert "Stock to reorder: Sugar" in daily.text
+    assert "Prices: Milk cost went up 7%" in daily.text
+    assert "Milk cost went up 7%" in daily.html

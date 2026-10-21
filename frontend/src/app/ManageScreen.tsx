@@ -5,7 +5,9 @@ import { badgesFor } from "../lib/attention";
 import type { Attention } from "../lib/attention";
 import { DayEndScreen } from "./DayEndScreen";
 import { FloorSetup } from "./FloorSetup";
+import { AlertsScreen } from "./AlertsScreen";
 import { KhataScreen } from "./CustomersUI";
+import { MarginScreen } from "./MarginScreen";
 import { MessagesScreen } from "./MessagesScreen";
 import { PurchasesScreen } from "./PurchasesScreen";
 import { ReportsScreen } from "./ReportsScreen";
@@ -17,6 +19,8 @@ import { TabletsScreen } from "./TabletsScreen";
 import { StockScreen } from "./StockScreen";
 
 type Section =
+  | "alerts"
+  | "margin"
   | "sales"
   | "stock"
   | "dayend"
@@ -41,6 +45,7 @@ const GROUPS: {
     {
       label: "Money",
       sections: [
+        { id: "alerts", label: "Alerts" },
         { id: "sales", label: "Sales" },
         { id: "reports", label: "Reports" },
         { id: "khata", label: "Khata" },
@@ -50,6 +55,7 @@ const GROUPS: {
       label: "Stock",
       sections: [
         { id: "stock", label: "Stock" },
+        { id: "margin", label: "Margin" },
         { id: "purchases", label: "Purchases" },
         { id: "dayend", label: "Day end" },
         { id: "recipes", label: "Recipes" },
@@ -99,7 +105,7 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
           <span>Manage</span>
         </button>
         <div className="manage-body">
-          <SectionBody section={section} />
+          <SectionBody section={section} go={setSection} />
         </div>
       </main>
     );
@@ -145,15 +151,19 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
       </nav>
       {section !== null && (
         <div className="manage-body">
-          <SectionBody section={section} />
+          <SectionBody section={section} go={setSection} />
         </div>
       )}
     </main>
   );
 }
 
-function SectionBody({ section }: { section: Section }) {
+function SectionBody({ section, go }: { section: Section; go: (s: Section) => void }) {
   switch (section) {
+    case "alerts":
+      return <AlertsScreen onOpen={(id) => go(id as Section)} />;
+    case "margin":
+      return <MarginScreen />;
     case "sales":
       return <SalesScreen />;
     case "reports":
