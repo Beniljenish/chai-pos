@@ -1,3 +1,7 @@
+# Local development: the database, the API and the app, all on this computer.
+#   docker compose up --build        then open http://localhost:5173
+# Code changes reload by themselves (backend/app and frontend/src are mounted).
+# Nothing here reaches staging: the database is a local Postgres in a volume.
 services:
   db:
     image: postgres:17
@@ -13,14 +17,31 @@ services:
       retries: 20
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      args: { EXTRAS: demo }
     environment:
       DATABASE_URL: postgresql+psycopg://chai:chai@db:5432/chai_pos
       JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-0123456789}
+    command: >
+      sh -c "alembic upgrade heads &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app"
+    volumes: ["./backend:/app"]
     ports: ["8000:8000"]
     depends_on:
       db:
         condition: service_healthy
+
+  web:
+    image: node:22
+    working_dir: /app
+    command: sh -c "npm ci && npx vite --host 0.0.0.0 --port 5173"
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+    # node_modules stays inside the container, so it never clashes with your own
+    volumes: ["./frontend:/app", "/app/node_modules"]
+    ports: ["5173:5173"]
+    depends_on: [api]
 
 volumes:
   pgdata:

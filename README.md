@@ -7,10 +7,31 @@ Spec and phase gates: [docs/SPEC.md](docs/SPEC.md)
 
 ## Run it locally
 
+Everything on your own computer: a local Postgres, the API and the app. Nothing
+touches staging (Supabase or Vercel), so try things here first and push only
+what works. Needs Docker Desktop and git.
+
 ```bash
-docker compose up --build          # API on http://localhost:8000, docs at /docs
-docker compose exec api sh -c "SEED_PASSWORD=devpass123 python -m scripts.seed"
+git clone https://github.com/Beniljenish/chai-pos.git && cd chai-pos   # once
+docker compose up --build          # database + API (:8000) + app (http://localhost:5173)
 ```
+
+In a second terminal, the first time only, fill the database with four weeks of
+demo data. Pick any password of 8+ characters; it becomes every demo login's:
+
+```bash
+docker compose exec -e DEMO_PASSWORD=<your password> api python -m scripts.local_demo
+```
+
+Then open http://localhost:5173 and log in as the owner `9000000000` (cashiers:
+`9000020001`, `9000020002`). Edits to `backend/app` and `frontend/src` reload
+by themselves. A new migration: `docker compose restart api` applies it.
+
+- Look at the database: any Postgres tool (TablePlus, DBeaver, pgAdmin) on
+  `localhost:5432`, database `chai_pos`, user and password `chai`.
+- Start again from empty: `docker compose down -v` (deletes the local data only).
+- Stop: Ctrl+C, or `docker compose down` (keeps the data).
+- Get the latest code: `git pull`, then `docker compose up --build`.
 
 Without Docker (needs Python 3.12+ and a local Postgres):
 

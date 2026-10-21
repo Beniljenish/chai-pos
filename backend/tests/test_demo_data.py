@@ -7,11 +7,13 @@ breaks it shows here, not when the owner presses "Reset staging demo data".
 import json
 import uuid
 
+import pytest
 from sqlalchemy import func, select
 
+from app.core.security import verify_password
 from app.db.session import SessionLocal
 from app.db.tenancy import mark_system
-from app.models import Bill, DayCount, Order, Shift, StockLedger
+from app.models import Bill, DayCount, Order, Shift, StockLedger, User
 
 
 def test_two_days_of_demo_data(tmp_path, monkeypatch):
@@ -46,3 +48,28 @@ def test_two_days_of_demo_data(tmp_path, monkeypatch):
         assert negative == []
     finally:
         db.close()
+
+
+def test_local_demo_gives_every_login_the_chosen_password(monkeypatch):
+    from scripts import demo_data, local_demo
+
+    monkeypatch.setenv("DEMO_PASSWORD", "local-demo-123")
+    monkeypatch.setattr(demo_data, "DAYS", 1)
+    local_demo.main()
+
+    db = mark_system(SessionLocal())
+    try:
+        users = db.scalars(select(User)).all()
+        assert {u.phone for u in users} >= {"9000000000", "9000020001"}
+        assert all(verify_password("local-demo-123", u.password_hash) for u in users)
+        assert not any(u.must_change_password for u in users)
+    finally:
+        db.close()
+
+
+def test_local_demo_needs_a_password(monkeypatch):
+    from scripts import local_demo
+
+    monkeypatch.delenv("DEMO_PASSWORD", raising=False)
+    with pytest.raises(SystemExit, match="DEMO_PASSWORD"):
+        local_demo.main()
