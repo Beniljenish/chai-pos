@@ -4,8 +4,18 @@
  * accepts, and a shop owner's login cannot open this (README, "9.12").
  */
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { cleanPhone, courtPath } from '../lib/foodcourt';
-import { AdminError, adminApi, devLoginOn, saveToken, savedToken, type AdminCourt } from '../lib/adminApi';
+import { cleanPhone, courtPath, rupeesToPaise } from '../lib/foodcourt';
+import { formatRupees } from '../lib/gst';
+import {
+  AdminError,
+  adminApi,
+  devLoginOn,
+  saveToken,
+  savedToken,
+  type AdminCourt,
+  type OutletMoney,
+  type RefundDue,
+} from '../lib/adminApi';
 import { Qr } from './Qr';
 import { Sheet } from './Sheet';
 
@@ -231,6 +241,7 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
         })
       )}
 
+      <OnlineMoney token={token} onSignedOut={onSignedOut} />
       <CustomerReset token={token} onSignedOut={onSignedOut} />
 
       {sheet?.kind === 'court' && (
@@ -261,6 +272,154 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
         />
       )}
     </>
+  );
+}
+
+/** What customers paid online for each outlet (all of it landed in the one account), what has been
+ * paid on to the outlets, and the refunds still to make (README, "9.14"). */
+function OnlineMoney({ token, onSignedOut }: { token: string; onSignedOut(): void }) {
+  const [outlets, setOutlets] = useState<OutletMoney[] | null>(null);
+  const [refunds, setRefunds] = useState<RefundDue[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [paying, setPaying] = useState<string | null>(null); // the outlet whose payment form is open
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const guard = useCallback(
+    (e: unknown) => {
+      if (e instanceof AdminError && e.status === 401) onSignedOut();
+      else setError(e instanceof AdminError ? e.message : 'Could not reach the server.');
+    },
+    [onSignedOut],
+  );
+
+  useEffect(() => {
+    adminApi
+      .onlineMoney(token)
+      .then((r) => {
+        setOutlets(r.outlets);
+        setRefunds(r.refunds_due);
+      })
+      .catch(guard);
+  }, [token, guard]);
+
+  async function record(o: OutletMoney) {
+    const paise = rupeesToPaise(amount);
+    if (paise === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setOutlets((await adminApi.settle(token, o.court_id, o.outlet_id, paise, note)).outlets);
+      setPaying(null);
+      setAmount('');
+      setNote('');
+    } catch (e) {
+      guard(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refund(r: RefundDue) {
+    if (!window.confirm(`Refund ${formatRupees(r.amount_paise)} to ${r.customer} (${r.phone})?`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setRefunds((await adminApi.refund(token, r.ref)).refunds_due);
+    } catch (e) {
+      guard(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (outlets === null || (outlets.length === 0 && refunds.length === 0)) {
+    return error ? <p className="error" role="alert">{error}</p> : null;
+  }
+  return (
+    <section className="admin-court" aria-label="Online money">
+      <h2>Online money</h2>
+      <p className="muted">Customers who pay in the app pay into your Razorpay account. Pay each outlet its share, and record it here.</p>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <ul className="admin-outlets" aria-label="Money owed to outlets">
+        {outlets.map((o) => (
+          <li key={o.outlet_id} className="admin-money">
+            <span>
+              <strong>{o.outlet}</strong>
+              <br />
+              <span className="muted">
+                {o.court} · {o.orders} order{o.orders === 1 ? '' : 's'} · paid {formatRupees(o.paid_paise)} · settled{' '}
+                {formatRupees(o.settled_paise)}
+              </span>
+            </span>
+            <strong className="num">Owed {formatRupees(o.owed_paise)}</strong>
+            {paying === o.outlet_id ? (
+              <form
+                className="admin-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void record(o);
+                }}
+              >
+                <label>
+                  Amount paid to {o.outlet} (₹)
+                  <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" autoFocus />
+                </label>
+                <label>
+                  Note <span className="muted">(optional)</span>
+                  <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={120} placeholder="UPI, 21 Oct" />
+                </label>
+                <button className="primary" disabled={busy || rupeesToPaise(amount) === null}>
+                  Record payment
+                </button>
+                <button type="button" className="quiet" onClick={() => setPaying(null)}>
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <button
+                disabled={o.owed_paise <= 0}
+                onClick={() => {
+                  setPaying(o.outlet_id);
+                  setAmount(String(o.owed_paise / 100));
+                }}
+              >
+                Record payment to outlet
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {refunds.length > 0 && (
+        <>
+          <h2>Refunds to make ({refunds.length})</h2>
+          <ul className="admin-outlets" aria-label="Refunds to make">
+            {refunds.map((r) => (
+              <li key={r.ref}>
+                <span>
+                  <strong>
+                    {formatRupees(r.amount_paise)}
+                    {r.token ? ` · ${r.token}` : ''} · {r.outlet}
+                  </strong>
+                  <br />
+                  <span className="muted">
+                    {r.customer} {r.phone} · {r.why}
+                  </span>
+                </span>
+                <button className="primary" disabled={busy} onClick={() => void refund(r)}>
+                  Refund
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 

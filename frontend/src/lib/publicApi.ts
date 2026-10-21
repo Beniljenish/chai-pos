@@ -7,6 +7,8 @@ import type { GstType } from './gst';
 export interface PublicCourt {
   name: string;
   location: string;
+  /** Whether "pay online" may be offered (the server has payment keys). */
+  online_payment: boolean;
   outlets: { id: string; name: string; open: boolean }[];
 }
 
@@ -37,6 +39,39 @@ export interface PublicOrder {
   status: OrderStatus;
   items: { name: string; qty: number }[];
   total_paise: number;
+  paid_online: boolean;
+}
+
+/** One online payment for a cart, and (once it is paid) what became of each outlet's part. */
+export interface CheckoutView {
+  id: string;
+  status: 'created' | 'paid' | 'failed';
+  amount_paise: number;
+  razorpay_order_id: string;
+  error: string;
+  fulfilled: boolean;
+  refunded_paise: number;
+  orders: {
+    outlet: string;
+    amount_paise: number;
+    status_key: string | null;
+    token: string | null;
+    error: string | null;
+    message: string | null;
+    refunded: boolean | null;
+  }[];
+}
+
+export interface CheckoutBody {
+  checkout_id: string;
+  slug: string;
+  message_ok: boolean;
+  orders: {
+    outlet_id: string;
+    request_id: string;
+    note: string;
+    items: { menu_item_id: string; qty: number }[];
+  }[];
 }
 
 export interface Account {
@@ -118,6 +153,9 @@ export const publicApi = {
   court: (slug: string) => call<PublicCourt>(slugPath(slug)),
   menu: (slug: string, outletId: string) => call<PublicMenu>(`${slugPath(slug)}/outlets/${outletId}/menu`),
   order: (key: string) => call<PublicOrder>(`/public/orders/${key}`),
+  // ---- paying in the app: one payment for the whole cart, orders placed once it is paid
+  checkout: (token: string, body: CheckoutBody) => call<CheckoutView>('/customer/checkout', post(body), token),
+  checkoutStatus: (token: string, id: string) => call<CheckoutView>(`/customer/checkout/${id}`, undefined, token),
   // ---- ordering: the name and phone on the order are the account's
   place: (
     token: string,
@@ -126,3 +164,8 @@ export const publicApi = {
     body: { request_id: string; note: string; message_ok: boolean; items: { menu_item_id: string; qty: number }[] },
   ) => call<PlacedOrder>(`${slugPath(slug)}/outlets/${outletId}/orders`, post(body), token),
 };
+
+/** Razorpay's page for one payment. It lives on the API (not in this app) so that no
+ * payment script runs where the customer's login is kept; the app opens it in a new tab. */
+export const payPageUrl = (razorpayOrderId: string): string =>
+  `${__API_URL__}/payments/razorpay/customer-checkout?order_id=${encodeURIComponent(razorpayOrderId)}`;

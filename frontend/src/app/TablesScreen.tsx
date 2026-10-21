@@ -26,6 +26,7 @@ import { Receipt } from './Receipt';
 import { StartShiftSheet } from './ShiftUI';
 import { Sheet } from './Sheet';
 import { TicketPreview } from './TicketPreview';
+import { api } from './apiClient';
 import { useSession } from './session';
 
 const POLL_MS = 5_000;
@@ -47,6 +48,24 @@ function useLiveOrders() {
   return { orders, reload };
 }
 
+/** Which open online orders the customer already paid for in the app, and how much (README,
+ * "9.14"). Asked only when there is an online order on screen; if the call fails the badge is
+ * simply missing, and the order still works as a pay-at-the-counter one. */
+function usePaidOnline(orderIds: string[]) {
+  const [paid, setPaid] = useState<Record<string, number>>({});
+  const wanted = orderIds.join(',');
+  useEffect(() => {
+    if (wanted === '') return;
+    let live = true;
+    api
+      .get<{ paid: Record<string, number> }>('/orders/online-paid')
+      .then((r) => live && setPaid(r.paid))
+      .catch(() => undefined);
+    return () => void (live = false);
+  }, [wanted]);
+  return paid;
+}
+
 /** Re-render every 30 s so "12 min" on the floor keeps up. */
 function useNow() {
   const [now, setNow] = useState(() => Date.now());
@@ -66,6 +85,7 @@ interface Target {
 export function TablesScreen() {
   const { catalogue } = useSession();
   const { orders, reload } = useLiveOrders();
+  const paidOnline = usePaidOnline((orders ?? []).filter((o) => onlineToken(o.state)).map((o) => o.id));
   const [target, setTarget] = useState<Target | null>(null);
   const [newKind, setNewKind] = useState<'takeaway' | 'delivery' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -169,6 +189,11 @@ export function TablesScreen() {
                           {o.state.customer_name.slice((onlineToken(o.state) ?? '').length + 1)}
                           <span className="muted"> · {lines.map((ln) => `${ln.qty} × ${ln.name}`).join(', ')}</span>
                         </span>
+                        {paidOnline[o.id] !== undefined && (
+                          <span className="flag paid-online" title="Already paid in the app. Do not collect money; bill it as UPI.">
+                            Paid online {formatRupees(paidOnline[o.id])}
+                          </span>
+                        )}
                         <span className={`flag ${ready ? '' : 'bad'}`}>{ready ? 'Ready' : 'New'}</span>
                       </button>
                     </li>

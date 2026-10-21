@@ -11,7 +11,16 @@ from sqlalchemy import select
 from app.api.common import commit_or_409, get_or_404
 from app.api.deps import Caller, get_caller, require_owner
 from app.core.time import business_date, utcnow
-from app.models import Device, DiningArea, DiningTable, Order, OrderEvent, User
+from app.models import (
+    Device,
+    DiningArea,
+    DiningTable,
+    OnlineOrder,
+    Order,
+    OrderEvent,
+    OrderStatus,
+    User,
+)
 from app.schemas_orders import (
     AreaIn,
     AreaUpdate,
@@ -203,6 +212,23 @@ def live_orders(
         "server_time": now,
         "orders": [{**_order_out(o), "events": events.get(o.id)} for o in rows],
     }
+
+
+@router.get("/orders/online-paid")
+def online_paid(caller: Caller = Depends(get_caller)) -> dict:
+    """Which of this shop's open online orders the customer already paid for (README, "9.14"),
+    and how much: {order id: paise}. The till shows "paid online, do not collect" from it.
+    A separate small call, not part of /orders/live, because the order rules and the tablet's
+    saved copy of them are pinned to shared test cases and should not grow a field."""
+    rows = caller.db.execute(
+        select(OnlineOrder.order_id, OnlineOrder.paid_paise)
+        .join(Order, Order.id == OnlineOrder.order_id)
+        .where(
+            OnlineOrder.payment_id.is_not(None),
+            Order.status.in_([OrderStatus.open, OrderStatus.billed]),
+        )
+    ).all()
+    return {"paid": {str(oid): paise for oid, paise in rows}}
 
 
 @router.get("/reports/service", tags=["reports"])

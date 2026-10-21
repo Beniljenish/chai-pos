@@ -4641,6 +4641,93 @@ button.save {
   user-select: all;
 }
 
+/* Online payment (README, "9.14") */
+.cx-pay {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.cx-pay legend {
+  padding: 0;
+  margin-bottom: var(--s2);
+  font-weight: 800;
+}
+.cx-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+.cx-opt.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.cx-opt span {
+  display: grid;
+}
+.cx-opt small {
+  color: var(--ink-soft);
+}
+.cx-wait {
+  text-align: center;
+}
+.cx-wait .button {
+  display: inline-block;
+  margin: var(--s3) 0;
+}
+.cx-spin {
+  width: 40px;
+  height: 40px;
+  margin: var(--s3) auto;
+  border: 5px solid var(--brand-soft);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: cx-spin 0.9s linear infinite;
+}
+@keyframes cx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-spin {
+    animation: none;
+  }
+}
+.flag.paid-online {
+  background: var(--leaf-soft);
+  color: var(--leaf);
+}
+.fc-money dl {
+  margin: var(--s3) 0 0;
+}
+.fc-money dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--line);
+}
+.fc-money dt,
+.fc-money dd {
+  margin: 0;
+}
+.fc-money .fc-owed {
+  font-weight: 800;
+  color: var(--brand);
+}
+.admin-money {
+  flex-wrap: wrap;
+}
+.admin-money .admin-form {
+  flex-basis: 100%;
+}
+
 /* Manage -> Food court */
 .fc-switch {
   display: flex;

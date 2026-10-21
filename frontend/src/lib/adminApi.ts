@@ -17,6 +17,27 @@ export interface AdminCourt {
   outlets: AdminOutlet[];
 }
 
+export interface OutletMoney {
+  court_id: string;
+  court: string;
+  outlet_id: string;
+  outlet: string;
+  orders: number;
+  paid_paise: number;
+  settled_paise: number;
+  owed_paise: number;
+}
+
+export interface RefundDue {
+  ref: string;
+  why: string;
+  outlet: string;
+  token: string | null;
+  customer: string;
+  phone: string;
+  amount_paise: number;
+}
+
 export class AdminError extends Error {
   status: number;
   code: string | undefined;
@@ -78,6 +99,10 @@ export const adminApi = {
   courts: (t: string) => call<{ courts: AdminCourt[] }>('/courts', t),
   createCourt: (t: string, name: string, location: string) =>
     call<{ courts: AdminCourt[] }>('/courts', t, body({ name, location })),
+  onlineMoney: (t: string) => call<{ outlets: OutletMoney[]; refunds_due: RefundDue[] }>('/online-money', t),
+  settle: (t: string, courtId: string, outletId: string, amountPaise: number, note: string) =>
+    call<{ outlets: OutletMoney[] }>(`/courts/${courtId}/outlets/${outletId}/settlements`, t, body({ amount_paise: amountPaise, note })),
+  refund: (t: string, ref: string) => call<{ refunds_due: RefundDue[] }>('/refunds', t, body({ ref })),
   /** A forgotten customer password: returns a temporary one, once, for the admin to read out. */
   resetCustomer: (t: string, phone: string) =>
     call<{ name: string; phone: string; temporary_password: string }>('/customers/reset-password', t, body({ phone })),

@@ -160,9 +160,12 @@ def test_a_paid_cart_is_placed_at_every_outlet_with_what_was_paid(
     assert rzp.refunds == []
     for shop in (shop_a, shop_b):
         assert len(_live(client, shop)) == 1
+    # the customer's status page says it is paid; a counter order's does not
+    first_key = done["orders"][0]["status_key"]
+    assert client.get(f"{API}/public/orders/{first_key}").json()["paid_online"]
     # each outlet's order remembers what was paid for it
     with mark_system(SessionLocal()) as db:
-        rows = db.scalars(select(OnlineOrder)).all()
+        rows = db.scalars(select(OnlineOrder).where(OnlineOrder.payment_id.is_not(None))).all()
         assert sorted(r.paid_paise for r in rows) == sorted(
             o["amount_paise"] for o in done["orders"]
         )
@@ -170,6 +173,9 @@ def test_a_paid_cart_is_placed_at_every_outlet_with_what_was_paid(
     # and the customer finds both in My orders, linked to their account
     mine = client.get(f"{API}/customer/orders", headers=court["customer"]).json()["orders"]
     assert len(mine) == 2
+    # whereas an order to pay at the counter says so
+    counter_key = _order_at_counter(client, court)["status_key"]
+    assert client.get(f"{API}/public/orders/{counter_key}").json()["paid_online"] is False
 
 
 def test_a_retried_verify_and_the_webhook_place_nothing_twice(client, shop_a, shop_b, court, rzp):
@@ -441,3 +447,29 @@ def test_a_cart_over_the_limits_is_refused_before_any_charge(client, court, rzp)
     assert rzp.orders == []
     with mark_system(SessionLocal()) as db:
         assert db.scalars(select(OnlinePayment)).all() == []
+
+
+def test_the_till_can_ask_which_open_online_orders_are_already_paid(
+    client, shop_a, shop_b, court, rzp
+):
+    started = _start(client, court, TWO).json()
+    _pay(client, rzp, started)
+    counter = _order_at_counter(client, court)
+    paid_a = client.get(f"{API}/orders/online-paid", headers=shop_a.cashier_h).json()["paid"]
+    live_a = {o["id"]: o for o in _live(client, shop_a)}
+    assert set(paid_a) <= set(live_a) and len(paid_a) == 1  # only this shop's, only the paid one
+    assert counter["order_id"] in live_a and counter["order_id"] not in paid_a
+    paid_b = client.get(f"{API}/orders/online-paid", headers=shop_b.cashier_h).json()["paid"]
+    assert set(paid_a).isdisjoint(paid_b)  # another shop never sees this one's
+    assert client.get(f"{API}/orders/online-paid").status_code == 401
+
+
+def _order_at_counter(client, c):
+    tea = _menu(client, c, "a")["Masala tea"]["id"]
+    r = client.post(
+        f"{API}/public/courts/{c['slug']}/outlets/{c['a']}/orders",
+        json={"request_id": str(uuid.uuid4()), "items": [{"menu_item_id": tea, "qty": 1}]},
+        headers=c["customer"],
+    )
+    assert r.status_code == 201, r.text
+    return r.json()

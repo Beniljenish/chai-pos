@@ -12,7 +12,9 @@ import {
   courtSlugFromPath,
   grandTotal,
   isOrderHome,
+  notPlacedText,
   outletsInCart,
+  rupeesToPaise,
   orderProblem,
   soldOutInCart,
   statusStep,
@@ -155,5 +157,25 @@ describe('the customer front door', () => {
     expect(accountProblem(401)).toMatch(/wrong/);
     expect(accountProblem(429, undefined, 'Too many wrong passwords. Try again in 15 minutes.')).toMatch(/15 minutes/);
     expect(accountProblem(422, 'weak_password', 'Use at least 8 characters')).toBe('Use at least 8 characters');
+  });
+});
+
+describe('paying online', () => {
+  it('turns typed rupees into paise without floating point', () => {
+    expect(rupeesToPaise('840')).toBe(84000);
+    expect(rupeesToPaise(' 840.5 ')).toBe(84050);
+    expect(rupeesToPaise('0.07')).toBe(7);
+    expect(rupeesToPaise('1234567.99')).toBe(123456799);
+    for (const bad of ['', '0', '0.00', '-5', '1.234', 'abc', '1,000', '12345678']) expect(rupeesToPaise(bad)).toBeNull();
+  });
+
+  it('tells the customer what became of an outlet that could not take its part', () => {
+    const part = { outlet: 'Anna Biryani', error: 'items_unavailable', message: 'Sold out: Biryani.', refunded: true, amount_paise: 18000 };
+    expect(notPlacedText(part, '₹180')).toBe(
+      'Anna Biryani: Sold out: Biryani. ₹180 is being refunded to your UPI or card. It can take 5 to 7 working days.',
+    );
+    expect(notPlacedText({ ...part, error: 'price_changed', message: 'x' }, '₹180')).toMatch(/a price changed while you were paying/);
+    // a refund that failed is never promised
+    expect(notPlacedText({ ...part, refunded: false }, '₹180')).toMatch(/could not refund ₹180 automatically/);
   });
 });

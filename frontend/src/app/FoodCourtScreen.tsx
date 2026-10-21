@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { courtPath } from '../lib/foodcourt';
+import { formatRupees } from '../lib/gst';
 import type { FoodCourtView } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
@@ -81,6 +82,27 @@ export function FoodCourtScreen() {
               <span />
             </button>
           </div>
+
+          {v.online_money && v.online_money.orders + v.online_money.settled_paise > 0 && (
+            <section className="panel-inline fc-money" aria-label="Online payments">
+              <h2>Online payments</h2>
+              <p className="muted">Customers paid the food court for your orders. It pays you afterwards.</p>
+              <dl>
+                <div>
+                  <dt>Paid by customers ({v.online_money.orders} order{v.online_money.orders === 1 ? '' : 's'})</dt>
+                  <dd className="num">{formatRupees(v.online_money.paid_paise)}</dd>
+                </div>
+                <div>
+                  <dt>Already paid to you</dt>
+                  <dd className="num">{formatRupees(v.online_money.settled_paise)}</dd>
+                </div>
+                <div className="fc-owed">
+                  <dt>Still due to you</dt>
+                  <dd className="num">{formatRupees(v.online_money.owed_paise)}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
 
           <section className="fc-qr-card" aria-label="QR code to print">
             <Qr text={link} />

@@ -467,4 +467,6 @@ export interface FoodCourtView {
   court: null | { id: string; name: string; slug: string };
   accepting_orders?: boolean;
   outlets?: { id: string; name: string; accepting_orders: boolean; is_me: boolean }[];
+  /** What customers paid online for this outlet, and what the food court has paid it so far. */
+  online_money?: { orders: number; paid_paise: number; settled_paise: number; owed_paise: number };
 }

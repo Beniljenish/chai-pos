@@ -17,6 +17,7 @@ import {
   cleanPhone,
   courtMatches,
   grandTotal,
+  notPlacedText,
   ORDER_HOME,
   orderProblem,
   outletsInCart,
@@ -24,12 +25,15 @@ import {
   STATUS_TEXT,
   statusStep,
   type Carts,
+  type PayChoice,
 } from '../lib/foodcourt';
 import { formatRupees } from '../lib/gst';
 import {
   PublicError,
+  payPageUrl,
   publicApi,
   type Account,
+  type CheckoutView,
   type CourtRow,
   type HistoryRow,
   type PublicCourt,
@@ -41,6 +45,8 @@ import {
 // ---- what the phone remembers (every read and write may fail: private windows)
 const TOKEN_KEY = 'taptallow-customer-token';
 const cartKey = (slug: string) => `taptallow-cart:${slug}`;
+// The online payment this phone is in the middle of (so closing the page does not lose it).
+const pendingKey = (slug: string) => `taptallow-paying:${slug}`;
 function store(key: string, value: string | null) {
   try {
     if (value === null) localStorage.removeItem(key);
@@ -458,13 +464,14 @@ function Initials({ name }: { name: string }) {
 
 // ---------------------------------------------------------------- inside a court
 interface Result {
-  outletId: string;
+  id: string;
   outlet: string;
   key?: string;
+  /** Why this outlet's part was not placed, in words for the customer. */
   error?: string;
 }
 
-type CourtView = 'browse' | 'cart' | 'placed';
+type CourtView = 'browse' | 'cart' | 'paying' | 'placed';
 
 function CourtFlow({
   slug,
@@ -488,6 +495,8 @@ function CourtFlow({
   const [carts, setCarts] = useState<Carts>(() => recallCarts(slug));
   const [view, setView] = useState<CourtView>('browse');
   const [results, setResults] = useState<Result[]>([]);
+  const [paidPaise, setPaidPaise] = useState<number | null>(null);
+  const [checkout, setCheckout] = useState<{ view: CheckoutView; blocked: boolean } | null>(null);
 
   useEffect(() => {
     publicApi
@@ -499,6 +508,26 @@ function CourtFlow({
       })
       .catch((e) => setMissing(e instanceof PublicError && e.status === 404));
   }, [slug]);
+
+  // A payment this phone started and did not see through (the page was closed): pick it up.
+  useEffect(() => {
+    const id = recall(pendingKey(slug));
+    if (!id) return;
+    publicApi
+      .checkoutStatus(auth.token, id)
+      .then((view) => {
+        if (view.fulfilled) finishPaid(view);
+        else {
+          setCheckout({ view, blocked: false });
+          setView('paying');
+        }
+      })
+      .catch((e) => {
+        onGuard(e);
+        if (e instanceof PublicError && e.status === 404) store(pendingKey(slug), null);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, auth.token]);
 
   const updateCarts = (next: Carts) => {
     setCarts(next);
@@ -531,6 +560,26 @@ function CourtFlow({
 
   const nameOf = (id: string) => court?.outlets.find((o) => o.id === id)?.name ?? 'Outlet';
 
+  /** The payment went through and the orders were placed (or refunded): show the tokens, and take
+   * what was paid for out of the cart so it cannot be ordered twice. */
+  function finishPaid(view: CheckoutView) {
+    const names = new Set(view.orders.map((o) => o.outlet));
+    const rest = Object.fromEntries(Object.entries(carts).filter(([id]) => !names.has(nameOf(id))));
+    updateCarts(rest);
+    store(pendingKey(slug), null);
+    setPaidPaise(view.amount_paise - view.refunded_paise);
+    setResults(
+      view.orders.map((o) => ({
+        id: o.outlet,
+        outlet: o.outlet,
+        key: o.status_key ?? undefined,
+        error: o.status_key ? undefined : notPlacedText(o, formatRupees(o.amount_paise)),
+      })),
+    );
+    setCheckout(null);
+    setView('placed');
+  }
+
   if (view === 'cart') {
     return (
       <CartScreen
@@ -544,9 +593,31 @@ function CourtFlow({
         onBack={() => setView('browse')}
         onGuard={onGuard}
         onLogOut={onLogOut}
+        online={court?.online_payment === true}
         onPlaced={(r) => {
+          setPaidPaise(null);
           setResults(r);
           setView('placed');
+        }}
+        onPaying={(v, blocked) => {
+          setCheckout({ view: v, blocked });
+          setView('paying');
+        }}
+      />
+    );
+  }
+  if (view === 'paying' && checkout) {
+    return (
+      <Paying
+        auth={auth}
+        view={checkout.view}
+        blocked={checkout.blocked}
+        onGuard={onGuard}
+        onDone={finishPaid}
+        onBack={() => {
+          store(pendingKey(slug), null);
+          setCheckout(null);
+          setView('cart');
         }}
       />
     );
@@ -555,6 +626,7 @@ function CourtFlow({
     return (
       <Placed
         results={results}
+        paidPaise={paidPaise}
         more={allItemCount(carts) > 0 ? 'cart' : 'browse'}
         onMore={() => setView(allItemCount(carts) > 0 ? 'cart' : 'browse')}
         onOrders={onOrders}
@@ -710,7 +782,9 @@ function CartScreen({
   onBack,
   onGuard,
   onLogOut,
+  online,
   onPlaced,
+  onPaying,
 }: {
   slug: string;
   auth: Auth;
@@ -722,8 +796,12 @@ function CartScreen({
   onBack(): void;
   onGuard(e: unknown): void;
   onLogOut(): void;
+  online: boolean;
   onPlaced(results: Result[]): void;
+  onPaying(view: CheckoutView, blocked: boolean): void;
 }) {
+  const [pay, setPay] = useState<PayChoice>(online ? 'online' : 'counter');
+  const checkoutRef = useRef<{ key: string; id: string } | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [consent, setConsent] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -758,7 +836,7 @@ function CartScreen({
           message_ok: consent,
           items: menu.items.filter((i) => (carts[id][i.id] ?? 0) > 0).map((i) => ({ menu_item_id: i.id, qty: carts[id][i.id] })),
         });
-        results.push({ outletId: id, outlet: nameOf(id), key: placed.status_key });
+        results.push({ id, outlet: nameOf(id), key: placed.status_key });
         delete requestIds.current[id];
         const { [id]: _done, ...rest } = next;
         next = rest;
@@ -768,7 +846,7 @@ function CartScreen({
           return;
         }
         const why = e instanceof PublicError ? orderProblem(e.code, e.names) : 'No signal. Please try again.';
-        results.push({ outletId: id, outlet: nameOf(id), error: why });
+        results.push({ id, outlet: nameOf(id), error: why });
         problems.push(`${nameOf(id)}: ${why}`);
       }
     }
@@ -776,6 +854,45 @@ function CartScreen({
     setBusy(false);
     if (results.some((r) => r.key)) onPlaced(results);
     else setError(problems.join(' '));
+  }
+
+  async function payOnline() {
+    setBusy(true);
+    setError(null);
+    // The payment page opens in a new tab. It is opened here, in the tap itself, so the browser
+    // allows it; it is pointed at Razorpay once the server has made the payment.
+    const popup = window.open('about:blank', '_blank');
+    const orders = outletIds.map((id) => ({
+      outlet_id: id,
+      request_id: unique(id),
+      note: (notes[id] ?? '').trim(),
+      items: menus[id].items.filter((i) => (carts[id][i.id] ?? 0) > 0).map((i) => ({ menu_item_id: i.id, qty: carts[id][i.id] })),
+    }));
+    // A new payment whenever the cart changes: one id must never mean two different carts.
+    const key = JSON.stringify([orders.map((o) => [o.outlet_id, o.items, o.note]), consent]);
+    if (checkoutRef.current === null || checkoutRef.current.key !== key) {
+      checkoutRef.current = { key, id: crypto.randomUUID() };
+    }
+    try {
+      const view = await publicApi.checkout(auth.token, {
+        checkout_id: checkoutRef.current.id,
+        slug,
+        message_ok: consent,
+        orders,
+      });
+      store(pendingKey(slug), view.id);
+      if (popup) popup.location.href = payPageUrl(view.razorpay_order_id);
+      onPaying(view, popup === null);
+    } catch (e) {
+      popup?.close();
+      if (e instanceof PublicError && e.status === 401) {
+        onGuard(e);
+        return;
+      }
+      setError(e instanceof PublicError ? e.message || orderProblem(e.code, e.names) : 'No signal. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -837,7 +954,7 @@ function CartScreen({
           className="cx-form"
           onSubmit={(e) => {
             e.preventDefault();
-            void place();
+            void (pay === 'online' ? payOnline() : place());
           }}
         >
           <div className="cx-as">
@@ -856,16 +973,47 @@ function CartScreen({
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             Message me on this number when {outletIds.length > 1 ? 'each order is' : 'my order is'} ready
           </label>
-          <p className="cx-note">
-            You pay <strong>{formatRupees(total)}</strong> at the counter{outletIds.length > 1 ? 's' : ''} when you collect.
-          </p>
+          {online && (
+            <fieldset className="cx-pay">
+              <legend>How do you want to pay?</legend>
+              <label className={`cx-opt ${pay === 'online' ? 'on' : ''}`}>
+                <input type="radio" name="pay" checked={pay === 'online'} onChange={() => setPay('online')} />
+                <span>
+                  <strong>Pay online · {formatRupees(total)}</strong>
+                  <small>UPI or card{outletIds.length > 1 ? ', one payment for all outlets' : ''}</small>
+                </span>
+              </label>
+              <label className={`cx-opt ${pay === 'counter' ? 'on' : ''}`}>
+                <input type="radio" name="pay" checked={pay === 'counter'} onChange={() => setPay('counter')} />
+                <span>
+                  <strong>Pay at the counter{outletIds.length > 1 ? 's' : ''}</strong>
+                  <small>Pay {outletIds.length > 1 ? 'each outlet' : 'there'} when you collect</small>
+                </span>
+              </label>
+            </fieldset>
+          )}
+          {pay === 'online' ? (
+            <p className="cx-note">Nothing is sent to the kitchen until your payment goes through.</p>
+          ) : (
+            <p className="cx-note">
+              You pay <strong>{formatRupees(total)}</strong> at the counter{outletIds.length > 1 ? 's' : ''} when you collect.
+            </p>
+          )}
           {error && (
             <p className="error" role="alert">
               {error}
             </p>
           )}
           <button className="primary" disabled={!ready || blocked || busy}>
-            {busy ? 'Placing…' : outletIds.length === 1 ? 'Place order' : `Place ${outletIds.length} orders`}
+            {busy
+              ? pay === 'online'
+                ? 'Starting payment…'
+                : 'Placing…'
+              : pay === 'online'
+                ? `Pay ${formatRupees(total)} and place ${outletIds.length === 1 ? 'order' : `${outletIds.length} orders`}`
+                : outletIds.length === 1
+                  ? 'Place order'
+                  : `Place ${outletIds.length} orders`}
           </button>
         </form>
       )}
@@ -873,14 +1021,99 @@ function CartScreen({
   );
 }
 
+/** The payment screen: Razorpay is open in another tab; this page checks by itself. */
+function Paying({
+  auth,
+  view: first,
+  blocked,
+  onGuard,
+  onDone,
+  onBack,
+}: {
+  auth: Auth;
+  view: CheckoutView;
+  blocked: boolean;
+  onGuard(e: unknown): void;
+  onDone(view: CheckoutView): void;
+  onBack(): void;
+}) {
+  const [view, setView] = useState(first);
+  const [lost, setLost] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    const poll = () =>
+      publicApi
+        .checkoutStatus(auth.token, first.id)
+        .then((v) => {
+          if (!live) return;
+          setLost(false);
+          setView(v);
+          if (v.fulfilled) onDone(v);
+        })
+        .catch((e) => {
+          if (!live) return;
+          onGuard(e);
+          setLost(true); // no signal: keep trying, the payment is safe on the server
+        });
+    const timer = window.setInterval(poll, 3000);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [first.id, auth.token]);
+
+  return (
+    <>
+      <header className="cx-top">
+        <button className="cx-back" onClick={onBack} aria-label="Cancel and go back to the cart">
+          ‹
+        </button>
+        <h1>Paying {formatRupees(view.amount_paise)}</h1>
+      </header>
+      <section className="cx-group cx-wait" role="status" aria-live="polite">
+        {view.status === 'paid' ? (
+          <>
+            <h2>Payment received</h2>
+            <p className="muted">Placing your orders…</p>
+          </>
+        ) : (
+          <>
+            <div className="cx-spin" aria-hidden="true" />
+            <h2>Waiting for your payment</h2>
+            <p className="muted">Finish paying in the other tab. This page moves on by itself.</p>
+            {view.status === 'failed' && (
+              <p className="error">The payment did not go through{view.error ? `: ${view.error}` : ''}. You can try again.</p>
+            )}
+            {blocked && <p className="cx-note">Your browser blocked the payment page. Use the button below to open it.</p>}
+            <a className="button" href={payPageUrl(view.razorpay_order_id)} target="_blank" rel="noreferrer">
+              {blocked ? 'Open the payment page' : 'Open the payment page again'}
+            </a>
+            <p className="muted">
+              Closed it by mistake? Nothing is charged until you pay. If money left your account, your tokens will appear here.
+            </p>
+            {lost && <p className="muted">No signal. Still trying…</p>}
+          </>
+        )}
+      </section>
+      <button className="link" onClick={onBack}>
+        Cancel and go back to the cart
+      </button>
+    </>
+  );
+}
+
 /** After placing: a token per outlet that went through, and a plain note on any that did not. */
 function Placed({
   results,
+  paidPaise,
   more,
   onMore,
   onOrders,
 }: {
   results: Result[];
+  paidPaise: number | null;
   more: 'cart' | 'browse';
   onMore(): void;
   onOrders(): void;
@@ -890,18 +1123,18 @@ function Placed({
   return (
     <>
       <header className="cx-hero">
-        <small>Order{placed.length === 1 ? '' : 's'} placed</small>
+        <small>{paidPaise !== null && paidPaise > 0 ? `Paid ${formatRupees(paidPaise)} online` : `Order${placed.length === 1 ? '' : 's'} placed`}</small>
         <h1>
           {placed.length} token{placed.length === 1 ? '' : 's'}
         </h1>
-        <p>Show {placed.length === 1 ? 'it' : 'each'} at {placed.length === 1 ? 'the' : 'its own'} counter</p>
+        <p>{placed.length === 0 ? 'Nothing was placed' : `Show ${placed.length === 1 ? 'it' : 'each'} at ${placed.length === 1 ? 'the' : 'its own'} counter`}</p>
       </header>
       {placed.map((r) => (
         <StatusCard key={r.key} orderKey={r.key!} />
       ))}
       {failed.map((r) => (
-        <p key={r.outletId} className="error" role="alert">
-          {r.outlet}: {r.error} It is still in your cart.
+        <p key={r.id} className="cx-note" role="alert">
+          {paidPaise !== null ? r.error : `${r.outlet}: ${r.error} It is still in your cart.`}
         </p>
       ))}
       <div className="cx-actions">
@@ -970,7 +1203,7 @@ function StatusCard({ orderKey: key }: { orderKey: string }) {
           </li>
         ))}
         <li className="cx-total">
-          <strong>{order.status === 'collected' ? 'Total' : 'Pay at the counter'}</strong>
+          <strong>{order.paid_online ? 'Paid online' : order.status === 'collected' ? 'Total' : 'Pay at the counter'}</strong>
           <strong className="num">{formatRupees(order.total_paise)}</strong>
         </li>
       </ul>

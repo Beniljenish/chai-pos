@@ -529,4 +529,6 @@ def public_order(key: str) -> dict:
             "status": public_state(order.state),
             "items": [{"name": ln["name"], "qty": ln["qty"]} for ln in lines if ln["qty"] > 0],
             "total_paise": _total(lines, shop.gst_type),
+            # Paid in the app (README, "9.14"): the page says "Paid", not "Pay at the counter".
+            "paid_online": online.payment_id is not None,
         }

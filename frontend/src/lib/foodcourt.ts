@@ -104,6 +104,16 @@ export function courtSlugFromPath(pathname: string): string | null {
   return m ? m[1] : null;
 }
 
+export type PayChoice = 'online' | 'counter';
+
+/** What the customer is told about an outlet that could not take its part of a paid cart. */
+export function notPlacedText(o: { outlet: string; error: string | null; message: string | null; refunded: boolean | null; amount_paise: number }, rupees: string): string {
+  const why = o.error === 'price_changed' ? 'a price changed while you were paying' : (o.message ?? 'it could not take the order').replace(/\.$/, '');
+  return o.refunded === false
+    ? `${o.outlet}: ${why}. We could not refund ${rupees} automatically; the food court team will do it.`
+    : `${o.outlet}: ${why}. ${rupees} is being refunded to your UPI or card. It can take 5 to 7 working days.`;
+}
+
 /** The customer area's front door: /order, with no court chosen yet. */
 export const isOrderHome = (pathname: string): boolean => /^\/order\/?$/.test(pathname);
 
@@ -149,4 +159,13 @@ export function orderProblem(code: string | undefined, names?: string[]): string
     default:
       return 'Could not place the order. Please try again.';
   }
+}
+
+/** "840" or "840.50" typed in rupees -> paise, with no floating point. Null when it is not a
+ * positive amount with at most two decimals. */
+export function rupeesToPaise(text: string): number | null {
+  const m = /^(\d{1,7})(?:\.(\d{1,2}))?$/.exec(text.trim());
+  if (!m) return null;
+  const paise = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));
+  return paise > 0 ? paise : null;
 }
