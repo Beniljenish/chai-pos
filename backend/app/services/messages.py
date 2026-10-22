@@ -90,6 +90,16 @@ def mask(phone: str) -> str:
     return "••••••" + phone[-4:] if phone else ""
 
 
+def send_text(phone: str, text: str, key: str) -> str:
+    """One message that belongs to no order (the owner's daily summary): "sent", or "logged"
+    when no provider is configured. Raises SendError when the provider refuses."""
+    transport = _transport()
+    if transport is None:
+        return "logged"
+    transport(f"+91{phone}", text, key)
+    return "sent"
+
+
 # ---------------------------------------------------------------- the receipt link
 def _sig(bill_id: uuid.UUID) -> str:
     key = get_settings().jwt_secret.encode()

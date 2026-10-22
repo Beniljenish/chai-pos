@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.common import unprocessable
 from app.api.deps import Caller, get_caller, require_owner
 from app.core.security import hash_password
+from app.core.time import business_date, utcnow
 from app.models import Device, EmailKind, EmailOutbox, GstType, Shop, User
 from app.schemas import (
     DeviceCreate,
@@ -26,7 +27,7 @@ from app.schemas import (
     UserUpdate,
 )
 from app.services import auth as auth_service
-from app.services import email, reports
+from app.services import email, messages, reports, summary
 from app.services.online import ONLINE_DEVICE_CODE, ONLINE_USER_NAME
 
 router = APIRouter()
@@ -95,6 +96,21 @@ def send_test_email(caller: Caller = Depends(require_owner)) -> dict:
         .limit(1)
     )
     return {"status": "failed", "detail": last or "The email could not be sent"}
+
+
+@router.post("/shop/summary/test", tags=["shop"])
+def send_summary_now(caller: Caller = Depends(require_owner)) -> dict:
+    """Today's figures so far, shown, and sent to the owner's number when a provider is set up."""
+    shop = _current_shop(caller)
+    d = business_date(utcnow())
+    text = summary.text_for(caller.db, shop, d)
+    if not shop.summary_phone:
+        raise unprocessable("Add your mobile number for the daily message first")
+    try:
+        result = messages.send_text(shop.summary_phone, text, f"summary-test:{shop.id}:{utcnow()}")
+    except messages.SendError as e:
+        return {"status": "failed", "text": text, "detail": str(e)[:200]}
+    return {"status": result, "text": text}
 
 
 # ---------------- users ----------------

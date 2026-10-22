@@ -68,6 +68,9 @@ class ShopOut(ORM):
     max_discount_bp: int = 1000
     wastage_approval_paise: int = 20000
     gst_threshold_paise: int | None = None
+    auto_sold_out: bool = False
+    summary_phone: str | None = None
+    summary_on: bool = False
 
 
 class ShopUpdate(BaseModel):
@@ -87,6 +90,18 @@ class ShopUpdate(BaseModel):
     wastage_approval_paise: int | None = Field(default=None, ge=0, le=10_000_000)
     # Turnover at which this shop must register for GST (ask an accountant); None = no watch.
     gst_threshold_paise: int | None = Field(default=None, ge=0, le=100_000_000_000)
+    # Dishes the stock cannot make any more show as sold out to online customers.
+    auto_sold_out: bool | None = None
+    # The owner's mobile number for the short end-of-day message; "" clears it.
+    summary_phone: str | None = None
+    summary_on: bool | None = None
+
+    @field_validator("summary_phone")
+    @classmethod
+    def valid_summary_phone(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
+        return _normalise_phone(v)
 
     @field_validator("report_email")
     @classmethod

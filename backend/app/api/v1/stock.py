@@ -1,10 +1,12 @@
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from app.api.common import commit_or_409, get_or_404, unprocessable
 from app.api.deps import Caller, get_caller, require_owner
+from app.core.time import business_date, utcnow
 from app.models import Ingredient, StockLedger
 from app.schemas_catalogue import (
     LedgerOut,
@@ -88,6 +90,17 @@ def make_prep_batch(body: PrepBatchIn, caller: Caller = Depends(get_caller)):
         raise unprocessable(str(e)) from None
     caller.db.commit()
     return batch
+
+
+@router.get("/stock/tomorrow")
+def tomorrow(caller: Caller = Depends(require_owner)) -> dict:
+    """What to have ready tomorrow, from the same weekday over the last four weeks."""
+    day = business_date(utcnow()) + timedelta(days=1)
+    return {
+        "date": day,
+        "weekday": day.strftime("%A"),
+        "items": stock_service.prep_suggestions(caller.db, day),
+    }
 
 
 @router.get("/stock", response_model=list[StockOut])

@@ -4,8 +4,8 @@ Stock on hand = SUM(qty_delta). There is no stored balance to drift."""
 import statistics
 import uuid
 from dataclasses import dataclass
-from datetime import date
-from decimal import Decimal
+from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -291,3 +291,37 @@ def stock_on_hand(db: Session) -> list[OnHand]:
     opened = physically_counted(db)
     items = db.scalars(select(Ingredient).order_by(Ingredient.kind, Ingredient.name)).all()
     return [OnHand(i, Decimal(totals.get(i.id) or 0), i.id in opened) for i in items]
+
+
+WEEKS_LOOKED_BACK = 4
+_USED = (LedgerReason.sale, LedgerReason.prep_out, LedgerReason.void)
+
+
+def prep_suggestions(db: Session, target: date) -> list[dict]:
+    """What to have ready on `target`: for each bought ingredient, the average of what the shop
+    used on the same weekday over the last four weeks (sales and batches made, less voids).
+    A guide from history, not a promise. Owner only: it is about stock."""
+    days = [target - timedelta(days=7 * w) for w in range(1, WEEKS_LOOKED_BACK + 1)]
+    rows = db.execute(
+        select(Ingredient, func.sum(-StockLedger.qty_delta))
+        .join(Ingredient, Ingredient.id == StockLedger.ingredient_id)
+        .where(
+            StockLedger.business_date.in_(days),
+            StockLedger.reason.in_(_USED),
+            Ingredient.kind == IngredientKind.raw,
+        )
+        .group_by(Ingredient.id)
+    ).all()
+    out = []
+    for ingredient, used in rows:
+        if used is None or used <= 0:
+            continue
+        out.append(
+            {
+                "ingredient_id": ingredient.id,
+                "name": ingredient.name,
+                "base_unit": ingredient.base_unit.value,
+                "qty": (Decimal(used) / WEEKS_LOOKED_BACK).quantize(Decimal(1), ROUND_HALF_UP),
+            }
+        )
+    return sorted(out, key=lambda r: r["name"])

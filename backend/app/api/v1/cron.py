@@ -17,7 +17,7 @@ from app.core.time import business_date, utcnow
 from app.db.session import SessionLocal
 from app.db.tenancy import bind_tenant, mark_system
 from app.models import MenuItem, Shop
-from app.services import email, messages, reports
+from app.services import email, messages, reports, summary
 
 router = APIRouter(tags=["ops"])
 
@@ -48,6 +48,7 @@ def daily(authorization: str | None = Header(default=None), today: date | None =
             # on must not stay unorderable for customers.
             db.execute(update(MenuItem).where(MenuItem.is_sold_out).values(is_sold_out=False))
             reports.enqueue_daily(db, shop, yesterday)
+            summary.send(db, shop, yesterday)
             if week:
                 reports.enqueue_weekly(db, shop, *week)
             db.commit()

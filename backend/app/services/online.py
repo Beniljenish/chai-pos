@@ -50,7 +50,7 @@ from app.models import (
     Shop,
     User,
 )
-from app.services import gst, payments
+from app.services import autosoldout, gst, payments
 from app.services import orders as order_service
 
 ONLINE_USER_NAME = "Online ordering"  # the stand-in author of customers' orders
@@ -216,6 +216,7 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
                     "is_size": mod.scale_factor != 1,
                 }
             )
+        short = autosoldout.short_items(db) if shop.auto_sold_out else set()
         # Only what a customer needs to choose and to see the price they will pay.
         return {
             "outlet": shop.name,
@@ -230,7 +231,7 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
                     "price_paise": i.price_paise,
                     "gst_rate_bp": i.gst_rate_bp,
                     "tax_inclusive": i.tax_inclusive,
-                    "sold_out": i.is_sold_out,
+                    "sold_out": i.is_sold_out or i.id in short,
                     "description": i.description,
                     "name_ta": i.name_ta,
                     "description_ta": i.description_ta,
@@ -363,7 +364,8 @@ def _load_menu(db: Session, wanted: dict[LineKey, int]) -> dict[uuid.UUID, MenuI
     }
     if any(i not in menu for i in item_ids):
         raise OnlineError("items_unavailable", "Some dishes are no longer on the menu", 409)
-    sold_out = [menu[i].name for i in item_ids if menu[i].is_sold_out]
+    short = autosoldout.short_items(db) if db.scalar(select(Shop.auto_sold_out)) else set()
+    sold_out = [menu[i].name for i in item_ids if menu[i].is_sold_out or i in short]
     if sold_out:
         raise OnlineError(
             "items_unavailable", "Sold out: " + ", ".join(sold_out), 409, {"names": sold_out}
