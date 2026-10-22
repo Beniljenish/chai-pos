@@ -831,6 +831,19 @@ Decisions and trade-offs, in the order they were built.
 
 **Migration** `a2b6d1f4c557`, on top of `f1a5c9d3e446`: tables `phone_codes`, `rate_hits`, `dish_photos` (all with row-level security), and the columns `food_court_outlets.fee_bp/pickup_enabled/pickup_capacity`, `online_orders.pickup_at/table_name`, `shops.auto_sold_out/summary_phone/summary_on`, `customer_accounts.phone_verified_at`. Additive only.
 
+### 9.18 Round three: your usual, what you wasted, shift notes, token page without signal, busy pause
+**Your usual** (`customer_accounts.usual`, `GET /customer/usual?outlet_id=`). On an outlet's menu, a customer who has ordered there at least twice sees the dishes in two or more of their last eight orders there, in the quantity they most often take (the smaller on a tie), up to four. One tap fills the cart. Only dishes still on the menu, not sold out, with their options still offered are shown, and prices are looked up fresh like "order again". It disappears once the cart has something in it. *No machine learning:* a count of their own past orders.
+
+**What you wasted** (Manage → Money → Helpers; `services/wasted.py`, `GET /reports/wasted`). The last 28 days of wastage entries: total, the top five items, the weekday with the most and its main reason. *Only entries that count as a known loss are added* (approved): a cashier's large entry still waiting for you, and one you rejected (which is added back to stock), are left out. **Not built:** "sold out most", because the app does not record when a dish is switched sold out (the flag resets each night), so there is nothing honest to count; recording it would be the next step.
+
+**Shift handover note.** The end-shift sheet already had a note box; it is now "Note for the next shift", with the microphone. The note travels with the shift's close, and the next person sees it on the Start-shift sheet ("From Ravi, for this shift"), also on a tablet that was reset (the server returns it with the last count). *There is no "got it" tick:* the note shows once, when the next shift starts.
+
+**Token page without signal.** The customer's token card keeps the last state this phone saw (also across a reload, in the phone's own storage), and shows "No signal. Last updated 2 min ago. We keep trying." while polls fail. A 404 still says the order was not found; other failures are treated as lost signal. *It cannot know the order moved on while offline;* it says how old the information is instead of guessing.
+
+**Pause when busy** (`online.check_not_busy`; Manage → Food court). Off by default. When on, once an outlet has N open online orders (default 12, 2 to 40) new unpaid orders are refused and a ten-minute pause starts by itself; customers see "Very busy: back at 1:25 pm" and cannot add dishes; the owner sees the pause with "Open now". Switching the feature off lifts a running pause; raising the limit does not (use "Open now"). **An order already paid for is never refused**, and the check also runs when a payment is started so nobody pays for an order that would be turned away. The older hard limit of 40 open orders stays as the last guard. *Trade-off:* it counts open orders, not minutes of work, so a single large order counts as one.
+
+**Migration** `c3d7e2a9b668`, on top of `a2b6d1f4c557`: `food_court_outlets.busy_pause_on/busy_limit/paused_until`. Additive only.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

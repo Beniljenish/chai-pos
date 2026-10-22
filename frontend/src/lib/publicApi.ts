@@ -23,6 +23,8 @@ export interface CourtRow {
 export interface PublicMenu {
   outlet: string;
   open: boolean;
+  /** Set while the outlet has paused new orders because it is busy (ISO time it ends). */
+  paused_until?: string | null;
   /** The outlet's own promise of how long an order usually takes (null: not said). */
   prep_minutes: number | null;
   gst_type: GstType;
@@ -34,6 +36,15 @@ export interface Board {
   court: string;
   ready: { token: string; outlet: string }[];
   making: { token: string; outlet: string }[];
+}
+
+/** A dish this customer keeps ordering at an outlet, in the quantity they usually take. */
+export interface Usual {
+  menu_item_id: string;
+  modifier_ids: string[];
+  qty: number;
+  name: string;
+  times: number;
 }
 
 export interface PlacedOrder {
@@ -207,6 +218,8 @@ export const publicApi = {
     call<{ enabled: boolean; slots: { at: string; full: boolean }[] }>(`${slugPath(slug)}/outlets/${outletId}/slots`),
   board: (slug: string) => call<Board>(`${slugPath(slug)}/board`),
   order: (key: string) => call<PublicOrder>(`/public/orders/${key}`),
+  usual: (token: string, outletId: string) =>
+    call<{ usual: Usual[] }>(`/customer/usual?outlet_id=${encodeURIComponent(outletId)}`, undefined, token),
   // ---- paying in the app: one payment for the whole cart, orders placed once it is paid
   checkout: (token: string, body: CheckoutBody) => call<CheckoutView>('/customer/checkout', post(body), token),
   checkoutStatus: (token: string, id: string) => call<CheckoutView>(`/customer/checkout/${id}`, undefined, token),

@@ -173,6 +173,7 @@ def device_state(db: Session, device_id: uuid.UUID) -> dict:
             "counted_cash_paise": last.counted_cash_paise,
             "by_name": names.get(last.closed_by, ""),
             "at": last.closed_at,
+            "note": last.close_note,  # what they left for the next shift
         },
     }
 

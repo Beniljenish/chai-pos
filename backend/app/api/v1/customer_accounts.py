@@ -225,6 +225,15 @@ def orders(response: Response, c: Customer = Depends(current_customer)) -> dict:
     return {"orders": customer_accounts.history(c.db, c.account.id)}
 
 
+@router.get("/usual")
+def usual(
+    outlet_id: uuid.UUID, response: Response, c: Customer = Depends(current_customer)
+) -> dict:
+    """The dishes this customer usually orders at one outlet (README, "9.18")."""
+    _no_store(response)
+    return {"usual": customer_accounts.usual(c.db, c.account.id, outlet_id)}
+
+
 @router.post("/checkout", status_code=201)
 def checkout(body: CheckoutIn, response: Response, c: Customer = Depends(current_customer)) -> dict:
     """Open an online payment for a cart (one or more outlets of one food court). Nothing is

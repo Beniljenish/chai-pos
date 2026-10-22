@@ -41,6 +41,9 @@ class OutletSettingsIn(BaseModel):
     prep_minutes: int | None = Field(default=None, ge=0, le=180)
     pickup_enabled: bool | None = None
     pickup_capacity: int | None = Field(default=None, ge=1, le=60)
+    busy_pause_on: bool | None = None
+    busy_limit: int | None = Field(default=None, ge=2, le=40)
+    resume_now: bool | None = None  # open again before a pause runs out
 
 
 @router.get("/food-court")
@@ -66,6 +69,10 @@ def set_accepting(
             extras.set_prep_minutes(db, caller.ctx.shop_id, body.prep_minutes or None)
         if body.pickup_enabled is not None or body.pickup_capacity is not None:
             online.set_pickup(db, caller.ctx.shop_id, body.pickup_enabled, body.pickup_capacity)
+        if body.busy_pause_on is not None or body.busy_limit is not None or body.resume_now:
+            online.set_busy(
+                db, caller.ctx.shop_id, body.busy_pause_on, body.busy_limit, bool(body.resume_now)
+            )
     except online.OnlineError as e:
         raise fail(e) from None
     return online.view(db, caller.ctx.shop_id)

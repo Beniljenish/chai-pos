@@ -262,6 +262,8 @@ export function orderProblem(code: string | undefined, names?: string[]): string
       return t('This outlet is very busy right now. Please try again shortly.');
     case 'order_too_big':
       return t('That is a lot for one order. Please split it into two.');
+    case 'outlet_paused':
+      return t('This outlet is very busy and is not taking new orders for a few minutes. Please try again soon.');
     case 'slot_full':
       return t('That pickup time is full. Please choose another.');
     case 'slot_gone':
@@ -280,4 +282,53 @@ export function rupeesToPaise(text: string): number | null {
   if (!m) return null;
   const paise = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));
   return paise > 0 ? paise : null;
+}
+
+/** Whether an outlet has paused new orders because it is busy, at `now` (ms). */
+export const isPaused = (menu: { paused_until?: string | null } | null, now = Date.now()): boolean =>
+  Boolean(menu?.paused_until && Date.parse(menu.paused_until) > now);
+
+/** "Your usual" as it can be ordered now: only dishes still on the menu with the options still
+ * offered and not sold out. Returns the lines to add, by cart key order of the menu. */
+export function usableUsual<U extends { menu_item_id: string; modifier_ids: string[]; qty: number }>(
+  items: PublicItem[],
+  usual: U[],
+): U[] {
+  return usual.filter((u) => {
+    const item = items.find((i) => i.id === u.menu_item_id);
+    return item !== undefined && !item.sold_out && u.modifier_ids.every((id) => item.options.some((o) => o.id === id));
+  });
+}
+
+// ---------------------------------------------------------------- the token page without signal
+const CACHE = 'taptallow.status.';
+
+/** The last state of an order that this phone saw, kept so the token page still shows something
+ * after the wifi drops or the page is reloaded. Null when none was saved (or storage is blocked). */
+export function savedStatus<T>(key: string): { order: T; at: number } | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CACHE + key) ?? 'null') as { order?: T; at?: unknown } | null;
+    if (raw && typeof raw === 'object' && raw.order !== undefined && typeof raw.at === 'number') {
+      return { order: raw.order, at: raw.at };
+    }
+  } catch {
+    /* blocked storage or a damaged value: nothing saved */
+  }
+  return null;
+}
+
+export function saveStatus(key: string, order: unknown, at = Date.now()): void {
+  try {
+    localStorage.setItem(CACHE + key, JSON.stringify({ order, at }));
+  } catch {
+    /* it will just not be remembered */
+  }
+}
+
+/** "just now", "2 min ago", "1 h ago": how old the last update is. */
+export function ageText(ms: number): string {
+  const min = Math.floor(Math.max(0, ms) / 60000);
+  if (min < 1) return t('just now');
+  if (min < 60) return t('{n} min ago', { n: min });
+  return t('{n} h ago', { n: Math.floor(min / 60) });
 }

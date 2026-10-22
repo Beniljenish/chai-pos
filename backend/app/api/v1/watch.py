@@ -10,7 +10,7 @@ from app.api.common import get_or_404, unprocessable
 from app.api.deps import Caller, require_owner
 from app.core.time import business_date
 from app.models import Bill
-from app.services import gstwatch, trail, upimatch
+from app.services import gstwatch, trail, upimatch, wasted
 
 router = APIRouter(tags=["reports"])
 MAX_DAYS = 31
@@ -34,6 +34,14 @@ def bill_trail(bill_id: uuid.UUID, caller: Caller = Depends(require_owner)) -> d
     bill = get_or_404(caller.db, Bill, bill_id)
     return {"invoice_no": bill.invoice_no, "status": bill.status.value,
             "facts": trail.bill_trail(caller.db, bill)}  # fmt: skip
+
+
+@router.get("/reports/wasted")
+def wasted_report(
+    days: int = Query(default=28, ge=7, le=92), caller: Caller = Depends(require_owner)
+) -> dict:
+    """What was wasted in the last `days` days, by item, weekday and reason."""
+    return wasted.build(caller.db, business_date(), days)
 
 
 @router.get("/reports/changes")

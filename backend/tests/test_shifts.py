@@ -221,10 +221,16 @@ def test_tablet_learns_its_open_shift_and_the_last_count(client, shop_a, device)
     assert state["open_shift"]["id"] == str(sid)
     assert state["open_shift"]["opening_float_paise"] == 40000
     assert state["open_shift"]["opened_by_name"] == "Shop A cashier"
-    _sync(client, shop_a.cashier_h, device.device_id, [_close(sid, 123400)])
+    _sync(
+        client,
+        shop_a.cashier_h,
+        device.device_id,
+        [_close(sid, 123400, note="Milk crate comes at 7")],
+    )
     state = client.get(url, headers=shop_a.cashier_h).json()
     assert state["open_shift"] is None
     assert state["last_counted"]["counted_cash_paise"] == 123400
+    assert state["last_counted"]["note"] == "Milk crate comes at 7"  # the handover note
 
 
 def test_report_is_owner_only_and_per_shop(client, shop_a, shop_b, device):

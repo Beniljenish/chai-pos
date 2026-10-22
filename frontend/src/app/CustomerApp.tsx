@@ -17,14 +17,18 @@ import {
   cartItems,
   changeOutletLine,
   dishCount,
+  isPaused,
   lineLabel,
   pruneCart,
+  saveStatus,
+  savedStatus,
   unitPrice,
   type PublicItem,
   type PublicOption,
   type Cart,
   cleanPhone,
   courtMatches,
+  ageText,
   grandTotal,
   notPlacedText,
   ORDER_HOME,
@@ -33,6 +37,7 @@ import {
   soldOutInCart,
   STATUS_TEXT,
   statusStep,
+  usableUsual,
   type Carts,
   type PayChoice,
 } from '../lib/foodcourt';
@@ -53,6 +58,7 @@ import {
   type PublicMenu,
   type PublicOrder,
   type Signed,
+  type Usual,
 } from '../lib/publicApi';
 import { dishDescription, dishName, getLang, t, useLang } from '../lib/i18n';
 import { photoSrc } from '../lib/dishPictures';
@@ -907,6 +913,10 @@ function CourtFlow({
               favs={favs}
               onFav={(id) => void toggleFav(id)}
               change={(itemId, mods, delta) => updateCarts(changeOutletLine(carts, active, itemId, mods, delta))}
+              token={auth.token}
+              addMany={(lines) =>
+                updateCarts(lines.reduce((c, l) => changeOutletLine(c, active, l.menu_item_id, l.modifier_ids, l.qty), carts))
+              }
             />
           )}
         </>
@@ -931,6 +941,50 @@ function VegMark({ veg }: { veg: boolean }) {
   return <span className={`veg ${veg ? '' : 'nv'}`} role="img" aria-label={veg ? t("Vegetarian") : t("Non-vegetarian")} />;
 }
 
+/** "Your usual": the dishes this customer keeps ordering here, one tap to fill the cart. */
+function YourUsual({
+  token,
+  outletId,
+  menu,
+  cart,
+  addMany,
+}: {
+  token: string;
+  outletId: string;
+  menu: PublicMenu;
+  cart: Cart;
+  addMany(lines: { menu_item_id: string; modifier_ids: string[]; qty: number }[]): void;
+}) {
+  const [usual, setUsual] = useState<Usual[]>([]);
+  useEffect(() => {
+    let live = true;
+    publicApi.usual(token, outletId).then(
+      (r) => live && setUsual(r.usual),
+      () => undefined, // no usual is the same as none: the menu below still works
+    );
+    return () => void (live = false);
+  }, [token, outletId]);
+  const lines = usableUsual(menu.items, usual);
+  if (lines.length === 0 || Object.keys(cart).length > 0) return null;
+  const total = cartTotal(menu.items, cartFromLines(lines), menu.gst_type);
+  return (
+    <section className="cx-usual panel-inline" aria-label={t('Your usual')}>
+      <h2>{t('Your usual')}</h2>
+      <p className="muted">{t('What you keep ordering here')}</p>
+      <ul>
+        {lines.map((u) => (
+          <li key={`${u.menu_item_id}|${u.modifier_ids.join(',')}`}>
+            {u.qty} × {u.name}
+          </li>
+        ))}
+      </ul>
+      <button className="primary" onClick={() => addMany(lines)}>
+        {t('Add your usual · {price}', { price: formatRupees(total) })}
+      </button>
+    </section>
+  );
+}
+
 function OutletMenu({
   outletId,
   menu,
@@ -939,8 +993,12 @@ function OutletMenu({
   favs,
   onFav,
   change,
+  token,
+  addMany,
 }: {
   slug: string;
+  token: string;
+  addMany(lines: { menu_item_id: string; modifier_ids: string[]; qty: number }[]): void;
   outletId: string;
   menu: PublicMenu | null;
   cart: Cart;
@@ -963,6 +1021,7 @@ function OutletMenu({
   }, [load]);
 
   const gone = menu ? soldOutInCart(menu.items, cart) : [];
+  const paused = isPaused(menu);
   return (
     <>
       {failed && !menu && (
@@ -971,6 +1030,12 @@ function OutletMenu({
         </p>
       )}
       {menu && !menu.open && <p className="cx-note">{t("This outlet is not taking orders right now.")}</p>}
+      {menu?.open && paused && menu.paused_until && (
+        <p className="cx-note" role="status">
+          {t('Very busy: back at {time}', { time: slotLabel(menu.paused_until) })}
+        </p>
+      )}
+      {menu?.open && !paused && <YourUsual token={token} outletId={outletId} menu={menu} cart={cart} addMany={addMany} />}
       {menu?.open && menu.prep_minutes && (
         <p className="muted cx-wait-note">{t('Usually ready in about {n} min', { n: menu.prep_minutes })}</p>
       )}
@@ -982,7 +1047,7 @@ function OutletMenu({
               {g.items.map((i) => {
                 const qty = dishCount(cart, i.id);
                 const hasOptions = i.options.length > 0;
-                const canOrder = menu.open && !i.sold_out;
+                const canOrder = menu.open && !paused && !i.sold_out;
                 return (
                   <li key={i.id} className={`cx-dish ${i.sold_out ? 'gone' : ''}`}>
                     {i.photo_url ? (
@@ -1199,7 +1264,7 @@ function CartScreen({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
-  const blocked = outletIds.some((id) => menus[id] && (!menus[id].open || soldOutInCart(menus[id].items, carts[id]).length > 0));
+  const blocked = outletIds.some((id) => menus[id] && (!menus[id].open || isPaused(menus[id]) || soldOutInCart(menus[id].items, carts[id]).length > 0));
   const total = grandTotal(menus, carts);
   const unique = useMemo(() => (id: string) => (requestIds.current[id] ??= crypto.randomUUID()), []);
 
@@ -1605,9 +1670,14 @@ function Placed({
 
 // ---------------------------------------------------------------- one order's live token card
 function StatusCard({ orderKey: key, token }: { orderKey: string; token: string }) {
-  const [order, setOrder] = useState<PublicOrder | null>(null);
+  const saved = useMemo(() => savedStatus<PublicOrder>(key), [key]);
+  const [order, setOrder] = useState<PublicOrder | null>(saved?.order ?? null);
   const [lost, setLost] = useState(false);
-  const last = useRef<string | null>(null);
+  // When the shown state was last confirmed by the server; set while the phone has no signal.
+  const [seenAt, setSeenAt] = useState<number>(saved?.at ?? 0);
+  const [offline, setOffline] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const last = useRef<string | null>(saved?.order.status ?? null);
 
   const done = order?.status === 'collected' || order?.status === 'declined';
 
@@ -1626,8 +1696,15 @@ function StatusCard({ orderKey: key, token }: { orderKey: string; token: string 
           last.current = o.status;
           setOrder(o);
           setLost(false);
+          setOffline(false);
+          setSeenAt(Date.now());
+          saveStatus(key, o);
         })
-        .catch((e) => live && e instanceof PublicError && e.status === 404 && setLost(true));
+        .catch((e) => {
+          if (!live) return;
+          if (e instanceof PublicError && e.status === 404) setLost(true);
+          else setOffline(true); // no signal, or the server is busy: keep what we have and keep trying
+        });
     void poll();
     if (done) return () => void (live = false);
     const timer = window.setInterval(poll, 5000);
@@ -1636,6 +1713,12 @@ function StatusCard({ orderKey: key, token }: { orderKey: string; token: string 
       window.clearInterval(timer);
     };
   }, [key, done]);
+
+  useEffect(() => {
+    if (!offline) return;
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [offline]);
 
   if (lost) return <p className="error">{t("We could not find this order.")}</p>;
   if (!order) {
@@ -1650,6 +1733,11 @@ function StatusCard({ orderKey: key, token }: { orderKey: string; token: string 
   return (
     <article className="cx-card" aria-label={t('Order {token}', { token: order.token })}>
       <p className="cx-outlet-name">{order.outlet}</p>
+      {offline && (
+        <p className="cx-note" role="status">
+          📴 {t('No signal. Last updated {when}. We keep trying.', { when: ageText(now - seenAt) })}
+        </p>
+      )}
       <section className={`cx-token ${order.status}`} aria-live="polite">
         <small>{t("Your token")}</small>
         <strong>{order.token}</strong>

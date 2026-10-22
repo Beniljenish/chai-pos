@@ -481,6 +481,11 @@ export interface FoodCourtView {
   /** Customers may choose a pickup time (15-minute slots), and how many orders one slot takes. */
   pickup_enabled?: boolean;
   pickup_capacity?: number;
+  /** "Pause when busy": that many open orders pause new ones for ten minutes, by itself. */
+  busy_pause_on?: boolean;
+  busy_limit?: number;
+  /** Set while a pause is running (ISO time it ends). */
+  paused_until?: string | null;
   ratings?: {
     average: number | null;
     count: number;

@@ -108,6 +108,54 @@ function Prep() {
   );
 }
 
+interface Wasted {
+  total_paise: number;
+  entries: number;
+  items: { name: string; paise: number }[];
+  worst_day: { weekday: string; paise: number; top_reason: string } | null;
+}
+
+function WastedCard() {
+  const [w, setW] = useState<Wasted | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api.get<Wasted>('/reports/wasted?days=28').then(setW, (e) => setError(explainError(e)));
+  }, []);
+  return (
+    <section className="panel-inline" aria-label={t('What you wasted')}>
+      <h2>{t('What you wasted')}</h2>
+      {error && <p className="error" role="alert">{error}</p>}
+      {!w && !error && <Loading />}
+      {w && w.entries === 0 && <p className="muted">{t('Nothing wasted in the last 4 weeks, or nothing written down yet.')}</p>}
+      {w && w.entries > 0 && (
+        <>
+          <p>
+            {t('Last 4 weeks')}: <strong className="num">{formatRupees(w.total_paise)}</strong>
+          </p>
+          <ul className="sop-list">
+            {w.items.map((i) => (
+              <li key={i.name}>
+                <span>{i.name}</span>
+                <strong className="num">{formatRupees(i.paise)}</strong>
+              </li>
+            ))}
+          </ul>
+          {w.worst_day && (
+            <p>
+              <strong>{t('Most on {day}', { day: t(w.worst_day.weekday) })}</strong>
+              <br />
+              <span className="muted">
+                {t('{amount} of it, mostly “{reason}”', { amount: formatRupees(w.worst_day.paise), reason: t(w.worst_day.top_reason) })}
+              </span>
+            </p>
+          )}
+        </>
+      )}
+      <p className="muted">{t('Only losses you wrote down and that count (not ones still waiting for you, or rejected).')}</p>
+    </section>
+  );
+}
+
 function Switches() {
   const [shop, setShop] = useState<HelperShop | null>(null);
   const [phone, setPhone] = useState('');
@@ -215,6 +263,7 @@ export function HelpersScreen() {
       </header>
       <Calculator />
       <Prep />
+      <WastedCard />
       <Switches />
     </section>
   );

@@ -4,9 +4,9 @@
  * adding or removing outlets is the super admin's (/admin), not the owner's (README, "9.12").
  */
 import { useCallback, useEffect, useState } from 'react';
-import { boardPath, courtPath } from '../lib/foodcourt';
+import { boardPath, courtPath, isPaused } from '../lib/foodcourt';
 import { t } from '../lib/i18n';
-import { tableLink } from '../lib/pickup';
+import { slotLabel, tableLink } from '../lib/pickup';
 import { formatRupees } from '../lib/gst';
 import type { FoodCourtView } from '../lib/types';
 import { api } from './apiClient';
@@ -48,7 +48,13 @@ export function FoodCourtScreen() {
     }
   }
 
-  async function setPickup(body: { pickup_enabled?: boolean; pickup_capacity?: number }) {
+  async function setPickup(body: {
+    pickup_enabled?: boolean;
+    pickup_capacity?: number;
+    busy_pause_on?: boolean;
+    busy_limit?: number;
+    resume_now?: boolean;
+  }) {
     setBusy(true);
     setError(null);
     try {
@@ -178,6 +184,58 @@ export function FoodCourtScreen() {
                   +
                 </button>
               </span>
+            </div>
+          )}
+
+          <div className="panel-inline fc-switch">
+            <div>
+              <strong>{t('Pause when busy')}</strong>
+              <p className="muted">
+                {t('When this many online orders are open, new ones pause for 10 minutes by themselves and customers see when you are back.')}
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={Boolean(v.busy_pause_on)}
+              aria-label={t('Pause when busy')}
+              className={`fc-toggle ${v.busy_pause_on ? 'on' : ''}`}
+              disabled={busy}
+              onClick={() => void setPickup({ busy_pause_on: !v.busy_pause_on })}
+            >
+              <span />
+            </button>
+          </div>
+          {v.busy_pause_on && (
+            <div className="panel-inline fc-switch">
+              <div>
+                <strong>{t('Open orders that pause it')}</strong>
+              </div>
+              <span className="fc-stepper" role="group" aria-label={t('Open orders that pause it')}>
+                <button
+                  disabled={busy || (v.busy_limit ?? 12) <= 2}
+                  aria-label={t('One less')}
+                  onClick={() => void setPickup({ busy_limit: (v.busy_limit ?? 12) - 1 })}
+                >
+                  −
+                </button>
+                <strong className="num">{v.busy_limit ?? 12}</strong>
+                <button
+                  disabled={busy || (v.busy_limit ?? 12) >= 40}
+                  aria-label={t('One more')}
+                  onClick={() => void setPickup({ busy_limit: (v.busy_limit ?? 12) + 1 })}
+                >
+                  +
+                </button>
+              </span>
+            </div>
+          )}
+          {isPaused(v) && v.paused_until && (
+            <div className="panel-inline" role="status">
+              <strong>{t('Paused until {time}', { time: slotLabel(v.paused_until) })}</strong>
+              <p className="muted">{t('Too many open orders. It opens by itself.')}</p>
+              <button disabled={busy} onClick={() => void setPickup({ resume_now: true })}>
+                {t('Open now')}
+              </button>
             </div>
           )}
 

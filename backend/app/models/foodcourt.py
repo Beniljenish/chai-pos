@@ -71,6 +71,12 @@ class FoodCourtOutlet(IdMixin, Base):
     # Customers may order for a time later today; at most this many orders per 15-minute slot.
     pickup_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     pickup_capacity: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
+    # "Pause when busy": this many open online orders pauses new ones for ten minutes by itself.
+    busy_pause_on: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    busy_limit: Mapped[int] = mapped_column(Integer, default=12, server_default="12")
+    paused_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

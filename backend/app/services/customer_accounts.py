@@ -228,3 +228,42 @@ def history(db: Session, customer_id: uuid.UUID, limit: int = 50) -> list[dict]:
             }
         )
     return out
+
+
+USUAL_ORDERS = 8  # how far back "your usual" looks, at one outlet
+USUAL_DISHES = 4
+
+
+def usual(db: Session, customer_id: uuid.UUID, outlet_id: uuid.UUID) -> list[dict]:
+    """The dishes this customer keeps coming back for at one outlet: those in at least two of
+    their last eight orders there, each in the quantity they most often take (the smaller on a
+    tie). Fewer than two orders there means no "usual" yet. Prices and availability are looked
+    up fresh by the page, like "order again"."""
+    mine = [o for o in history(db, customer_id) if o["outlet_id"] == outlet_id][:USUAL_ORDERS]
+    if len(mine) < 2:
+        return []
+    seen: dict[tuple, dict] = {}
+    for o in mine:
+        for ln, item in zip(o["lines"], o["items"], strict=True):
+            key = (ln["menu_item_id"], tuple(sorted(ln["modifier_ids"])))
+            row = seen.setdefault(key, {"line": ln, "name": item["name"], "qtys": []})
+            row["qtys"].append(ln["qty"])
+    out = []
+    for row in seen.values():
+        if len(row["qtys"]) < 2:
+            continue
+        counts: dict[int, int] = {}
+        for q in row["qtys"]:
+            counts[q] = counts.get(q, 0) + 1
+        qty = min(counts, key=lambda q: (-counts[q], q))
+        out.append(
+            {
+                "menu_item_id": row["line"]["menu_item_id"],
+                "modifier_ids": row["line"]["modifier_ids"],
+                "qty": qty,
+                "name": row["name"],
+                "times": len(row["qtys"]),
+            }
+        )
+    out.sort(key=lambda r: (-r["times"], r["name"]))
+    return out[:USUAL_DISHES]

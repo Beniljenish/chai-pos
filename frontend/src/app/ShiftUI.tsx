@@ -17,6 +17,7 @@ import {
 } from '../lib/shift';
 import { HandoverCount, type HandoverState } from './HandoverCount';
 import { Sheet } from './Sheet';
+import { Mic } from './Mic';
 import { useSession } from './session';
 import { t, useLang } from '../lib/i18n';
 
@@ -51,6 +52,12 @@ export function StartShiftSheet({ onStarted, onClose }: { onStarted(s: LocalShif
           {lastCounted.byName} counted {formatRupees(lastCounted.countedPaise)} at the end of the last shift
           ({time(lastCounted.at)}). Change it if the drawer holds something else now.
         </p>
+      )}
+      {lastCounted?.note && (
+        <div className="handover" role="note">
+          <strong>{t('From {name}, for this shift', { name: lastCounted.byName })}</strong>
+          <p>{lastCounted.note}</p>
+        </div>
       )}
       <label>
         {t("Cash in the drawer now (₹)")}
@@ -223,9 +230,10 @@ function EndShiftSheet({ shift, onClose }: { shift: LocalShift; onClose(): void 
         {t("Counted:")} <strong className="num">{formatRupees(total)}</strong>
       </p>
       <label>
-        {t("Note (optional)")}
+        {t("Note for the next shift (optional)")}
         <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
       </label>
+      <Mic onText={(text) => setNote(text.slice(0, 200))} label={t('Speak the note')} />
       {error && (
         <p className="error" role="alert">
           {error}

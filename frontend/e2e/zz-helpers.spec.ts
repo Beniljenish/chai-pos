@@ -38,6 +38,9 @@ test('owner: commission calculator, prep, switches and the summary message', asy
   // ---- tomorrow's prep is a guide from history; a fresh shop may have nothing yet
   await expect(page.getByRole('region', { name: /Tomorrow’s prep/ })).toContainText('Average of the last 4 same weekdays');
 
+  // ---- what was wasted comes from the day-end wastage entries (the demo shop may have none)
+  await expect(page.getByRole('region', { name: 'What you wasted' })).toBeVisible();
+
   // ---- the switches: the summary needs a number first
   const hide = page.getByRole('switch', { name: 'Hide a dish when its ingredient runs out' });
   await hide.click();

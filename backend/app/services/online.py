@@ -107,6 +107,9 @@ def view(db: Session, shop_id: uuid.UUID) -> dict:
         "fee_bp": mine.fee_bp,
         "pickup_enabled": mine.pickup_enabled,
         "pickup_capacity": mine.pickup_capacity,
+        "busy_pause_on": mine.busy_pause_on,
+        "busy_limit": mine.busy_limit,
+        "paused_until": _paused_until(mine, utcnow()),
         "outlets": [
             {
                 "id": o.id,
@@ -127,6 +130,59 @@ def set_pickup(db: Session, shop_id: uuid.UUID, enabled: bool | None, capacity: 
         mine.pickup_enabled = enabled
     if capacity is not None:
         mine.pickup_capacity = capacity
+    db.commit()
+
+
+PAUSE_MINUTES = 10
+
+
+def _paused_until(outlet: FoodCourtOutlet, now: datetime) -> datetime | None:
+    return outlet.paused_until if outlet.paused_until and outlet.paused_until > now else None
+
+
+def check_not_busy(sysdb: Session, outlet: FoodCourtOutlet, db: Session) -> None:
+    """ "Pause when busy": while a pause runs, an unpaid order is refused with the time it ends;
+    and once the outlet has `busy_limit` orders open, the pause starts by itself. `db` is the
+    outlet's own session, `sysdb` the one that owns the outlet row. Orders already paid for are
+    never turned away (the caller skips this for them)."""
+    now = utcnow()
+    until = _paused_until(outlet, now)
+    if until is None and outlet.busy_pause_on:
+        waiting = (
+            db.scalar(
+                select(func.count())
+                .select_from(Order)
+                .join(OnlineOrder, OnlineOrder.order_id == Order.id)
+                .where(Order.status == OrderStatus.open)
+            )
+            or 0
+        )
+        if waiting >= outlet.busy_limit:
+            outlet.paused_until = until = now + timedelta(minutes=PAUSE_MINUTES)
+            sysdb.commit()
+    if until is not None:
+        raise OnlineError(
+            "outlet_paused",
+            "This outlet is very busy and is not taking new orders for a few minutes.",
+            429,
+            {"until": until.isoformat()},
+        )
+
+
+def set_busy(
+    db: Session, shop_id: uuid.UUID, on: bool | None, limit: int | None, resume: bool
+) -> None:
+    mine = my_outlet(db, shop_id)
+    if mine is None:
+        raise OnlineError("not_in_a_court", "This shop is not in a food court", 404)
+    if on is not None:
+        mine.busy_pause_on = on
+        if not on:
+            mine.paused_until = None  # switching it off also lifts a pause already running
+    if limit is not None:
+        mine.busy_limit = limit
+    if resume:
+        mine.paused_until = None
     db.commit()
 
 
@@ -224,6 +280,7 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
         return {
             "outlet": shop.name,
             "open": outlet.accepting_orders,
+            "paused_until": _paused_until(outlet, utcnow()),
             "prep_minutes": outlet.prep_minutes,
             "gst_type": shop.gst_type.value,
             "items": [
@@ -586,6 +643,7 @@ def quote(
     wanted = _wanted(items)
     with shop_session(outlet.shop_id) as db:
         shop = db.scalar(select(Shop))
+        check_not_busy(sysdb, outlet, db)  # before anyone pays for an order that would be refused
         menu = _load_menu(db, wanted)
         lines = _cart_lines(menu, wanted, _load_mods(db, wanted))
         if pickup_at is not None:
@@ -607,6 +665,8 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
             return _placed(db, existing, outlet.shop_id, body.customer_id)
 
         shop = db.scalar(select(Shop))
+        if body.paid is None:
+            check_not_busy(sysdb, outlet, db)
         menu = _load_menu(db, wanted)
         snaps = _load_mods(db, wanted)
         if body.pickup_at is not None:

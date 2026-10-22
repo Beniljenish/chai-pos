@@ -90,6 +90,7 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   // pickup times are on by default; the display board has its own link, and opens with no login
   await expect(page.getByRole('switch', { name: 'Pickup times' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByLabel('Orders per time slot')).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'Pause when busy' })).toHaveAttribute('aria-checked', 'false'); // off until chosen
   const boardPage = await (await browser.newContext({ viewport: { width: 1000, height: 700 } })).newPage();
   await boardPage.goto(`/board/${link.split('/order/')[1]}`);
   await expect(boardPage.getByRole('heading', { name: /E2E Food Court · Now serving/ })).toBeVisible();

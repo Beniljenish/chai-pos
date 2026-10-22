@@ -5712,3 +5712,14 @@ button.save {
 .pic-upload small {
   flex-basis: 100%;
 }
+
+.handover {
+  background: #fff4de;
+  border: 1px solid #f0d9a8;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.handover p {
+  margin: 4px 0 0;
+}

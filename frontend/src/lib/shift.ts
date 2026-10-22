@@ -21,6 +21,8 @@ export interface LastCount {
   countedPaise: number;
   byName: string;
   at: string;
+  /** What they left for the next shift (the close note). */
+  note?: string;
 }
 
 export interface Person {
@@ -101,7 +103,12 @@ export async function endShift(db: PosDB, countedPaise: number, note: string, wh
       cashier_id: who.id,
     });
     await db.setMeta('shift', null);
-    await db.setMeta('lastCounted', { countedPaise, byName: who.name, at: now.toISOString() } satisfies LastCount);
+    await db.setMeta('lastCounted', {
+      countedPaise,
+      byName: who.name,
+      at: now.toISOString(),
+      note: note.trim(),
+    } satisfies LastCount);
   });
 }
 
@@ -134,7 +141,7 @@ export interface ServerShiftState {
     opened_at: string;
     opening_float_paise: number;
   } | null;
-  last_counted: { counted_cash_paise: number; by_name: string; at: string } | null;
+  last_counted: { counted_cash_paise: number; by_name: string; at: string; note?: string } | null;
 }
 
 /**
@@ -165,6 +172,7 @@ export async function adoptServerState(db: PosDB, s: ServerShiftState): Promise<
         countedPaise: s.last_counted.counted_cash_paise,
         byName: s.last_counted.by_name,
         at: s.last_counted.at,
+        note: s.last_counted.note ?? '',
       } satisfies LastCount);
     }
   });

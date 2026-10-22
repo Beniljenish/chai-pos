@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  ageText,
+  usableUsual,
+  isPaused,
+  saveStatus,
+  savedStatus,
   accountProblem,
   allItemCount,
   byCategory,
@@ -244,5 +249,52 @@ describe('paying online', () => {
     expect(notPlacedText({ ...part, error: 'price_changed', message: 'x' }, '₹180')).toMatch(/a price changed while you were paying/);
     // a refund that failed is never promised
     expect(notPlacedText({ ...part, refunded: false }, '₹180')).toMatch(/could not refund ₹180 automatically/);
+  });
+});
+
+describe('the token page without signal', () => {
+  it('says how old the last update is', () => {
+    expect(ageText(10_000)).toBe('just now');
+    expect(ageText(2 * 60_000 + 5_000)).toBe('2 min ago');
+    expect(ageText(95 * 60_000)).toBe('1 h ago');
+    expect(ageText(-5)).toBe('just now');
+  });
+
+  it('keeps the last state it saw, and survives a damaged value', () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    });
+    saveStatus('k1', { token: 'JT-1', status: 'received' }, 1234);
+    expect(savedStatus<{ token: string }>('k1')).toEqual({ order: { token: 'JT-1', status: 'received' }, at: 1234 });
+    expect(savedStatus('never')).toBeNull();
+    localStorage.setItem('taptallow.status.bad', '{not json');
+    expect(savedStatus('bad')).toBeNull();
+  });
+});
+
+describe('a busy pause', () => {
+  it('is on only until its time', () => {
+    const until = '2026-10-22T08:00:00Z';
+    expect(isPaused({ paused_until: until }, Date.parse('2026-10-22T07:59:00Z'))).toBe(true);
+    expect(isPaused({ paused_until: until }, Date.parse('2026-10-22T08:00:00Z'))).toBe(false);
+    expect(isPaused({ paused_until: null })).toBe(false);
+    expect(isPaused(null)).toBe(false);
+  });
+});
+
+describe('your usual', () => {
+  const item = (id: string, sold_out: boolean, options: string[]) =>
+    ({ id, sold_out, options: options.map((o) => ({ id: o })) }) as unknown as Parameters<typeof usableUsual>[0][number];
+  it('keeps only what can be ordered now', () => {
+    const items = [item('tea', false, ['large']), item('juice', true, []), item('snack', false, [])];
+    const usual = [
+      { menu_item_id: 'tea', modifier_ids: ['large'], qty: 2 },
+      { menu_item_id: 'tea', modifier_ids: ['gone'], qty: 1 }, // that option was switched off
+      { menu_item_id: 'juice', modifier_ids: [], qty: 1 }, // sold out
+      { menu_item_id: 'removed', modifier_ids: [], qty: 1 }, // no longer on the menu
+    ];
+    expect(usableUsual(items, usual)).toEqual([usual[0]]);
   });
 });
