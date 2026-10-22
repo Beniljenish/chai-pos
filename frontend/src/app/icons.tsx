@@ -37,6 +37,10 @@ export const ICON = {
   helpers: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z',
   offers: 'M3 12V4h8l10 10-8 8zM7.5 7.5h.01M14 10l-4 4',
   outlets: 'M3 21V9l5-3 5 3v12M13 21V12l5-2 3 2v9M6 13h2M6 17h2M16 15h2M16 18h2',
+  attendance: 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
+  audit: 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2',
+  prices: 'M4 19V9M10 19V5M16 19v-7M3 4l6 5 4-3 7 6',
+  specialdays: 'M4 5h16v16H4zM4 10h16M9 3v4M15 3v4M12 13l1 2 2 .3-1.5 1.4.4 2.1-1.9-1-1.9 1 .4-2.1L9 15.3 11 15z',
 } as const;
 
 export type IconName = keyof typeof ICON;

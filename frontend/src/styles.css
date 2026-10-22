@@ -5751,3 +5751,50 @@ button.save {
 .cx-code {
   margin-top: 0.75rem;
 }
+
+.clock-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+.cx-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+.cx-tag {
+  background: var(--tsoft, #fff4de);
+  color: var(--tur, #c77d0a);
+  border-radius: 99px;
+  padding: 1px 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.allergy-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  border: 0;
+  padding: 0;
+}
+.cx-avoid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border: 0;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+.cx-avoid small {
+  flex-basis: 100%;
+}
+button.danger,
+.link.danger {
+  color: #c0213f;
+}
+.cx-delete {
+  margin-top: 0.75rem;
+}

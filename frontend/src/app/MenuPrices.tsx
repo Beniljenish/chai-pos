@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { DISH_PICTURES, photoLinkOk, photoSrc, shippedPicture, uploadedPicture } from '../lib/dishPictures';
 import { dishPhotoForUpload } from '../lib/image';
+import { ALLERGENS, allergenLabel, SPICE } from '../lib/allergens';
 import { formatRate, formatRupees } from '../lib/gst';
 import { t } from '../lib/i18n';
 import type { MenuItem, Modifier } from '../lib/types';
@@ -31,6 +32,8 @@ type Draft = {
   is_veg: boolean;
   name_ta: string;
   description_ta: string;
+  allergens: string[];
+  spice: string; // '' = not said, else '0' to '3'
 };
 const toDraft = (m: MenuItem): Draft => ({
   name: m.name,
@@ -44,6 +47,8 @@ const toDraft = (m: MenuItem): Draft => ({
   is_veg: m.is_veg ?? true,
   name_ta: m.name_ta ?? '',
   description_ta: m.description_ta ?? '',
+  allergens: m.allergens ?? [],
+  spice: m.spice_level === null || m.spice_level === undefined ? '' : String(m.spice_level),
 });
 const blank: Draft = {
   name: '',
@@ -57,6 +62,8 @@ const blank: Draft = {
   is_veg: true,
   name_ta: '',
   description_ta: '',
+  allergens: [],
+  spice: '',
 };
 
 export function MenuPrices() {
@@ -237,6 +244,8 @@ export function MenuItemEditor({
       is_veg: d.is_veg,
       name_ta: d.name_ta.trim(),
       description_ta: d.description_ta.trim(),
+      allergens: d.allergens,
+      spice_level: d.spice === '' ? null : Number(d.spice),
     };
     try {
       let saved = savedItem;
@@ -374,6 +383,31 @@ export function MenuItemEditor({
           />
         </label>
         {!photoOk && <p className="error">{t("The link must start with https://")}</p>}
+        <fieldset className="allergy-tags">
+          <legend>{t('Contains (for customers with allergies)')}</legend>
+          {ALLERGENS.map((a) => (
+            <label key={a} className="check">
+              <input
+                type="checkbox"
+                checked={d.allergens.includes(a)}
+                onChange={(e) => set({ allergens: e.target.checked ? [...d.allergens, a] : d.allergens.filter((x) => x !== a) })}
+              />
+              {allergenLabel(a)}
+            </label>
+          ))}
+          <small className="muted">{t('Customers see this and can hide dishes with a tag. It is your word, so keep it true.')}</small>
+        </fieldset>
+        <label>
+          {t('How spicy')}
+          <select value={d.spice} onChange={(e) => set({ spice: e.target.value })}>
+            <option value="">{t('Not said')}</option>
+            {SPICE.map((label, i) => (
+              <option key={label} value={String(i)}>
+                {t(label)}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="check">
           <input type="checkbox" checked={d.is_veg} onChange={(e) => set({ is_veg: e.target.checked })} />
           {t("Vegetarian (shows the green mark; unticked shows the red non-veg mark)")}

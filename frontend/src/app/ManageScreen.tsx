@@ -9,7 +9,11 @@ import { FoodCourtScreen } from "./FoodCourtScreen";
 import { AlertsScreen } from "./AlertsScreen";
 import { AskScreen } from "./AskScreen";
 import { BuyScreen } from "./BuyScreen";
+import { AttendanceScreen } from "./AttendanceScreen";
+import { AuditScreen } from "./AuditScreen";
 import { HelpersScreen } from "./HelpersScreen";
+import { PricesScreen } from "./PricesScreen";
+import { SpecialDaysScreen } from "./SpecialDaysScreen";
 import { OffersScreen } from "./OffersScreen";
 import { OutletsScreen } from "./OutletsScreen";
 import { WatchScreen } from "./WatchScreen";
@@ -47,7 +51,11 @@ type Section =
   | "buy"
   | "helpers"
   | "offers"
-  | "outlets";
+  | "outlets"
+  | "attendance"
+  | "audit"
+  | "prices"
+  | "specialdays";
 // Grouped by what the owner is doing: checking money, looking after stock, or
 // setting the shop up. Twelve sections in one sideways-scrolling row hid most
 // of them on a phone.
@@ -68,6 +76,7 @@ const GROUPS: {
         { id: "ask", label: "Ask" },
         { id: "helpers", label: "Helpers" },
         { id: "outlets", label: "Outlets" },
+        { id: "specialdays", label: "Special days" },
       ],
     },
     {
@@ -76,6 +85,7 @@ const GROUPS: {
         { id: "stock", label: "Stock" },
         { id: "buy", label: "Buy" },
         { id: "margin", label: "Margin" },
+        { id: "prices", label: "Prices paid" },
         { id: "purchases", label: "Purchases" },
         { id: "dayend", label: "Day end" },
         { id: "recipes", label: "Recipes" },
@@ -86,6 +96,8 @@ const GROUPS: {
       sections: [
         { id: "shop", label: "Shop & GST" },
         { id: "staff", label: "Staff" },
+        { id: "attendance", label: "Attendance" },
+        { id: "audit", label: "Changes" },
         { id: "floor", label: "Floor" },
         { id: "foodcourt", label: "Food court" },
         { id: "offers", label: "Offers" },
@@ -223,6 +235,14 @@ function SectionBody({ section, go }: { section: Section; go: (s: Section) => vo
       return <HelpersScreen />;
     case "offers":
       return <OffersScreen />;
+    case "attendance":
+      return <AttendanceScreen />;
+    case "audit":
+      return <AuditScreen />;
+    case "prices":
+      return <PricesScreen />;
+    case "specialdays":
+      return <SpecialDaysScreen />;
     case "outlets":
       return <OutletsScreen />;
   }

@@ -7,6 +7,7 @@ import { api } from './apiClient';
 import { PrinterSheet } from './PrinterSettings';
 import { CustomersSheet } from './CustomersUI';
 import { AccountSheet } from './PasswordForm';
+import { ClockCard } from './AttendanceScreen';
 import { Receipt } from './Receipt';
 import { ShiftPanel } from './ShiftUI';
 import { useSession } from './session';
@@ -95,6 +96,7 @@ export function BillsScreen() {
             </button>
           </div>
         )}
+        <ClockCard />
         <div className="kpis">
           <div className="kpi">
             <span className="kpi-label">{t("Sales")}</span>

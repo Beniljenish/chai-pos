@@ -63,6 +63,7 @@ import {
   type Usual,
 } from '../lib/publicApi';
 import { dishDescription, dishName, getLang, t, useLang } from '../lib/i18n';
+import { ALLERGENS, allergenLabel, spiceLabel, withoutAllergens } from '../lib/allergens';
 import { photoSrc } from '../lib/dishPictures';
 import { slotLabel, tableFromSearch, type Slot } from '../lib/pickup';
 import { LangSwitch } from './LangSwitch';
@@ -1011,6 +1012,8 @@ function OutletMenu({
 }) {
   const [failed, setFailed] = useState(false);
   const [choosing, setChoosing] = useState<PublicItem | null>(null);
+  // Allergy filter: kept for this visit only (an allergy is a health fact, not something to store).
+  const [avoid, setAvoid] = useState<string[]>([]);
 
   const load = useCallback(() => {
     void loadMenu(outletId).then((ok) => setFailed(!ok));
@@ -1041,8 +1044,25 @@ function OutletMenu({
       {menu?.open && menu.prep_minutes && (
         <p className="muted cx-wait-note">{t('Usually ready in about {n} min', { n: menu.prep_minutes })}</p>
       )}
+      {menu && menu.items.some((i) => (i.allergens ?? []).length > 0) && (
+        <fieldset className="cx-avoid">
+          <legend>{t('Hide dishes that contain')}</legend>
+          {ALLERGENS.filter((a) => menu.items.some((i) => (i.allergens ?? []).includes(a))).map((a) => (
+            <button
+              key={a}
+              type="button"
+              className={`cx-chip ${avoid.includes(a) ? 'on' : ''}`}
+              aria-pressed={avoid.includes(a)}
+              onClick={() => setAvoid((v) => (v.includes(a) ? v.filter((x) => x !== a) : [...v, a]))}
+            >
+              {allergenLabel(a)}
+            </button>
+          ))}
+          <small className="muted">{t('Tags are what the outlet tells us. If an allergy is serious, ask at the counter.')}</small>
+        </fieldset>
+      )}
       {menu &&
-        byCategory(menu.items).map((g) => (
+        byCategory(withoutAllergens(menu.items, avoid)).map((g) => (
           <section key={g.category} aria-label={t(g.category)}>
             <h2>{t(g.category)}</h2>
             <ul className="cx-list">
@@ -1061,6 +1081,16 @@ function OutletMenu({
                         {dishName(i)}
                       </strong>
                       {dishDescription(i) && <span className="cx-desc">{dishDescription(i)}</span>}
+                      {((i.allergens ?? []).length > 0 || spiceLabel(i.spice_level)) && (
+                        <span className="cx-tags">
+                          {(i.allergens ?? []).map((a) => (
+                            <span key={a} className="cx-tag">
+                              {allergenLabel(a)}
+                            </span>
+                          ))}
+                          {spiceLabel(i.spice_level) && <span className="muted">🌶 {spiceLabel(i.spice_level)}</span>}
+                        </span>
+                      )}
                       {i.sold_out && <span className="muted"> {t("Sold out today")}</span>}
                       <span className="muted cx-price num">
                         {hasOptions ? t('from {price}', { price: formatRupees(i.price_paise) }) : formatRupees(i.price_paise)}
@@ -2032,8 +2062,69 @@ function Orders({
             <button onClick={onLogOut}>{t("Log out")}</button>
           </div>
         )}
+        <DeleteAccount auth={auth} onDeleted={onLogOut} />
       </section>
     </>
+  );
+}
+
+/** "Delete my account": says plainly what goes and what stays, then needs the password. */
+function DeleteAccount({ auth, onDeleted }: { auth: Auth; onDeleted(): void }) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function erase() {
+    setBusy(true);
+    setError(null);
+    try {
+      await publicApi.deleteAccount(auth.token, password);
+      onDeleted();
+    } catch (e) {
+      setError(
+        e instanceof PublicError && e.status === 403 ? t('That password is not right.') : t('Could not delete the account. Please try again.'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!open) {
+    return (
+      <button className="link danger" onClick={() => setOpen(true)}>
+        {t('Delete my account')}
+      </button>
+    );
+  }
+  return (
+    <form
+      className="cx-delete"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void erase();
+      }}
+    >
+      <p>
+        <strong>{t('This cannot be undone.')}</strong>{' '}
+        {t('Your login, name, number, favourites and notifications are removed. The outlets you ordered from keep a record of past orders for their books (what was ordered, when, and the name and number you gave), because they must keep sales records.')}
+      </p>
+      <label>
+        {t('Your password')}
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+      </label>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="cx-actions">
+        <button className="danger" disabled={busy || password === ''}>
+          {t('Yes, delete my account')}
+        </button>
+        <button type="button" onClick={() => setOpen(false)}>
+          {t('Keep my account')}
+        </button>
+      </div>
+    </form>
   );
 }
 

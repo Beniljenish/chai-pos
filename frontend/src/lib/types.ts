@@ -26,6 +26,9 @@ export interface MenuItem {
   /** Tamil name and description for customers who chose Tamil (README, "9.16"). */
   name_ta?: string;
   description_ta?: string;
+  /** Allergy tags (a fixed list) and how hot, for the outlet's customers (README, "9.21"). */
+  allergens?: string[];
+  spice_level?: number | null;
   recipe: { id: string; version: number; lines: RecipeLine[] } | null;
   modifier_ids: string[];
 }

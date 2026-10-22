@@ -24,6 +24,8 @@ export interface PublicItem {
   description_ta?: string;
   photo_url: string;
   is_veg: boolean;
+  allergens?: string[];
+  spice_level?: number | null;
   options: PublicOption[];
 }
 

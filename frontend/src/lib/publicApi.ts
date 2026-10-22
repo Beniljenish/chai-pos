@@ -224,6 +224,9 @@ export const publicApi = {
     token: string,
     body: { slug: string; outlet_id: string; code: string; items: { menu_item_id: string; qty: number; modifier_ids: string[] }[] },
   ) => call<{ outlet: string; discount_paise: number; total_paise: number }>('/customer/coupon-check', post(body), token),
+  /** Erase the account (needs the password). Outlets keep past orders for their books. */
+  deleteAccount: (token: string, password: string) =>
+    call<{ deleted: boolean }>('/customer/me/delete', post({ password }), token),
   usual: (token: string, outletId: string) =>
     call<{ usual: Usual[] }>(`/customer/usual?outlet_id=${encodeURIComponent(outletId)}`, undefined, token),
   // ---- paying in the app: one payment for the whole cart, orders placed once it is paid
