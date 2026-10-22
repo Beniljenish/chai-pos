@@ -220,15 +220,24 @@ def online_paid(caller: Caller = Depends(get_caller)) -> dict:
     and how much: {order id: paise}. The till shows "paid online, do not collect" from it.
     A separate small call, not part of /orders/live, because the order rules and the tablet's
     saved copy of them are pinned to shared test cases and should not grow a field."""
+    open_ = Order.status.in_([OrderStatus.open, OrderStatus.billed])
     rows = caller.db.execute(
         select(OnlineOrder.order_id, OnlineOrder.paid_paise)
         .join(Order, Order.id == OnlineOrder.order_id)
-        .where(
-            OnlineOrder.payment_id.is_not(None),
-            Order.status.in_([OrderStatus.open, OrderStatus.billed]),
-        )
+        .where(OnlineOrder.payment_id.is_not(None), open_)
     ).all()
-    return {"paid": {str(oid): paise for oid, paise in rows}}
+    # The pickup time a customer chose and the table they scanned (README, "9.17"): in the same
+    # small call, for the same reason, so the shared order rules do not grow either field.
+    extra = caller.db.execute(
+        select(OnlineOrder.order_id, OnlineOrder.pickup_at, OnlineOrder.table_name)
+        .join(Order, Order.id == OnlineOrder.order_id)
+        .where(open_, (OnlineOrder.pickup_at.is_not(None)) | (OnlineOrder.table_name != ""))
+    ).all()
+    return {
+        "paid": {str(oid): paise for oid, paise in rows},
+        "pickup": {str(oid): at for oid, at, _ in extra if at is not None},
+        "table": {str(oid): name for oid, _, name in extra if name},
+    }
 
 
 @router.get("/reports/service", tags=["reports"])

@@ -5591,3 +5591,112 @@ button.save {
   gap: 0.4rem;
   margin: 0.5rem 0;
 }
+
+.cx-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border: 0;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+.cx-slots legend {
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+.cx-slots small {
+  flex-basis: 100%;
+}
+.cx-chip {
+  border: 1px solid var(--line, #d9d4e6);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  min-height: 40px;
+}
+.cx-chip.on {
+  background: var(--brand, #3d1a6d);
+  color: #fff;
+  border-color: var(--brand, #3d1a6d);
+}
+.cx-chip:disabled {
+  opacity: 0.45;
+}
+
+/* The food court's display board: dark, big, readable from across the court. */
+.board {
+  min-height: 100vh;
+  background: #120d24;
+  color: #fff;
+  padding: 1.5rem;
+}
+.board header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.board h1 {
+  font-size: 1.3rem;
+  opacity: 0.85;
+}
+.board h2 {
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.6rem;
+}
+.board ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+}
+.board-ready li {
+  background: #1b8a57;
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.board-ready strong {
+  font-size: clamp(2rem, 8vw, 4.5rem);
+  letter-spacing: 0.04em;
+}
+.board-ready small {
+  opacity: 0.85;
+}
+.board-making li {
+  background: #2c2150;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  font-size: clamp(1.1rem, 3.5vw, 1.8rem);
+}
+.board-none {
+  background: transparent !important;
+  opacity: 0.6;
+}
+.board-warn {
+  color: #ffcc66;
+}
+.board .quiet {
+  color: #fff;
+  border-color: #fff4;
+}
+
+.fc-table-qrs {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+  padding: 0;
+}
+.fc-table-qrs li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  break-inside: avoid;
+}

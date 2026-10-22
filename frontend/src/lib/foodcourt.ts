@@ -184,6 +184,13 @@ export const statusStep = (s: OrderStatus): number => (s === 'received' ? 1 : s 
 /** The court's page, with the order's key when the customer is following one. */
 export const courtPath = (slug: string): string => `/order/${encodeURIComponent(slug)}`;
 
+/** The food court's display board: a link for a TV or tablet, no login. */
+export const boardPath = (slug: string): string => `/board/${encodeURIComponent(slug)}`;
+export function boardSlugFromPath(pathname: string): string | null {
+  const m = /^\/board\/([a-z0-9-]{1,60})\/?$/.exec(pathname);
+  return m ? m[1] : null;
+}
+
 /** Which food court a path belongs to, or null for the staff app. */
 export function courtSlugFromPath(pathname: string): string | null {
   const m = /^\/order\/([a-z0-9-]{1,60})\/?$/.exec(pathname);
@@ -255,6 +262,12 @@ export function orderProblem(code: string | undefined, names?: string[]): string
       return t('This outlet is very busy right now. Please try again shortly.');
     case 'order_too_big':
       return t('That is a lot for one order. Please split it into two.');
+    case 'slot_full':
+      return t('That pickup time is full. Please choose another.');
+    case 'slot_gone':
+      return t('That pickup time has passed. Please choose another.');
+    case 'pickup_off':
+      return t('This outlet is not taking pickup times. Choose “As soon as possible”.');
     default:
       return t('Could not place the order. Please try again.');
   }

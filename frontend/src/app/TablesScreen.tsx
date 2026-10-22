@@ -17,6 +17,7 @@ import { formatRupees, GstError } from '../lib/gst';
 import { formatPriceDelta } from '../lib/options';
 import { act, liveOrders, minutesOpen, nextKotNo, openOrder, sendKot, type LiveOrder, type OpenInput, type OrderLine } from '../lib/orders';
 import { t as tr, useLang } from '../lib/i18n';
+import { slotLabel } from '../lib/pickup';
 import { loadPrinter } from '../lib/printer';
 import { shiftsOn } from '../lib/shift';
 import { CANCEL_REASONS, floorModel, kitchenTickets, kotLinesFromCart, onlineToken,
@@ -50,21 +51,26 @@ function useLiveOrders() {
 }
 
 /** Which open online orders the customer already paid for in the app, and how much (README,
- * "9.14"). Asked only when there is an online order on screen; if the call fails the badge is
- * simply missing, and the order still works as a pay-at-the-counter one. */
-function usePaidOnline(orderIds: string[]) {
-  const [paid, setPaid] = useState<Record<string, number>>({});
+ * "9.14"), the time they chose to collect and the table they scanned ("9.17"). Asked only when
+ * there is an online order on screen; if the call fails the badges are simply missing, and the
+ * order still works as a pay-at-the-counter, collect-now one. */
+function useOnlineExtras(orderIds: string[]) {
+  const [extra, setExtra] = useState<{ paid: Record<string, number>; pickup: Record<string, string>; table: Record<string, string> }>({
+    paid: {},
+    pickup: {},
+    table: {},
+  });
   const wanted = orderIds.join(',');
   useEffect(() => {
     if (wanted === '') return;
     let live = true;
     api
-      .get<{ paid: Record<string, number> }>('/orders/online-paid')
-      .then((r) => live && setPaid(r.paid))
+      .get<{ paid: Record<string, number>; pickup?: Record<string, string>; table?: Record<string, string> }>('/orders/online-paid')
+      .then((r) => live && setExtra({ paid: r.paid, pickup: r.pickup ?? {}, table: r.table ?? {} }))
       .catch(() => undefined);
     return () => void (live = false);
   }, [wanted]);
-  return paid;
+  return extra;
 }
 
 /** Re-render every 30 s so "12 min" on the floor keeps up. */
@@ -87,7 +93,9 @@ export function TablesScreen() {
   useLang();
   const { catalogue } = useSession();
   const { orders, reload } = useLiveOrders();
-  const paidOnline = usePaidOnline((orders ?? []).filter((o) => onlineToken(o.state)).map((o) => o.id));
+  const { paid: paidOnline, pickup: pickupAt, table: tableOf } = useOnlineExtras(
+    (orders ?? []).filter((o) => onlineToken(o.state)).map((o) => o.id),
+  );
   const [target, setTarget] = useState<Target | null>(null);
   const [newKind, setNewKind] = useState<'takeaway' | 'delivery' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -136,7 +144,7 @@ export function TablesScreen() {
     );
   }
 
-  const toMake = kitchenTickets(catalogue, orders ?? [], now).length;
+  const toMake = kitchenTickets(catalogue, orders ?? [], now, pickupAt).length;
   // Customers' own orders (from the food court QR) first: they are waiting on a phone.
   const online = floor.other.filter((o) => onlineToken(o.state));
   const otherOrders = floor.other.filter((o) => !onlineToken(o.state));
@@ -166,7 +174,7 @@ export function TablesScreen() {
         </p>
       )}
       {view === 'kitchen' ? (
-        <KitchenView catalogue={catalogue} orders={orders ?? []} now={now} reload={reload} />
+        <KitchenView catalogue={catalogue} orders={orders ?? []} now={now} reload={reload} pickups={pickupAt} />
       ) : (
         <>
           <p className="floor-legend" aria-hidden="true">
@@ -198,6 +206,8 @@ export function TablesScreen() {
                             {tr('Paid online {amount}', { amount: formatRupees(paidOnline[o.id]) })}
                           </span>
                         )}
+                        {pickupAt[o.id] && <span className="flag">{tr('For {time}', { time: slotLabel(pickupAt[o.id]) })}</span>}
+                        {tableOf[o.id] && <span className="flag">{tableOf[o.id]}</span>}
                         <span className={`flag ${ready ? '' : 'bad'}`}>{ready ? tr('Ready') : tr('New')}</span>
                       </button>
                     </li>

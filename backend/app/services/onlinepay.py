@@ -13,7 +13,7 @@ marks a payment paid (the signature, then a look at the payment itself), exactly
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -43,6 +43,8 @@ class PartIn:
     request_id: uuid.UUID
     note: str
     items: list[online.Pick]
+    pickup_at: datetime | None = None
+    table_name: str = ""
 
 
 _PAYMENT_WORDS = {
@@ -89,7 +91,7 @@ def start(
 
     parts, total = [], 0
     for o in orders:
-        outlet_name, amount = online.quote(db, slug, o.outlet_id, o.items)
+        outlet_name, amount = online.quote(db, slug, o.outlet_id, o.items, o.pickup_at)
         if amount <= 0:
             raise OnlineError("empty_order", "Choose at least one dish")
         total += amount
@@ -100,6 +102,8 @@ def start(
                 "amount_paise": amount,
                 "request_id": str(o.request_id),
                 "note": online._clean_text(o.note, 120),
+                "pickup_at": o.pickup_at.isoformat() if o.pickup_at else None,
+                "table_name": online._clean_text(o.table_name, 20),
                 "items": [[str(i.item_id), i.qty, [str(m) for m in i.mods]] for i in o.items],
             }
         )
@@ -196,6 +200,10 @@ def fulfil(db: Session, op: OnlinePayment) -> None:
                         for row in map(_with_mods, part["items"])
                     ],
                     paid=(op.id, part["amount_paise"]),
+                    pickup_at=(
+                        datetime.fromisoformat(part["pickup_at"]) if part.get("pickup_at") else None
+                    ),
+                    table_name=part.get("table_name", ""),
                 ),
             )
             part["status_key"], part["token"] = placed["status_key"], placed["token"]

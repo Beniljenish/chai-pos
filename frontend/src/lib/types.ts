@@ -478,6 +478,9 @@ export interface FoodCourtView {
   online_money?: { orders: number; paid_paise: number; settled_paise: number; owed_paise: number };
   /** The outlet's own promise of how long an order usually takes (null: not said). */
   prep_minutes?: number | null;
+  /** Customers may choose a pickup time (15-minute slots), and how many orders one slot takes. */
+  pickup_enabled?: boolean;
+  pickup_capacity?: number;
   ratings?: {
     average: number | null;
     count: number;

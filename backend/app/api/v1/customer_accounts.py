@@ -6,6 +6,7 @@ passes: a shop user's or the super admin's has the wrong type.
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -81,6 +82,8 @@ class CheckoutPartIn(BaseModel):
     outlet_id: uuid.UUID
     request_id: uuid.UUID  # one per outlet's order, made by the page
     note: str = Field(default="", max_length=120)
+    pickup_at: datetime | None = None
+    table_name: str = Field(default="", max_length=20)
     items: list[CheckoutItemIn] = Field(min_length=1, max_length=online.MAX_LINES)
 
 
@@ -238,6 +241,8 @@ def checkout(body: CheckoutIn, response: Response, c: Customer = Depends(current
                     outlet_id=o.outlet_id,
                     request_id=o.request_id,
                     note=o.note,
+                    pickup_at=o.pickup_at,
+                    table_name=o.table_name,
                     items=[
                         online.Pick(i.menu_item_id, i.qty, tuple(i.modifier_ids)) for i in o.items
                     ],

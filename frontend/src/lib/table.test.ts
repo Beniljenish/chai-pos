@@ -224,6 +224,23 @@ describe('the kitchen screen', () => {
     ]);
     expect(tickets[1].lines[0]).toMatchObject({ qty: 2, modifiers: ['Large'], note: 'hot' });
   });
+
+  it('holds back an order for later until fifteen minutes before its time', () => {
+    const later = order('k3', [
+      ev('open', { order_type: 'takeaway', customer_name: 'AB-1 Ravi' }, '2026-10-04T06:50:00Z'),
+      ev('kot', { kot_no: 'AB-1', lines: two('g', 'h') }, '2026-10-04T06:51:00Z'),
+    ]);
+    const at = (iso: string) => ({ k3: iso });
+    // 07:00 now, wanted at 07:30: half an hour away, not yet a ticket
+    expect(kitchenTickets(catalogue, [later], now, at('2026-10-04T07:30:00Z'))).toEqual([]);
+    // 07:14 now: sixteen minutes to go, still held
+    expect(kitchenTickets(catalogue, [later], Date.parse('2026-10-04T07:14:00Z'), at('2026-10-04T07:30:00Z'))).toEqual([]);
+    // 07:15: it appears, marked with its time
+    const [tk] = kitchenTickets(catalogue, [later], Date.parse('2026-10-04T07:15:00Z'), at('2026-10-04T07:30:00Z'));
+    expect(tk.pickupAt).toBe('2026-10-04T07:30:00Z');
+    // an order with no chosen time is never held
+    expect(kitchenTickets(catalogue, [later], now)).toHaveLength(1);
+  });
 });
 
 describe('split bill', () => {

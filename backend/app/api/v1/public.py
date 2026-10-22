@@ -7,6 +7,7 @@ is decided by the food court's own outlet list, never by anything sent.
 """
 
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field
@@ -31,6 +32,8 @@ class PublicOrderIn(BaseModel):
     note: str = Field(default="", max_length=120)
     message_ok: bool = False
     items: list[ItemIn] = Field(min_length=1, max_length=online.MAX_LINES)
+    pickup_at: datetime | None = None
+    table_name: str = Field(default="", max_length=20)
 
 
 def _no_store(response: Response) -> None:
@@ -54,11 +57,30 @@ def court(slug: str, response: Response, db: Session = Depends(system_db)):
         raise fail(e) from None
 
 
+@router.get("/courts/{slug}/board")
+def board(slug: str, response: Response, db: Session = Depends(system_db)):
+    """What the food court's display shows: tokens only, never a name or a number."""
+    _no_store(response)
+    try:
+        return online.board(db, slug)
+    except online.OnlineError as e:
+        raise fail(e) from None
+
+
 @router.get("/courts/{slug}/outlets/{outlet_id}/menu")
 def menu(slug: str, outlet_id: uuid.UUID, response: Response, db: Session = Depends(system_db)):
     _no_store(response)
     try:
         return online.public_menu(db, slug, outlet_id)
+    except online.OnlineError as e:
+        raise fail(e) from None
+
+
+@router.get("/courts/{slug}/outlets/{outlet_id}/slots")
+def slots(slug: str, outlet_id: uuid.UUID, response: Response, db: Session = Depends(system_db)):
+    _no_store(response)
+    try:
+        return online.slots(db, slug, outlet_id)
     except online.OnlineError as e:
         raise fail(e) from None
 
@@ -88,6 +110,8 @@ def place_order(
                 items=[
                     online.Pick(i.menu_item_id, i.qty, tuple(i.modifier_ids)) for i in body.items
                 ],
+                pickup_at=body.pickup_at,
+                table_name=body.table_name,
             ),
         )
     except online.OnlineError as e:

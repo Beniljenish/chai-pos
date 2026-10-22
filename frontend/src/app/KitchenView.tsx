@@ -9,6 +9,7 @@ import { act, type LiveOrder } from '../lib/orders';
 import { announce } from '../lib/announce';
 import { KITCHEN_LATE_MIN, kitchenTickets, onlineToken } from '../lib/table';
 import type { Catalogue } from '../lib/types';
+import { slotLabel } from '../lib/pickup';
 import { useSession } from './session';
 import { t, useLang } from '../lib/i18n';
 
@@ -17,16 +18,19 @@ export function KitchenView({
   orders,
   now,
   reload,
+  pickups = {},
 }: {
   catalogue: Catalogue;
   orders: LiveOrder[];
   now: number;
   reload(): Promise<void>;
+  /** Order id -> the time a customer chose to collect it (orders for later are held back). */
+  pickups?: Record<string, string>;
 }) {
   useLang();
   const { user, worker } = useSession();
   const [busy, setBusy] = useState(false);
-  const tickets = kitchenTickets(catalogue, orders, now);
+  const tickets = kitchenTickets(catalogue, orders, now, pickups);
 
   async function ready(orderId: string, lineIds: string[]) {
     if (!user || busy) return;
@@ -60,7 +64,7 @@ export function KitchenView({
         <li key={`${tk.orderId}:${tk.kotNo}`} className={`kitchen-ticket ${tk.minutes >= KITCHEN_LATE_MIN ? 'late' : ''}`}>
           <header>
             <strong className="kitchen-label">{tk.label}</strong>
-            <span className="num">{tk.minutes} {t("min")}</span>
+            <span className="num">{tk.pickupAt ? `${t('For')} ${slotLabel(tk.pickupAt)}` : `${tk.minutes} ${t("min")}`}</span>
           </header>
           <p className="muted kitchen-kot">
             {t("KOT")} {tk.kotNo}

@@ -21,7 +21,7 @@ import secrets
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -60,6 +60,9 @@ MAX_LINES = 15
 MAX_TOTAL_QTY = 40
 PHONE_ORDERS_PER_HOUR = 5
 OUTLET_OPEN_ORDERS = 40
+SLOT_MINUTES = 15
+SLOT_AHEAD = timedelta(hours=3)  # a customer picks a time within the next three hours, today
+MIN_LEAD_MINUTES = 10
 
 
 class OnlineError(Exception):
@@ -244,6 +247,111 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
         }
 
 
+# ---------------------------------------------------------------- pickup time slots
+def _slot_starts(now: datetime, lead_minutes: int) -> list[datetime]:
+    """The slots on offer: 15 minutes apart, from `lead_minutes` ahead (rounded up to the next
+    slot) for three hours, and never past midnight, so a slot belongs to one business day."""
+    step = SLOT_MINUTES * 60
+    first = int(now.timestamp()) + lead_minutes * 60
+    first += -first % step  # IST is a whole number of quarter hours from UTC, so this lines up
+    end = now + SLOT_AHEAD
+    out, t = [], datetime.fromtimestamp(first, tz=now.tzinfo)
+    while t <= end and business_date(t) == business_date(now):
+        out.append(t)
+        t += timedelta(minutes=SLOT_MINUTES)
+    return out
+
+
+def _taken(db: Session, at: datetime) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(OnlineOrder)
+            .join(Order, Order.id == OnlineOrder.order_id)
+            .where(OnlineOrder.pickup_at == at, Order.status != OrderStatus.cancelled)
+        )
+        or 0
+    )
+
+
+def slots(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
+    """The pickup times a customer may choose at this outlet, and which are full."""
+    court = _court(sysdb, slug)
+    outlet = _outlet(sysdb, court, outlet_id)
+    if not outlet.pickup_enabled:
+        return {"enabled": False, "slots": []}
+    now = utcnow()
+    lead = max(MIN_LEAD_MINUTES, outlet.prep_minutes or 0)
+    with shop_session(outlet.shop_id) as db:
+        return {
+            "enabled": True,
+            "slots": [
+                {"at": t, "full": _taken(db, t) >= outlet.pickup_capacity}
+                for t in _slot_starts(now, lead)
+            ],
+        }
+
+
+def check_pickup(db: Session, outlet: FoodCourtOutlet, at: datetime, *, paid: bool) -> None:
+    """A chosen time must be one of the offered slots. A full slot refuses an unpaid order;
+    one already paid for is never turned away over a slot that filled in the meantime."""
+    now = utcnow()
+    if not outlet.pickup_enabled:
+        raise OnlineError("pickup_off", "This outlet is not taking pickup times. Order for now.")
+    if paid:
+        # Paid for already: the time may have crept past "ten minutes ahead" while they paid,
+        # so only the shape is checked (a real slot of today), never the lead time.
+        aligned = int(at.timestamp()) % (SLOT_MINUTES * 60) == 0
+        if not aligned or business_date(at) != business_date(now):
+            raise OnlineError("slot_gone", "That time is no longer available.", 409)
+        return
+    if at not in _slot_starts(now, MIN_LEAD_MINUTES):
+        raise OnlineError("slot_gone", "That time is no longer available. Choose another.", 409)
+    if _taken(db, at) >= outlet.pickup_capacity:
+        raise OnlineError("slot_full", "That time is full. Choose another.", 409)
+
+
+# ---------------------------------------------------------------- the court's display board
+BOARD_MAX = 30
+
+
+def board(sysdb: Session, slug: str) -> dict:
+    """For the screen at the food court: the tokens ready to collect, and the ones being made,
+    across every outlet. Tokens and outlet names only. A scheduled order shows as "being
+    made" only from fifteen minutes before its time."""
+    court = _court(sysdb, slug)
+    now = utcnow()
+    soon = now + timedelta(minutes=15)
+    ready, making = [], []
+    for outlet in sysdb.scalars(
+        select(FoodCourtOutlet).where(FoodCourtOutlet.court_id == court.id)
+    ).all():
+        with shop_session(outlet.shop_id) as db:
+            name = db.scalar(select(Shop.name))
+            rows = db.execute(
+                select(OnlineOrder, Order)
+                .join(Order, Order.id == OnlineOrder.order_id)
+                .where(
+                    Order.status.in_([OrderStatus.open, OrderStatus.billed]),
+                    OnlineOrder.business_date == business_date(now),
+                )
+                .order_by(OnlineOrder.created_at)
+            ).all()
+            for oo, order in rows:
+                row = {"token": oo.token, "outlet": name, "at": order.opened_at}
+                if public_state(order.state) == "ready":
+                    ready.append(row)
+                elif oo.pickup_at is None or oo.pickup_at <= soon:
+                    making.append(row)
+    ready.sort(key=lambda r: r["at"], reverse=True)  # the newest call first
+    making.sort(key=lambda r: r["at"])
+    return {
+        "court": court.name,
+        "ready": [{"token": r["token"], "outlet": r["outlet"]} for r in ready[:BOARD_MAX]],
+        "making": [{"token": r["token"], "outlet": r["outlet"]} for r in making[:BOARD_MAX]],
+    }
+
+
 # ---------------------------------------------------------------- customer: order
 @dataclass(frozen=True)
 class Pick:
@@ -265,6 +373,10 @@ class OrderInput:
     items: list[Pick]
     # (online payment id, paise paid for this outlet's order) when it was paid online.
     paid: tuple[uuid.UUID, int] | None = None
+    pickup_at: datetime | None = (
+        None  # a 15-minute slot the customer chose; None = as soon as possible
+    )
+    table_name: str = ""  # from a table's QR: "bring it to Table 4"
 
 
 def _clean_text(s: str, limit: int) -> str:
@@ -457,7 +569,13 @@ def line_label(line: dict) -> str:
     return f"{line['name']} ({', '.join(mods)})" if mods else line["name"]
 
 
-def quote(sysdb: Session, slug: str, outlet_id: uuid.UUID, items: list[Pick]) -> tuple[str, int]:
+def quote(
+    sysdb: Session,
+    slug: str,
+    outlet_id: uuid.UUID,
+    items: list[Pick],
+    pickup_at: datetime | None = None,
+) -> tuple[str, int]:
     """What an order would cost at this outlet right now, with the same checks as placing
     it (open, dishes on the menu and not sold out, options offered, size limits) and nothing
     written. Returns (outlet name, total in paise)."""
@@ -470,6 +588,8 @@ def quote(sysdb: Session, slug: str, outlet_id: uuid.UUID, items: list[Pick]) ->
         shop = db.scalar(select(Shop))
         menu = _load_menu(db, wanted)
         lines = _cart_lines(menu, wanted, _load_mods(db, wanted))
+        if pickup_at is not None:
+            check_pickup(db, outlet, pickup_at, paid=False)
         return shop.name, _total(lines, shop.gst_type)
 
 
@@ -489,6 +609,8 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
         shop = db.scalar(select(Shop))
         menu = _load_menu(db, wanted)
         snaps = _load_mods(db, wanted)
+        if body.pickup_at is not None:
+            check_pickup(db, outlet, body.pickup_at, paid=body.paid is not None)
 
         now = utcnow()
         hour_ago = now - timedelta(hours=1)
@@ -604,6 +726,8 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
                 customer_id=body.customer_id,
                 payment_id=body.paid[0] if body.paid is not None else None,
                 paid_paise=body.paid[1] if body.paid is not None else None,
+                pickup_at=body.pickup_at,
+                table_name=_clean_text(body.table_name, 20),
             )
         )
         try:

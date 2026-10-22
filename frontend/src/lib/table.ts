@@ -178,19 +178,32 @@ export interface KitchenTicket {
   at: string;
   minutes: number;
   orderType: OrderState['order_type'];
+  /** When the customer asked to collect it (an online order for a chosen time), else null. */
+  pickupAt: string | null;
   lines: { line_id: string; name: string; qty: number; modifiers: string[]; note: string }[];
 }
 
 /** Minutes after which a ticket is shown as late. */
 export const KITCHEN_LATE_MIN = 15;
 
+/** An order for a chosen time reaches the kitchen this many minutes before that time. */
+export const SCHEDULED_START_MIN = 15;
+
 /**
  * What the kitchen still has to make: each KOT with its lines that are neither
  * cancelled nor marked ready, oldest first. A KOT with nothing left drops off.
  */
-export function kitchenTickets(catalogue: Catalogue, orders: LiveOrder[], now = Date.now()): KitchenTicket[] {
+export function kitchenTickets(
+  catalogue: Catalogue,
+  orders: LiveOrder[],
+  now = Date.now(),
+  pickups: Record<string, string> = {},
+): KitchenTicket[] {
   const out: KitchenTicket[] = [];
   for (const o of orders) {
+    const pickupAt = pickups[o.id] ?? null;
+    // Not yet: a 1:30 order is not a ticket at 12:40.
+    if (pickupAt && Date.parse(pickupAt) - now > SCHEDULED_START_MIN * 60000) continue;
     const lines = new Map(o.state.lines.map((l) => [l.line_id, l]));
     for (const k of o.state.kots) {
       const left = k.line_ids
@@ -204,6 +217,7 @@ export function kitchenTickets(catalogue: Catalogue, orders: LiveOrder[], now = 
         at: k.at,
         minutes: Math.max(0, Math.floor((now - Date.parse(k.at)) / 60000)),
         orderType: o.state.order_type,
+        pickupAt,
         lines: left.map((l) => ({ line_id: l.line_id, name: l.name, qty: l.qty, modifiers: l.modifiers.map((m) => m.name), note: l.note })),
       });
     }

@@ -55,6 +55,7 @@ import {
   type Signed,
 } from '../lib/publicApi';
 import { dishDescription, dishName, getLang, t, useLang } from '../lib/i18n';
+import { slotLabel, tableFromSearch, type Slot } from '../lib/pickup';
 import { LangSwitch } from './LangSwitch';
 
 // ---- what the phone remembers (every read and write may fail: private windows)
@@ -433,7 +434,9 @@ function Shop({
   onAuth(s: Signed): void;
   onLogOut(): void;
 }) {
-  const [screen, setScreen] = useState<Screen>(slug ? { kind: 'court', slug } : { kind: 'home' });
+  const [screen, setScreen] = useState<Screen>(() =>
+    slug ? { kind: 'court', slug, outlet: tableFromSearch(window.location.search).outlet ?? undefined } : { kind: 'home' },
+  );
   const [back, setBack] = useState<Screen>({ kind: 'home' });
 
   // A refused token (password changed elsewhere, account switched off) ends the session.
@@ -1144,6 +1147,12 @@ function CartScreen({
   const [consent, setConsent] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // "When do you want it?": a slot per outlet, or null for as soon as possible.
+  const [pickups, setPickups] = useState<Record<string, string | null>>({});
+  const [slotLists, setSlotLists] = useState<Record<string, Slot[]>>({});
+  // A table's QR names the table (and the outlet it belongs to): the order says "bring it to Table 4".
+  const [scanned] = useState(() => tableFromSearch(window.location.search));
+  const tableFor = (id: string) => (scanned.table && (scanned.outlet === null || scanned.outlet === id) ? scanned.table : '');
   // One id per outlet's order: tapping twice, or retrying after a bad signal, is one order.
   const requestIds = useRef<Record<string, string>>({});
   const outletIds = outletsInCart(carts);
@@ -1151,6 +1160,16 @@ function CartScreen({
   // Fresh menus every time the cart opens: prices and sold-out marks must be current.
   useEffect(() => {
     outletIds.forEach((id) => void loadMenu(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    outletIds.forEach((id) => {
+      publicApi.slots(slug, id).then(
+        (r) => setSlotLists((l) => ({ ...l, [id]: r.enabled ? r.slots : [] })),
+        () => undefined, // no slots to offer is the same as "as soon as possible" only
+      );
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1195,6 +1214,8 @@ function CartScreen({
           request_id: unique(id),
           note: (notes[id] ?? '').trim(),
           message_ok: consent,
+          pickup_at: pickups[id] ?? null,
+          table_name: tableFor(id),
           items: cartItems(carts[id]),
         });
         results.push({ id, outlet: nameOf(id), key: placed.status_key });
@@ -1227,10 +1248,12 @@ function CartScreen({
       outlet_id: id,
       request_id: unique(id),
       note: (notes[id] ?? '').trim(),
+      pickup_at: pickups[id] ?? null,
+      table_name: tableFor(id),
       items: cartItems(carts[id]),
     }));
     // A new payment whenever the cart changes: one id must never mean two different carts.
-    const key = JSON.stringify([orders.map((o) => [o.outlet_id, o.items, o.note]), consent]);
+    const key = JSON.stringify([orders.map((o) => [o.outlet_id, o.items, o.note, o.pickup_at, o.table_name]), consent]);
     if (checkoutRef.current === null || checkoutRef.current.key !== key) {
       checkoutRef.current = { key, id: crypto.randomUUID() };
     }
@@ -1322,6 +1345,38 @@ function CartScreen({
                 maxLength={120}
               />
             </label>
+            {tableFor(id) && (
+              <p className="cx-note" role="status">
+                {t('Your order will be brought to {table}.', { table: tableFor(id) })}
+              </p>
+            )}
+            {(slotLists[id] ?? []).length > 0 && (
+              <fieldset className="cx-slots">
+                <legend>{t('When do you want it?')}</legend>
+                <button
+                  type="button"
+                  className={`cx-chip ${(pickups[id] ?? null) === null ? 'on' : ''}`}
+                  aria-pressed={(pickups[id] ?? null) === null}
+                  onClick={() => setPickups((p) => ({ ...p, [id]: null }))}
+                >
+                  {t('As soon as possible')}
+                </button>
+                {slotLists[id].map((sl) => (
+                  <button
+                    key={sl.at}
+                    type="button"
+                    className={`cx-chip ${pickups[id] === sl.at ? 'on' : ''}`}
+                    aria-pressed={pickups[id] === sl.at}
+                    disabled={sl.full}
+                    onClick={() => setPickups((p) => ({ ...p, [id]: sl.at }))}
+                  >
+                    {slotLabel(sl.at)}
+                    {sl.full ? ` (${t('full')})` : ''}
+                  </button>
+                ))}
+                <small className="muted">{t('Times are 15 minutes apart. The outlet starts your order just before your time.')}</small>
+              </fieldset>
+            )}
           </section>
         );
       })}

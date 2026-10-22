@@ -29,6 +29,13 @@ export interface PublicMenu {
   items: PublicItem[];
 }
 
+/** What the food court's display shows: tokens only. */
+export interface Board {
+  court: string;
+  ready: { token: string; outlet: string }[];
+  making: { token: string; outlet: string }[];
+}
+
 export interface PlacedOrder {
   order_id: string;
   token: string;
@@ -73,6 +80,8 @@ export interface CheckoutBody {
     outlet_id: string;
     request_id: string;
     note: string;
+    pickup_at: string | null;
+    table_name: string;
     items: { menu_item_id: string; qty: number; modifier_ids: string[] }[];
   }[];
 }
@@ -194,6 +203,9 @@ export const publicApi = {
   courts: (token: string) => call<{ courts: CourtRow[] }>('/public/courts', undefined, token),
   court: (slug: string) => call<PublicCourt>(slugPath(slug)),
   menu: (slug: string, outletId: string) => call<PublicMenu>(`${slugPath(slug)}/outlets/${outletId}/menu`),
+  slots: (slug: string, outletId: string) =>
+    call<{ enabled: boolean; slots: { at: string; full: boolean }[] }>(`${slugPath(slug)}/outlets/${outletId}/slots`),
+  board: (slug: string) => call<Board>(`${slugPath(slug)}/board`),
   order: (key: string) => call<PublicOrder>(`/public/orders/${key}`),
   // ---- paying in the app: one payment for the whole cart, orders placed once it is paid
   checkout: (token: string, body: CheckoutBody) => call<CheckoutView>('/customer/checkout', post(body), token),
@@ -207,6 +219,8 @@ export const publicApi = {
       request_id: string;
       note: string;
       message_ok: boolean;
+      pickup_at: string | null;
+      table_name: string;
       items: { menu_item_id: string; qty: number; modifier_ids: string[] }[];
     },
   ) => call<PlacedOrder>(`${slugPath(slug)}/outlets/${outletId}/orders`, post(body), token),
