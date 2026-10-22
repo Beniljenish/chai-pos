@@ -266,6 +266,23 @@ describe('split bill', () => {
     expect(parts.map((p) => p.totals.total)).toEqual([4000, 5000]);
   });
 
+  it('shares an offer between the parts so the shares add up to the offer', () => {
+    const lines = buildLines(
+      [
+        { menuItemId: 'tea', qty: 3, modifierIds: [] },
+        { menuItemId: 'tea', qty: 1, modifierIds: ['large'] },
+      ],
+      catalogue,
+    );
+    const parts = splitOrderLines(lines, [[2, 0], [1, 1]], 'regular', 900);
+    expect(parts.reduce((a, p) => a + p.discountPaise, 0)).toBe(900);
+    expect(parts.every((p) => p.discountPaise > 0)).toBe(true);
+    // each part pays its own total less its own share
+    expect(parts.map((p) => p.totals.total)).toEqual(
+      [4000, 5000].map((t, k) => t - parts[k].discountPaise),
+    );
+  });
+
   it('refuses a split that leaves items out, counts one twice, or has an empty part', () => {
     const lines = buildLines([{ menuItemId: 'tea', qty: 2, modifierIds: [] }], catalogue);
     expect(() => splitOrderLines(lines, [[1], [0]], 'regular')).toThrow(/every item/);

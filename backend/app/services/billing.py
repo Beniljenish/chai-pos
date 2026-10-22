@@ -383,7 +383,7 @@ def _flags(ctx: SyncContext, b: dict, bill: Bill, cashier_id, gross: int) -> lis
             if bill.order_id is not None
             else None
         )
-        is_offer = bool(coupon_off) and coupon_off == bill.discount_paise
+        is_offer = bool(coupon_off) and 0 < bill.discount_paise <= coupon_off
         if (
             not is_offer
             and cashier_id not in ctx.owner_ids

@@ -8,6 +8,7 @@ import { PrinterSheet } from './PrinterSettings';
 import { CustomersSheet } from './CustomersUI';
 import { AccountSheet } from './PasswordForm';
 import { ClockCard } from './AttendanceScreen';
+import { LangSwitch } from './LangSwitch';
 import { Receipt } from './Receipt';
 import { ShiftPanel } from './ShiftUI';
 import { useSession } from './session';
@@ -69,6 +70,7 @@ export function BillsScreen() {
       <header className="bills-head">
         <div className="manage-head">
           <h1>{t("Today on this tablet")}</h1>
+          <LangSwitch />
           <span className="head-actions">
             <button className="quiet" onClick={() => setCustomers(true)}>
               {t("Customers")}

@@ -3,7 +3,7 @@
  * Tables screen, tested in table.test.ts. Recording and syncing are in orders.ts.
  */
 import { buildLines, priceLines, type CartLine } from './billing';
-import type { BillTotals } from './gst';
+import { shareDiscount, type BillTotals } from './gst';
 import { billLines, minutesOpen, type KotLineIn, type LiveOrder, type OrderState } from './orders';
 import type { Catalogue, DiningArea, SyncBillLine } from './types';
 
@@ -63,18 +63,28 @@ export function splitOrderLines(
   lines: SyncBillLine[],
   allocation: number[][],
   gstType: Catalogue['shop']['gst_type'],
-): { lines: SyncBillLine[]; totals: BillTotals }[] {
+  offerPaise = 0,
+): { lines: SyncBillLine[]; totals: BillTotals; discountPaise: number }[] {
   lines.forEach((l, i) => {
     const given = allocation.reduce((a, part) => a + (part[i] ?? 0), 0);
     if (given !== l.qty) throw new Error('Put every item on exactly one part');
   });
-  return allocation.map((part) => {
+  const mineOf = allocation.map((part) => {
     const mine = lines
       .map((l, i) => ({ ...l, qty: part[i] ?? 0, totals: { ...l.totals } }))
       .filter((l) => l.qty > 0);
     if (mine.length === 0) throw new Error('A part is empty');
-    return { lines: mine, totals: priceLines(mine, gstType) };
+    return mine;
   });
+  // An offer on the order (README, "9.19") is shared between the bills in proportion to what each
+  // would cost without it, to the paisa (the remainders go to the biggest, like a bill-level discount).
+  const before = mineOf.map((mine) => priceLines(mine.map((l) => ({ ...l, totals: { ...l.totals } })), gstType).total);
+  const shares = offerPaise > 0 ? shareDiscount(offerPaise, before) : before.map(() => 0);
+  return mineOf.map((mine, k) => ({
+    lines: mine,
+    totals: priceLines(mine, gstType, shares[k]),
+    discountPaise: shares[k],
+  }));
 }
 
 // ---------------------------------------------------------------- the floor

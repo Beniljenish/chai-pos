@@ -388,6 +388,8 @@ type Overlay =
 interface SplitPart {
   lines: SyncBillLine[];
   payment: 'cash' | 'upi' | 'card';
+  /** This bill's share of an offer on the order (0 when there is none). */
+  discountPaise?: number;
 }
 
 function OrderScreen({
@@ -619,6 +621,9 @@ function OrderScreen({
           paymentMode: part.payment,
           cashierId: user?.id,
           shiftId: needShift ? shiftId : undefined,
+          ...(part.discountPaise && offer
+            ? { billDiscountPaise: part.discountPaise, discountReason: `Coupon ${offer.code}` }
+            : {}),
         });
         await act(db, orderId, 'settle', { bill_id: bill.id, part: i + 1, parts: parts.length }, by);
         bills.push(bill);
@@ -1007,7 +1012,7 @@ function OrderScreen({
             <button className="primary save" disabled={busy} onClick={() => void settle()}>
               {busy ? 'Saving…' : 'Settle and print receipt'}
             </button>
-            {!offer && priced.lines.reduce((a, l) => a + l.qty, 0) > 1 && (
+            {priced.lines.reduce((a, l) => a + l.qty, 0) > 1 && (
               <button onClick={() => setOverlay({ kind: 'split' })}>Split bill</button>
             )}
           </div>
@@ -1018,6 +1023,7 @@ function OrderScreen({
           lines={priced.lines}
           gstType={catalogue.shop.gst_type}
           busy={busy}
+          offerPaise={offer?.discount_paise ?? 0}
           onClose={() => setOverlay({ kind: 'settle' })}
           onSettle={(parts) => void settleSplit(parts)}
         />
@@ -1297,12 +1303,15 @@ function SplitBillSheet({
   lines,
   gstType,
   busy,
+  offerPaise,
   onClose,
   onSettle,
 }: {
   lines: SyncBillLine[];
   gstType: Catalogue['shop']['gst_type'];
   busy: boolean;
+  /** An offer on the order, shared between the bills in proportion. */
+  offerPaise: number;
   onClose(): void;
   onSettle(parts: SplitPart[]): void;
 }) {
@@ -1315,7 +1324,7 @@ function SplitBillSheet({
   const allocation = [lines.map((l, i) => l.qty - used.reduce((a, p) => a + p[i], 0)), ...used];
   let parts: ReturnType<typeof splitOrderLines> | null = null;
   try {
-    parts = splitOrderLines(lines, allocation, gstType);
+    parts = splitOrderLines(lines, allocation, gstType, offerPaise);
   } catch {
     parts = null; // an empty part: the button says so
   }
@@ -1391,7 +1400,7 @@ function SplitBillSheet({
         <button
           className="primary"
           disabled={!parts || busy}
-          onClick={() => parts && onSettle(parts.map((p, k) => ({ lines: p.lines, payment: pay[k] })))}
+          onClick={() => parts && onSettle(parts.map((p, k) => ({ lines: p.lines, payment: pay[k], discountPaise: p.discountPaise })))}
         >
           {parts ? `Settle ${count} bills and print` : 'Every bill needs an item'}
         </button>

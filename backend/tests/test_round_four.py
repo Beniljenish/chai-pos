@@ -166,6 +166,32 @@ def test_a_bill_with_the_coupon_discount_is_not_flagged_over_the_limit(client, s
     assert "discount_over_limit" in flagged["flags"]
 
 
+def test_a_split_bills_share_of_the_coupon_is_not_flagged_but_a_bigger_one_is(
+    client, shop_a, court
+):
+    from tests.conftest import FakeDevice
+
+    _make(client, shop_a, "HALF2", "percent", 50)
+    tea = _tea(client, court)
+    _order(client, court, [(tea, 5)], coupon_code="HALF2").raise_for_status()
+    oid = _live(client, shop_a)[0]["id"]
+    dev = FakeDevice(client, shop_a)
+    part = dev.bill([("Masala tea", 2, [])], bill_discount=2000, reason="Coupon HALF2")
+    part["order_id"] = oid
+    part["order_part"] = 1
+    assert dev.sync([part]).json()["results"][0]["status"] == "accepted"
+    got = client.get(f"{API}/bills/{part['id']}", headers=shop_a.owner_h).json()
+    assert got["discount_paise"] == 2000 and got["flags"] == []
+    # more than the order's own coupon is still the cashier's to answer for
+    big = dev.bill([("Masala tea", 5, [])], bill_discount=6000, reason="Coupon HALF2")
+    big["order_id"] = oid
+    big["order_part"] = 2
+    res = dev.sync([big]).json()["results"][0]
+    assert res["status"] == "accepted", res
+    flagged = client.get(f"{API}/bills/{big['id']}", headers=shop_a.owner_h).json()
+    assert "discount_over_limit" in flagged["flags"]
+
+
 def test_only_the_owner_makes_offers_and_bad_ones_are_refused(client, shop_a):
     body = {"code": "NOPE1", "kind": "percent", "value": 10}
     assert client.post(f"{API}/coupons", json=body, headers=shop_a.cashier_h).status_code == 403

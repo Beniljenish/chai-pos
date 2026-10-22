@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { HttpError, NetworkError } from '../lib/api';
 import { useSession } from './session';
+import { LangSwitch } from './LangSwitch';
 import { t, useLang } from '../lib/i18n';
 
 export function LoginScreen() {
@@ -43,6 +44,7 @@ export function LoginScreen() {
         <ChaiCup />
         <h1>Taptallow</h1>
         <p className="login-tagline">{t("Billing and stock for tea and juice shops")}</p>
+        <LangSwitch />
         <ul className="login-points" aria-label={t("What it does")}>
           <li>{t("Bills even when the internet drops")}</li>
           <li>{t("GST worked out on every line")}</li>

@@ -12,6 +12,7 @@ import { BuyScreen } from "./BuyScreen";
 import { AttendanceScreen } from "./AttendanceScreen";
 import { AuditScreen } from "./AuditScreen";
 import { HelpersScreen } from "./HelpersScreen";
+import { LangSwitch } from "./LangSwitch";
 import { PricesScreen } from "./PricesScreen";
 import { SpecialDaysScreen } from "./SpecialDaysScreen";
 import { OffersScreen } from "./OffersScreen";
@@ -148,6 +149,9 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
   return (
     <main className={`manage ${section === null ? "manage-home" : ""}`}>
       <nav className="subnav" aria-label="Manage">
+        <div className="subnav-lang">
+          <LangSwitch />
+        </div>
         {GROUPS.map((g) => (
           <div
             key={g.label}
