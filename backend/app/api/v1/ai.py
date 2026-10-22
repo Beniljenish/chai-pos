@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import Caller, require_owner
 from app.core.time import business_date
-from app.services import ai, ai_insight, ai_purchase, ai_text
+from app.services import ai, ai_feedback, ai_insight, ai_purchase, ai_text
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -108,6 +108,17 @@ def translate_dish(body: TranslateIn, caller: Caller = Depends(require_owner)):
 
 
 Lang = Annotated[str, Field(pattern="^(en|ta)$")]
+
+
+@router.post("/feedback-summary")
+def feedback_summary(
+    lang: str = Query(default="en", pattern="^(en|ta)$"), caller: Caller = Depends(require_owner)
+) -> dict:
+    """What customers wrote about this outlet in the last four weeks, in a few lines."""
+    try:
+        return ai_feedback.summarise(caller.db, lang)
+    except ai.AiError as e:
+        _raise(e)
 
 
 @router.post("/explain-day")

@@ -16,7 +16,7 @@ from app.models import PlatformAdmin
 from app.schemas import _normalise_phone
 from app.services import auth as auth_service
 from app.services import customer_accounts as customer_service
-from app.services import online, onlinepay
+from app.services import online, onlinepay, operator
 from app.services import platform as platform_service
 
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -170,6 +170,24 @@ def set_fee(
     outlet is owed from now on, for all of its online orders."""
     _run(platform_service.set_outlet_fee, a.db, court_id, outlet_id, body.fee_bp)
     return {"outlets": onlinepay.outlets_report(a.db)}
+
+
+@router.get("/overview")
+def overview(
+    start: date = Query(alias="from"),
+    end: date = Query(alias="to"),
+    a: Admin = Depends(current_admin),
+) -> dict:
+    """Every outlet side by side for a range of up to 92 days, with busy hours per court."""
+    if end < start or (end - start).days > 92:
+        raise HTTPException(422, "Choose up to 92 days")
+    return operator.overview(a.db, start, end)
+
+
+@router.get("/settlement")
+def settlement(a: Admin = Depends(current_admin)) -> dict:
+    """What each outlet is owed now: the sheet the operator pays from."""
+    return {"rows": operator.settlement(a.db)}
 
 
 @router.get("/courts/{court_id}/outlets/{outlet_id}/statement")

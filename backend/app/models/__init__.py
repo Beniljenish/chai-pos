@@ -267,6 +267,9 @@ from app.models.enhance import (  # noqa: E402
     CouponRedemption,  # noqa: F401
     CustomerFavourite,
     DishPhoto,  # noqa: F401
+    GroupCart,  # noqa: F401
+    GroupLine,  # noqa: F401
+    GroupMember,  # noqa: F401
     OrderFeedback,
     PhoneCode,  # noqa: F401
     PushSubscription,

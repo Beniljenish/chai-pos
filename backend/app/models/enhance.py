@@ -249,3 +249,52 @@ class AuditEvent(IdMixin, TenantScoped, Base):
     action: Mapped[str] = mapped_column(String(40))
     subject: Mapped[str] = mapped_column(String(120))
     detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
+class GroupCart(IdMixin, Base):
+    """Order together (README, "9.21"): friends in one food court add their own dishes to a
+    shared list and the host pays for it. It belongs to customers, not to a shop, so it is not
+    tenant-scoped; it only ever holds ids and quantities, never prices or phone numbers."""
+
+    __tablename__ = "group_carts"
+
+    token: Mapped[str] = mapped_column(String(16), unique=True)
+    court_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("food_courts.id", ondelete="CASCADE"), index=True
+    )
+    host_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customer_accounts.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(10), default="open", server_default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GroupMember(IdMixin, Base):
+    __tablename__ = "group_members"
+    __table_args__ = (UniqueConstraint("group_id", "customer_id", name="uq_group_members"),)
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("group_carts.id", ondelete="CASCADE"), index=True
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customer_accounts.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(40))  # what the others see: the name, nothing else
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GroupLine(IdMixin, Base):
+    __tablename__ = "group_lines"
+    __table_args__ = (CheckConstraint("qty BETWEEN 1 AND 20", name="ck_group_lines_qty"),)
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("group_carts.id", ondelete="CASCADE"), index=True
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customer_accounts.id", ondelete="CASCADE")
+    )
+    outlet_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))  # a food_court_outlets id
+    menu_item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    modifier_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    qty: Mapped[int] = mapped_column(Integer)

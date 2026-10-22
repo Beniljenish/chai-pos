@@ -286,6 +286,9 @@ def delete_account(db: Session, c: CustomerAccount, password: str) -> None:
 
     from app.models import (
         CustomerFavourite,
+        GroupCart,
+        GroupLine,
+        GroupMember,
         Message,
         OnlineOrder,
         OrderFeedback,
@@ -304,6 +307,9 @@ def delete_account(db: Session, c: CustomerAccount, password: str) -> None:
             .where(Message.order_id.in_(order_ids), Message.status == "pending")
             .values(status="failed", last_error="the customer deleted their account")
         )
+    db.execute(delete(GroupLine).where(GroupLine.customer_id == c.id))
+    db.execute(delete(GroupMember).where(GroupMember.customer_id == c.id))
+    db.execute(update(GroupCart).where(GroupCart.host_id == c.id).values(status="closed"))
     db.execute(delete(CustomerFavourite).where(CustomerFavourite.customer_id == c.id))
     db.execute(delete(PushSubscription).where(PushSubscription.customer_id == c.id))
     db.execute(delete(PhoneCode).where(PhoneCode.phone == c.phone))

@@ -204,6 +204,34 @@ class _LocalFake:
         return getattr(cls, task)(payload)
 
     @staticmethod
+    def feedback(p: dict) -> dict:
+        words = {
+            "too sweet": ("too sweet", "bad"),
+            "sweet": ("sweetness", "mixed"),
+            "slow": ("slow service", "bad"),
+            "cold": ("served cold", "bad"),
+            "tasty": ("taste", "good"),
+            "great": ("taste", "good"),
+            "good": ("taste", "good"),
+            "price": ("price", "mixed"),
+            "clean": ("cleanliness", "good"),
+        }
+        found: dict[str, list] = {}
+        for c in p["comments"]:
+            low = c["text"].lower()
+            for w, (theme, mood) in words.items():
+                if w in low:
+                    found.setdefault(theme, [0, mood])[0] += 1
+                    break
+        themes = [
+            {"theme": t, "mentions": n, "mood": m}
+            for t, (n, m) in sorted(found.items(), key=lambda kv: -kv[1][0])
+        ]
+        total = len(p["comments"])
+        avg = sum(c["rating"] for c in p["comments"]) / total
+        return {"summary": f"{total} comments, average {avg:.1f} stars.", "themes": themes}
+
+    @staticmethod
     def purchase(p: dict) -> dict:
         text = p["text"].translate(_TA_DIGITS)
         for word, n in _TA_NUMBERS.items():

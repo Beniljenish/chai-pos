@@ -22,6 +22,7 @@ from app.services import auth as auth_service
 from app.services import (
     customer_accounts,
     extras,
+    groups,
     online,
     onlinepay,
     phone_codes,
@@ -246,6 +247,63 @@ def change_password(body: PasswordIn, c: Customer = Depends(current_customer)) -
 def orders(response: Response, c: Customer = Depends(current_customer)) -> dict:
     _no_store(response)
     return {"orders": customer_accounts.history(c.db, c.account.id)}
+
+
+class GroupCreateIn(BaseModel):
+    slug: str = Field(max_length=60)
+
+
+class GroupLineIn(BaseModel):
+    outlet_id: uuid.UUID
+    menu_item_id: uuid.UUID
+    modifier_ids: list[uuid.UUID] = Field(default_factory=list, max_length=6)
+    qty: int = Field(ge=1, le=online.MAX_QTY)
+
+
+class GroupLinesIn(BaseModel):
+    lines: list[GroupLineIn] = Field(default_factory=list, max_length=online.MAX_LINES)
+
+
+def _group_call(fn, *args):
+    try:
+        return fn(*args)
+    except online.OnlineError as e:
+        raise fail(e) from None
+
+
+@router.post("/groups", status_code=201)
+def group_create(
+    body: GroupCreateIn, response: Response, c: Customer = Depends(current_customer)
+) -> dict:
+    _no_store(response)
+    return _group_call(groups.create, c.db, c.account, body.slug)
+
+
+@router.post("/groups/{token}/join")
+def group_join(token: str, response: Response, c: Customer = Depends(current_customer)) -> dict:
+    _no_store(response)
+    return _group_call(groups.join, c.db, c.account, token[:16])
+
+
+@router.get("/groups/{token}")
+def group_state(token: str, response: Response, c: Customer = Depends(current_customer)) -> dict:
+    _no_store(response)
+    return _group_call(groups.state, c.db, c.account, token[:16])
+
+
+@router.put("/groups/{token}/lines")
+def group_lines(
+    token: str, body: GroupLinesIn, response: Response, c: Customer = Depends(current_customer)
+) -> dict:
+    _no_store(response)
+    lines = [ln.model_dump() for ln in body.lines]
+    return _group_call(groups.set_lines, c.db, c.account, token[:16], lines)
+
+
+@router.post("/groups/{token}/close")
+def group_close(token: str, response: Response, c: Customer = Depends(current_customer)) -> dict:
+    _no_store(response)
+    return _group_call(groups.close, c.db, c.account, token[:16])
 
 
 @router.get("/usual")
