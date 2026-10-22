@@ -249,6 +249,15 @@ def orders(response: Response, c: Customer = Depends(current_customer)) -> dict:
     return {"orders": customer_accounts.history(c.db, c.account.id)}
 
 
+@router.get("/rewards")
+def rewards(response: Response, c: Customer = Depends(current_customer)) -> dict:
+    """Personal rewards earned by ordering often: unused, unexpired, across every outlet."""
+    _no_store(response)
+    from app.services import coupons
+
+    return {"rewards": coupons.rewards_for(c.db, c.account.id)}
+
+
 class GroupCreateIn(BaseModel):
     slug: str = Field(max_length=60)
 

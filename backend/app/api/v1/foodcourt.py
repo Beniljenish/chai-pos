@@ -44,6 +44,9 @@ class OutletSettingsIn(BaseModel):
     busy_pause_on: bool | None = None
     busy_limit: int | None = Field(default=None, ge=2, le=40)
     resume_now: bool | None = None  # open again before a pause runs out
+    # loyalty: every N-th order earns this much off the next; send both (0 and 0 switches it off)
+    loyalty_every: int | None = Field(default=None, ge=0, le=50)
+    loyalty_reward_paise: int | None = Field(default=None, ge=0, le=100_000)
 
 
 @router.get("/food-court")
@@ -69,6 +72,10 @@ def set_accepting(
             extras.set_prep_minutes(db, caller.ctx.shop_id, body.prep_minutes or None)
         if body.pickup_enabled is not None or body.pickup_capacity is not None:
             online.set_pickup(db, caller.ctx.shop_id, body.pickup_enabled, body.pickup_capacity)
+        if body.loyalty_every is not None or body.loyalty_reward_paise is not None:
+            online.set_loyalty(
+                db, caller.ctx.shop_id, body.loyalty_every, body.loyalty_reward_paise
+            )
         if body.busy_pause_on is not None or body.busy_limit is not None or body.resume_now:
             online.set_busy(
                 db, caller.ctx.shop_id, body.busy_pause_on, body.busy_limit, bool(body.resume_now)

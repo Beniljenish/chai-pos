@@ -1240,4 +1240,13 @@ export const TA: Record<string, string> = {
   '{n} mentions': '{n} முறை குறிப்பிட்டனர்',
   'Written by the AI from your customers’ comments. Read the comments too.': 'உங்கள் வாடிக்கையாளர்களின் கருத்துகளிலிருந்து AI எழுதியது. கருத்துகளையும் படியுங்கள்.',
   '1 person': '1 நபர்',
+  'Loyalty reward': 'விசுவாச பரிசு',
+  'Every {n}th order earns {amount} off the next one, for 30 days.': 'ஒவ்வொரு {n}-வது ஆர்டருக்கும் அடுத்த ஆர்டரில் {amount} தள்ளுபடி, 30 நாட்களுக்கு.',
+  'Off. Turn it on to thank customers who keep coming back.': 'நிறுத்தப்பட்டுள்ளது. மீண்டும் மீண்டும் வருபவர்களுக்கு நன்றி சொல்ல இயக்கவும்.',
+  'Orders to earn a reward': 'பரிசு பெற தேவையான ஆர்டர்கள்',
+  'Reward amount': 'பரிசுத் தொகை',
+  'Your rewards': 'உங்கள் பரிசுகள்',
+  '{amount} off your next order at {outlet}': '{outlet} கடையில் உங்கள் அடுத்த ஆர்டரில் {amount} தள்ளுபடி',
+  'Code {code}': 'குறியீடு {code}',
+  'use by {date}': '{date} க்குள் பயன்படுத்தவும்',
 };

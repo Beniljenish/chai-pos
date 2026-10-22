@@ -109,6 +109,8 @@ export function FoodCourtScreen() {
     busy_pause_on?: boolean;
     busy_limit?: number;
     resume_now?: boolean;
+    loyalty_every?: number;
+    loyalty_reward_paise?: number;
   }) {
     setBusy(true);
     setError(null);
@@ -284,6 +286,65 @@ export function FoodCourtScreen() {
               </span>
             </div>
           )}
+          <div className="panel-inline fc-switch">
+            <div>
+              <strong>{t('Loyalty reward')}</strong>
+              <p className="muted">
+                {v.loyalty_every && v.loyalty_reward_paise
+                  ? t('Every {n}th order earns {amount} off the next one, for 30 days.', {
+                      n: v.loyalty_every,
+                      amount: formatRupees(v.loyalty_reward_paise),
+                    })
+                  : t('Off. Turn it on to thank customers who keep coming back.')}
+              </p>
+            </div>
+            <span className="fc-stepper" role="group" aria-label={t('Orders to earn a reward')}>
+              <button
+                disabled={busy || !v.loyalty_every}
+                aria-label={t('One less')}
+                onClick={() => {
+                  const n = (v.loyalty_every ?? 0) - 1;
+                  void setPickup(n <= 0 ? { loyalty_every: 0, loyalty_reward_paise: 0 } : { loyalty_every: n, loyalty_reward_paise: v.loyalty_reward_paise ?? 1000 });
+                }}
+              >
+                −
+              </button>
+              <strong className="num">{v.loyalty_every ?? 0}</strong>
+              <button
+                disabled={busy || (v.loyalty_every ?? 0) >= 50}
+                aria-label={t('One more')}
+                onClick={() =>
+                  void setPickup({ loyalty_every: (v.loyalty_every ?? 4) + (v.loyalty_every ? 1 : 0), loyalty_reward_paise: v.loyalty_reward_paise ?? 1000 })
+                }
+              >
+                +
+              </button>
+            </span>
+          </div>
+          {v.loyalty_every && v.loyalty_reward_paise ? (
+            <div className="panel-inline fc-switch">
+              <div>
+                <strong>{t('Reward amount')}</strong>
+              </div>
+              <span className="fc-stepper" role="group" aria-label={t('Reward amount')}>
+                <button
+                  disabled={busy || v.loyalty_reward_paise <= 1000}
+                  aria-label={t('One less')}
+                  onClick={() => void setPickup({ loyalty_every: v.loyalty_every ?? 0, loyalty_reward_paise: v.loyalty_reward_paise! - 1000 })}
+                >
+                  −
+                </button>
+                <strong className="num">{formatRupees(v.loyalty_reward_paise)}</strong>
+                <button
+                  disabled={busy || v.loyalty_reward_paise >= 100000}
+                  aria-label={t('One more')}
+                  onClick={() => void setPickup({ loyalty_every: v.loyalty_every ?? 0, loyalty_reward_paise: v.loyalty_reward_paise! + 1000 })}
+                >
+                  +
+                </button>
+              </span>
+            </div>
+          ) : null}
           {isPaused(v) && v.paused_until && (
             <div className="panel-inline" role="status">
               <strong>{t('Paused until {time}', { time: slotLabel(v.paused_until) })}</strong>

@@ -77,6 +77,10 @@ class FoodCourtOutlet(IdMixin, Base):
     )
     busy_limit: Mapped[int] = mapped_column(Integer, default=12, server_default="12")
     paused_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Loyalty: every `loyalty_every`-th order a customer places here earns a personal reward of
+    # `loyalty_reward_paise` off their next one (both null = off).
+    loyalty_every: Mapped[int | None] = mapped_column(Integer)
+    loyalty_reward_paise: Mapped[int | None] = mapped_column(Integer)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

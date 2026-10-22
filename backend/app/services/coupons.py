@@ -19,13 +19,15 @@ out or was switched off while the customer paid.
 """
 
 import re
+import secrets
 import uuid
+from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.time import business_date, utcnow
-from app.models import Coupon, CouponRedemption, Order, OrderStatus
+from app.models import Coupon, CouponRedemption, OnlineOrder, Order, OrderStatus
 from app.services.online import OnlineError
 
 MIN_PAYABLE_PAISE = 100
@@ -77,7 +79,8 @@ def resolve(
     code = clean_code(code)
     q = select(Coupon).where(Coupon.code == code)
     coupon = db.scalar(q.with_for_update() if lock else q)
-    if coupon is None:
+    if coupon is None or (coupon.customer_id is not None and coupon.customer_id != customer_id):
+        # someone else's reward looks exactly like a code that does not exist
         raise OnlineError("coupon_unknown", "That code is not valid", 422)
     if strict:
         if not coupon.is_active:
@@ -112,7 +115,9 @@ def redeem(
 
 
 def listing(db: Session) -> list[dict]:
-    rows = db.scalars(select(Coupon).order_by(Coupon.created_at.desc())).all()
+    rows = db.scalars(
+        select(Coupon).where(Coupon.customer_id.is_(None)).order_by(Coupon.created_at.desc())
+    ).all()
     return [
         {
             "id": c.id,
@@ -128,3 +133,80 @@ def listing(db: Session) -> list[dict]:
         }
         for c in rows
     ]
+
+
+# ---------------------------------------------------------------- loyalty rewards
+REWARD_DAYS = 30
+_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O/1/I/L to misread
+
+
+def earn_reward(
+    db: Session, customer_id: uuid.UUID | None, every: int | None, reward_paise: int | None
+) -> Coupon | None:
+    """Called right after an order is placed (`db` is the outlet's session). If this was the
+    customer's every-Nth order here, give them a personal one-use reward for the next one. Orders
+    cancelled since do not count; a reward is only ever issued once per milestone."""
+    if customer_id is None or not every or not reward_paise:
+        return None
+    placed = (
+        db.scalar(
+            select(func.count())
+            .select_from(OnlineOrder)
+            .join(Order, Order.id == OnlineOrder.order_id)
+            .where(OnlineOrder.customer_id == customer_id, Order.status != OrderStatus.cancelled)
+        )
+        or 0
+    )
+    if placed == 0 or placed % every != 0:
+        return None
+    earned = (
+        db.scalar(select(func.count()).select_from(Coupon).where(Coupon.customer_id == customer_id))
+        or 0
+    )
+    if earned >= placed // every:
+        return None
+    for _ in range(5):
+        code = "R" + "".join(secrets.choice(_ALPHABET) for _ in range(6))
+        if db.scalar(select(Coupon.id).where(Coupon.code == code)) is None:
+            break
+    coupon = Coupon(
+        code=code,
+        kind="amount",
+        value=reward_paise,
+        max_uses=1,
+        valid_until=business_date(utcnow()) + timedelta(days=REWARD_DAYS),
+        customer_id=customer_id,
+    )
+    db.add(coupon)
+    db.flush()
+    return coupon
+
+
+def rewards_for(db: Session, customer_id: uuid.UUID) -> list[dict]:
+    """The customer's unused, unexpired rewards across every outlet. `db` is a system session."""
+    from app.models import Shop
+
+    today = business_date(utcnow())
+    rows = db.execute(
+        select(Coupon, Shop.name)
+        .join(Shop, Shop.id == Coupon.shop_id)
+        .where(
+            Coupon.customer_id == customer_id,
+            Coupon.is_active.is_(True),
+            (Coupon.valid_until.is_(None)) | (Coupon.valid_until >= today),
+        )
+        .order_by(Coupon.valid_until)
+    ).all()
+    out = []
+    for c, shop_name in rows:
+        if _uses(db, c.id) >= (c.max_uses or 1):
+            continue
+        out.append(
+            {
+                "code": c.code,
+                "outlet": shop_name,
+                "off_paise": c.value // 100 * 100,
+                "valid_until": c.valid_until,
+            }
+        )
+    return out

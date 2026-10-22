@@ -487,6 +487,8 @@ export interface FoodCourtView {
   /** "Pause when busy": that many open orders pause new ones for ten minutes, by itself. */
   busy_pause_on?: boolean;
   busy_limit?: number;
+  loyalty_every?: number | null;
+  loyalty_reward_paise?: number | null;
   /** Set while a pause is running (ISO time it ends). */
   paused_until?: string | null;
   ratings?: {

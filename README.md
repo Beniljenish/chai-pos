@@ -893,6 +893,15 @@ Decisions and trade-offs, in the order they were built.
 
 **Migrations** `e5f9a4c2d880` (attendance, special_days, audit_events with its append-only trigger, `menu_items.allergens/spice_level`, `users.hourly_rate_paise`) and `f6a1b5d3e991` (group_carts, group_members, group_lines), all new tables with row-level security. Additive only.
 
+### 9.22 Round six: language switch everywhere, split bills with an offer, loyalty rewards
+**Language switch.** The Tamil/English switch is now on the log-in page, the top of Manage, the Today header, the customer pages and the account sheet, not only inside one menu. The choice is kept on that device; the super admin page stays English.
+
+**Split a bill that carries an offer.** The offer is shared between the bills in proportion to what each would have cost (`shareDiscount`, the same largest-remainder rule the till already uses), so the shares add up to the offer to the rupee and each bill is an ordinary bill-level discount (reason `Coupon CODE`). The server's over-limit flag exempts any share that is no more than the order's own coupon (`0 < discount <= coupon`), but a bill that takes more than the coupon is still flagged. **Trade-off:** a share is not tied to a particular bill part by the server, so two parts could in theory carry the whole offer twice; each is still capped at the coupon, and the day-end sales figure shows the real money taken.
+
+**Loyalty rewards** (Manage → Food court → Loyalty reward). The owner sets "every N-th order earns ₹X off the next" (whole rupees, N up to 50, both or neither). When a logged-in customer places their N-th order at that outlet (cancelled orders do not count) the server issues a personal one-use coupon, `R` + six characters without look-alike letters, valid 30 days (`coupons.customer_id`). Only that customer can use it: anyone else gets the same "not valid" answer as for a code that does not exist. It never appears in the owner's list of public offers and it follows every offer rule (once, whole rupees, at least ₹1 payable, the outlet funds it). The customer sees "Your rewards" on My orders. A milestone issues one reward only (counted against rewards already issued), so cancel-and-reorder cannot farm them. **Not built:** points that carry across outlets (each outlet pays for its own rewards, so a shared balance would need settling between outlets).
+
+**Migration** `a7c2e5b8d013` (additive: `coupons.customer_id`, `food_court_outlets.loyalty_every/loyalty_reward_paise`; no new table, so RLS is unchanged). Apply to Supabase by hand before merging.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from app.core.time import business_date, utcnow
 from app.services.gst import LineIn, compute_bill
-from tests.conftest import PASSWORD, build_catalogue, make_shop
+from tests.conftest import PASSWORD, build_catalogue, customer_headers, make_shop
 from tests.test_food_court import API, _live, _menu, _order, court  # noqa: F401
 from tests.test_online_payments import _pay, rzp  # noqa: F401
 
@@ -286,3 +286,54 @@ def test_switching_a_dish_sold_out_is_remembered(client, shop_a):
     )  # not a toggle
     got = client.get(f"{API}/reports/wasted", headers=h).json()
     assert got["sold_out"] == [{"name": "Orange juice", "times": 2}]
+
+
+# ---------------------------------------------------------------- loyalty rewards
+def _loyalty(client, shop, every, paise):
+    r = client.patch(
+        f"{API}/food-court/me",
+        json={"loyalty_every": every, "loyalty_reward_paise": paise},
+        headers=shop.owner_h,
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_every_nth_order_earns_a_personal_reward_that_only_that_customer_can_use(
+    client, shop_a, court
+):
+    tea = _tea(client, court)
+    view = _loyalty(client, shop_a, 2, 1000)
+    assert (view["loyalty_every"], view["loyalty_reward_paise"]) == (2, 1000)
+    mine = court["customer"]
+    assert client.get(f"{API}/customer/rewards", headers=mine).json()["rewards"] == []
+    _order(client, court, [(tea, 1)]).raise_for_status()
+    assert client.get(f"{API}/customer/rewards", headers=mine).json()["rewards"] == []
+    _order(client, court, [(tea, 1)]).raise_for_status()
+    rewards = client.get(f"{API}/customer/rewards", headers=mine).json()["rewards"]
+    assert len(rewards) == 1 and rewards[0]["off_paise"] == 1000
+    code = rewards[0]["code"]
+    # it never shows in the owner's list of public offers
+    listing = client.get(f"{API}/coupons", headers=shop_a.owner_h).json()["coupons"]
+    assert all(c["code"] != code for c in listing)
+    # another customer cannot use it, as if it did not exist
+    stranger = customer_headers(client, phone="9840099999", name="Stranger")
+    other = _check(client, court, code, [(tea, 5)], who=stranger)
+    assert other.status_code == 422 and other.json()["detail"]["code"] == "coupon_unknown"
+    ok = _check(client, court, code, [(tea, 5)])
+    assert ok.status_code == 200, ok.text
+    # used once, then gone
+    _order(client, court, [(tea, 5)], coupon_code=code).raise_for_status()
+    assert client.get(f"{API}/customer/rewards", headers=mine).json()["rewards"] == []
+
+
+def test_loyalty_needs_both_numbers_and_can_be_switched_off(client, shop_a, court):
+    bad = client.patch(f"{API}/food-court/me", json={"loyalty_every": 3}, headers=shop_a.owner_h)
+    assert bad.status_code == 422
+    _loyalty(client, shop_a, 3, 500)
+    off = _loyalty(client, shop_a, 0, 0)
+    assert off["loyalty_every"] is None and off["loyalty_reward_paise"] is None
+    tea = _tea(client, court)
+    for _ in range(3):
+        _order(client, court, [(tea, 1)]).raise_for_status()
+    assert client.get(f"{API}/customer/rewards", headers=court["customer"]).json()["rewards"] == []

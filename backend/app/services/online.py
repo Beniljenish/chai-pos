@@ -109,6 +109,8 @@ def view(db: Session, shop_id: uuid.UUID) -> dict:
         "pickup_capacity": mine.pickup_capacity,
         "busy_pause_on": mine.busy_pause_on,
         "busy_limit": mine.busy_limit,
+        "loyalty_every": mine.loyalty_every,
+        "loyalty_reward_paise": mine.loyalty_reward_paise,
         "paused_until": _paused_until(mine, utcnow()),
         "outlets": [
             {
@@ -167,6 +169,18 @@ def check_not_busy(sysdb: Session, outlet: FoodCourtOutlet, db: Session) -> None
             429,
             {"until": until.isoformat()},
         )
+
+
+def set_loyalty(db: Session, shop_id: uuid.UUID, every: int | None, reward_paise: int | None):
+    """Both set = on; both empty = off. A reward is whole rupees."""
+    mine = my_outlet(db, shop_id)
+    if mine is None:
+        raise OnlineError("not_in_a_court", "This shop is not in a food court", 404)
+    if bool(every) != bool(reward_paise):
+        raise OnlineError("loyalty_incomplete", "Set both the order count and the reward", 422)
+    mine.loyalty_every = every or None
+    mine.loyalty_reward_paise = (reward_paise // 100 * 100) or None if reward_paise else None
+    db.commit()
 
 
 def set_busy(
@@ -830,6 +844,13 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
 
                 coupons.redeem(db, coupon, order.id, body.customer_id, off)
                 db.flush()
+            outlet = my_outlet(db, shop.id)
+            if outlet is not None:
+                from app.services import coupons
+
+                coupons.earn_reward(
+                    db, body.customer_id, outlet.loyalty_every, outlet.loyalty_reward_paise
+                )
         except IntegrityError:
             db.rollback()
             raise OnlineError("busy", "Please try again", 503) from None

@@ -210,6 +210,12 @@ export const publicApi = {
   changePassword: (token: string, current_password: string, new_password: string) =>
     call<Signed>('/customer/password', post({ current_password, new_password }), token),
   history: (token: string) => call<{ orders: HistoryRow[] }>('/customer/orders', undefined, token),
+  rewards: (token: string) =>
+    call<{ rewards: { code: string; outlet: string; off_paise: number; valid_until: string | null }[] }>(
+      '/customer/rewards',
+      undefined,
+      token,
+    ),
   // ---- favourites, ratings, phone notifications
   favourites: (token: string) => call<{ favourites: Favourite[] }>('/customer/favourites', undefined, token),
   addFavourite: (token: string, itemId: string) =>

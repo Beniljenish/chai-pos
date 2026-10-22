@@ -2002,6 +2002,14 @@ function Orders({
   const [failed, setFailed] = useState(false);
   const [changing, setChanging] = useState(false);
   const [receipt, setReceipt] = useState<HistoryRow | null>(null);
+  const [rewards, setRewards] = useState<{ code: string; outlet: string; off_paise: number; valid_until: string | null }[]>([]);
+
+  useEffect(() => {
+    publicApi
+      .rewards(auth.token)
+      .then((r) => setRewards(r.rewards))
+      .catch(() => setRewards([])); // a reward list that will not load is not worth an error
+  }, [auth.token]);
 
   const load = useCallback(() => {
     publicApi
@@ -2034,6 +2042,22 @@ function Orders({
         <p className="muted" role="status">
           {t("Loading…")}
         </p>
+      )}
+      {rewards.length > 0 && (
+        <section className="cx-rewards" aria-label={t("Your rewards")}>
+          <h2>{t("Your rewards")}</h2>
+          <ul>
+            {rewards.map((r) => (
+              <li key={r.code}>
+                <strong>{t("{amount} off your next order at {outlet}", { amount: formatRupees(r.off_paise), outlet: r.outlet })}</strong>
+                <small className="muted">
+                  {t("Code {code}", { code: r.code })}
+                  {r.valid_until ? ` · ${t("use by {date}", { date: r.valid_until })}` : ''}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {rows && rows.length === 0 && <p className="cx-note">{t("You have not ordered yet.")}</p>}
       <ul className="cx-list" aria-label={t("Orders")}>
