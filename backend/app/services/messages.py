@@ -93,6 +93,14 @@ def mask(phone: str) -> str:
 def send_text(phone: str, text: str, key: str) -> str:
     """One message that belongs to no order (the owner's daily summary): "sent", or "logged"
     when no provider is configured. Raises SendError when the provider refuses."""
+    from app.services import twilio_sender  # local: keeps the customer-message path unchanged
+
+    if _override is None and twilio_sender.whatsapp_on():
+        try:
+            twilio_sender.send(f"+91{phone}", text, "whatsapp")
+        except twilio_sender.SendError as e:
+            raise SendError(str(e)) from None
+        return "sent"
     transport = _transport()
     if transport is None:
         return "logged"

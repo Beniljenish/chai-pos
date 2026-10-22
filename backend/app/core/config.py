@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # is needed only with an organisation-wide key (it names the sender).
     inkbox_api_key: str = ""
     inkbox_identity_id: str = ""
+    # Twilio, for phone codes by SMS and the owner's daily message by WhatsApp. The owner types
+    # these into the host's settings; they are never in the repo.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_sms_from: str = ""  # a Twilio number in +91... form, or a Messaging Service id (MG...)
+    twilio_whatsapp_from: str = ""  # the sender's WhatsApp number, +14155238886 for the sandbox
     # Where customers open receipt links (this API's public address).
     public_api_url: str = "https://chai-pos-api.vercel.app/api/v1"
     # Razorpay (test mode first). Empty key = online payments switched off; the

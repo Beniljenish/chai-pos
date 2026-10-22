@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models import PhoneCode
-from app.services import ratelimit
+from app.services import ratelimit, twilio_sender
 from app.services.online import OnlineError
 
 TTL = timedelta(minutes=10)
@@ -44,7 +44,7 @@ def fake_on() -> bool:
 
 def available() -> bool:
     """Whether codes can be sent at all. When they cannot, nothing asks for one."""
-    return _sender is not None or get_settings().fake_sms
+    return _sender is not None or get_settings().fake_sms or twilio_sender.sms_on()
 
 
 def _hash(phone: str, purpose: str, code: str) -> str:
@@ -92,6 +92,16 @@ def send(db: Session, phone: str, purpose: str) -> dict:
     db.commit()
     if _sender is not None:
         _sender(phone, purpose, code)
+    elif not fake_on() and twilio_sender.sms_on():
+        try:
+            twilio_sender.send(
+                f"+91{phone}",
+                f"Taptallow: {code} is your code. It works for 10 minutes. Do not share it.",
+            )
+        except twilio_sender.SendError:
+            raise OnlineError(
+                "sms_failed", "We could not send the code. Please try again in a minute.", 502
+            ) from None
     out: dict = {"sent": True, "cooldown_seconds": int(COOLDOWN.total_seconds())}
     if fake_on():
         out["dev_code"] = (
