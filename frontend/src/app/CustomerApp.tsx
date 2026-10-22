@@ -55,6 +55,7 @@ import {
   type Signed,
 } from '../lib/publicApi';
 import { dishDescription, dishName, getLang, t, useLang } from '../lib/i18n';
+import { photoSrc } from '../lib/dishPictures';
 import { slotLabel, tableFromSearch, type Slot } from '../lib/pickup';
 import { LangSwitch } from './LangSwitch';
 
@@ -595,7 +596,7 @@ function Home({
             {favs.map((f) => (
               <li key={f.menu_item_id}>
                 <button onClick={() => onPickFavourite(f)}>
-                  {f.photo_url ? <img src={f.photo_url} alt="" loading="lazy" /> : <span className="cx-photo" aria-hidden="true" />}
+                  {f.photo_url ? <img src={photoSrc(f.photo_url, __API_URL__)} alt="" loading="lazy" /> : <span className="cx-photo" aria-hidden="true" />}
                   <span className="cx-name">
                     <strong>
                       <VegMark veg={f.is_veg} />
@@ -985,7 +986,7 @@ function OutletMenu({
                 return (
                   <li key={i.id} className={`cx-dish ${i.sold_out ? 'gone' : ''}`}>
                     {i.photo_url ? (
-                      <img className="cx-photo" src={i.photo_url} alt="" loading="lazy" width={62} height={62} />
+                      <img className="cx-photo" src={photoSrc(i.photo_url, __API_URL__)} alt="" loading="lazy" width={62} height={62} />
                     ) : null}
                     <div>
                       <strong>

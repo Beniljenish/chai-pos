@@ -5,8 +5,9 @@ import json
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
@@ -47,9 +48,26 @@ from app.schemas_catalogue import (
     RecipeOut,
 )
 from app.services import payments as payments_service
+from app.services import photos as photo_service
 from app.services import recipes as recipe_service
+from app.services.online import OnlineError
 
 router = APIRouter()
+
+
+class PhotoIn(BaseModel):
+    # the picture, base64: the phone has already shrunk it to about 300 KB
+    base64: str = Field(min_length=1, max_length=600_000)
+
+
+@router.post("/menu-photos", status_code=201, tags=["menu"])
+def upload_menu_photo(body: PhotoIn, caller: Caller = Depends(require_owner)) -> dict:
+    """A dish photo taken on the owner's phone. Returns the `photo_url` to put on the dish."""
+    try:
+        return {"photo_url": photo_service.store(caller.db, body.base64)}
+    except OnlineError as e:
+        caller.db.rollback()
+        raise HTTPException(e.status, {"code": e.code, "message": e.message}) from None
 
 
 def _ingredient(caller: Caller, ingredient_id: uuid.UUID) -> Ingredient:

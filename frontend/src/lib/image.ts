@@ -37,3 +37,27 @@ export async function pictureForUpload(file: File): Promise<{ base64: string; me
   if (file.size > MAX_BYTES || !/^image\/(jpeg|png|webp|gif)$/.test(file.type)) return null;
   return { base64: toBase64(await file.arrayBuffer()), mediaType: file.type };
 }
+
+export const PHOTO_SIDE = 800;
+export const PHOTO_MAX_BYTES = 300 * 1024;
+
+/** A dish photo for upload: at most 800 px a side and 300 KB, as a JPEG. The quality steps down
+ * until it fits. Null when the file is not a picture or the browser cannot draw it. */
+export async function dishPhotoForUpload(file: File): Promise<string | null> {
+  if (!file.type.startsWith('image/')) return null;
+  try {
+    const bmp = await createImageBitmap(file);
+    const { w, h } = fitSize(bmp.width, bmp.height, PHOTO_SIDE);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')?.drawImage(bmp, 0, 0, w, h);
+    for (const q of [0.85, 0.75, 0.6, 0.45]) {
+      const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/jpeg', q));
+      if (blob && blob.size <= PHOTO_MAX_BYTES) return toBase64(await blob.arrayBuffer());
+    }
+  } catch {
+    /* a format this browser cannot draw */
+  }
+  return null;
+}

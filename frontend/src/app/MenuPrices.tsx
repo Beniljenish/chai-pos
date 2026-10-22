@@ -1,6 +1,7 @@
 /** Menu items: price, category, GST rate and whether the price includes GST. */
-import { useCallback, useEffect, useState } from 'react';
-import { DISH_PICTURES, photoLinkOk, shippedPicture } from '../lib/dishPictures';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
+import { DISH_PICTURES, photoLinkOk, photoSrc, shippedPicture, uploadedPicture } from '../lib/dishPictures';
+import { dishPhotoForUpload } from '../lib/image';
 import { formatRate, formatRupees } from '../lib/gst';
 import { t } from '../lib/i18n';
 import type { MenuItem, Modifier } from '../lib/types';
@@ -97,7 +98,7 @@ export function MenuPrices() {
           <li key={m.id}>
             <button onClick={() => setEditing(m)}>
               {m.photo_url ? (
-                <img className="menu-thumb" src={m.photo_url} alt="" width={40} height={40} loading="lazy" />
+                <img className="menu-thumb" src={photoSrc(m.photo_url, __API_URL__)} alt="" width={40} height={40} loading="lazy" />
               ) : (
                 <span className="menu-thumb blank" aria-hidden="true" />
               )}
@@ -179,6 +180,29 @@ export function MenuItemEditor({
   const photoOk = photoLinkOk(d.photo_url);
   const valid =
     d.name.trim() && d.category.trim() && Number.isFinite(pricePaise) && pricePaise >= 0 && d.price !== '' && photoOk;
+
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
+  /** A photo from the phone: shrunk here, stored by the app, and the dish keeps a short link to it. */
+  async function upload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // so choosing the same file again still fires
+    if (!file) return;
+    setBusy(true);
+    setPhotoNote(null);
+    try {
+      const b64 = await dishPhotoForUpload(file);
+      if (b64 === null) {
+        setPhotoNote(t('That file is not a picture this phone can use. Try another.'));
+        return;
+      }
+      const r = await api.post<{ photo_url: string }>('/menu-photos', { base64: b64 });
+      set({ photo_url: r.photo_url });
+    } catch (err) {
+      setPhotoNote(explainError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const [tamilNote, setTamilNote] = useState<{ ok: boolean; text: string } | null>(null);
   /** Ask the AI for a Tamil name and description. It only fills the boxes: nothing is saved. */
@@ -315,17 +339,33 @@ export function MenuItemEditor({
           </ul>
           {d.photo_url.trim() !== '' && (
             <div className="pic-current">
-              <img src={d.photo_url.trim()} alt="This dish's picture" width={56} height={56} />
+              <img src={photoSrc(d.photo_url, __API_URL__)} alt="This dish's picture" width={56} height={56} />
               <button type="button" className="quiet" onClick={() => set({ photo_url: '' })}>
                 Remove picture
               </button>
             </div>
           )}
         </div>
+        <div className="pic-upload" role="group" aria-label={t('Photo from this phone')}>
+          <label className="button quiet">
+            📷 {t('Take a photo')}
+            <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => void upload(e)} />
+          </label>
+          <label className="button quiet">
+            🖼 {t('Choose from phone')}
+            <input type="file" accept="image/*" hidden onChange={(e) => void upload(e)} />
+          </label>
+          <small className="muted">{t('Shrunk to 800 px and 300 KB before it is sent.')}</small>
+          {photoNote && (
+            <p className="error" role="alert">
+              {photoNote}
+            </p>
+          )}
+        </div>
         <label>
           Or paste a link to your own photo <span className="muted">(an https:// address)</span>
           <input
-            value={shippedPicture(d.photo_url) ? '' : d.photo_url}
+            value={shippedPicture(d.photo_url) || uploadedPicture(d.photo_url) ? '' : d.photo_url}
             maxLength={500}
             inputMode="url"
             placeholder="https://…/masala-tea.jpg"

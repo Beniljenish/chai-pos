@@ -5548,7 +5548,8 @@ button.save {
   flex-wrap: wrap;
   row-gap: 8px;
 }
-.buy-actions label.button {
+.buy-actions label.button,
+.pic-upload label.button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -5699,4 +5700,15 @@ button.save {
   align-items: center;
   gap: 0.35rem;
   break-inside: avoid;
+}
+
+.pic-upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+.pic-upload small {
+  flex-basis: 100%;
 }

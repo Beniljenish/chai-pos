@@ -87,13 +87,20 @@ class IngredientOut(ORM):
 # --- menu items ---
 # The pictures that ship with the app (frontend/public/dishes), which the menu editor offers.
 _SHIPPED_PICTURE = re.compile(r"^/dishes/[a-z]{3,20}\.svg$")
+_UPLOADED_PICTURE = re.compile(r"^/dish-photos/[0-9a-f]{32}$")  # taken on the owner's phone
 
 
 def _secure_photo(v: str) -> str:
     # Shown in an <img> on customers' phones: an https address, one of the pictures that ship
-    # with the app, or nothing. Nothing else (no other path, no data: or javascript: address).
+    # with the app, a photo uploaded to this app, or nothing. Nothing else (no other path, no
+    # data: or javascript: address).
     v = v.strip()
-    if v and not v.startswith("https://") and not _SHIPPED_PICTURE.match(v):
+    if (
+        v
+        and not v.startswith("https://")
+        and not _SHIPPED_PICTURE.match(v)
+        and not _UPLOADED_PICTURE.match(v)
+    ):
         raise ValueError("The photo link must start with https:// (or pick a picture)")
     return v
 

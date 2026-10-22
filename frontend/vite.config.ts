@@ -20,7 +20,8 @@ function contentSecurityPolicy(apiUrl: string): Plugin {
     "font-src 'self'",
     // https: because an owner can link a photo of a dish from anywhere. An image cannot run script;
     // the cost is that the host of a photo sees the customer's address (no referrer is sent).
-    "img-src 'self' data: https:",
+    // The API too: photos taken on an owner's phone are served from there.
+    `img-src 'self' data: https: ${apiOrigin === 'http://placeholder.invalid' ? '' : apiOrigin}`.trim(),
     `connect-src ${connect}`,
     "manifest-src 'self'",
     "worker-src 'self'",

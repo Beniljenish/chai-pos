@@ -9,12 +9,13 @@ is decided by the food court's own outlet list, never by anything sent.
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.v1.customer_accounts import Customer, current_customer
 from app.api.v1.foodcourt import fail, system_db
+from app.models import DishPhoto
 from app.services import online
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -55,6 +56,29 @@ def court(slug: str, response: Response, db: Session = Depends(system_db)):
         return online.public_court(db, slug)
     except online.OnlineError as e:
         raise fail(e) from None
+
+
+@router.get("/dish-photos/{photo_id}")
+def dish_photo(photo_id: str, db: Session = Depends(system_db)) -> Response:
+    """A dish photo an outlet uploaded. Anyone with the link may look (it is on a public menu);
+    the link is the photo's random id. Served as a picture and nothing else."""
+    try:
+        key = uuid.UUID(photo_id)
+    except ValueError:
+        raise HTTPException(404, "No such picture") from None
+    photo = db.get(DishPhoto, key)
+    if photo is None:
+        raise HTTPException(404, "No such picture")
+    return Response(
+        photo.data,
+        media_type=photo.content_type,
+        headers={
+            "Cache-Control": "public, max-age=86400, immutable",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+        },
+    )
 
 
 @router.get("/courts/{slug}/board")

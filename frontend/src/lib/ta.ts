@@ -804,4 +804,10 @@ export const TA: Record<string, string> = {
   'Table QR codes': 'மேசை QR குறியீடுகள்',
   'Stick one on each table. A customer who scans it orders from your menu and the order says which table to bring it to.': 'ஒவ்வொரு மேசையிலும் ஒன்றை ஒட்டுங்கள். ஸ்கேன் செய்யும் வாடிக்கையாளர் உங்கள் மெனுவிலிருந்து ஆர்டர் செய்வார்; எந்த மேசைக்குக் கொண்டு வர வேண்டும் என்பது ஆர்டரில் இருக்கும்.',
   'Print the table QR codes': 'மேசை QR குறியீடுகளை அச்சிடு',
+  // ---- photo upload
+  'Photo from this phone': 'இந்த போனிலிருந்து புகைப்படம்',
+  'Take a photo': 'புகைப்படம் எடு',
+  'Choose from phone': 'போனிலிருந்து தேர்ந்தெடு',
+  'Shrunk to 800 px and 300 KB before it is sent.': 'அனுப்புவதற்கு முன் 800 px மற்றும் 300 KB ஆகச் சிறிதாக்கப்படும்.',
+  'That file is not a picture this phone can use. Try another.': 'அந்தக் கோப்பை இந்த போனில் பயன்படுத்த முடியாது. வேறொன்றை முயலுங்கள்.',
 };
