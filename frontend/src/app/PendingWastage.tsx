@@ -1,4 +1,5 @@
 /** Owner: a cashier's large wastage waits here for a yes or no (README, Phase 10.2). */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { reasonLabel } from '../lib/dayend';
 import { formatRupees } from '../lib/gst';
@@ -96,9 +97,9 @@ export function PendingWastage({ refreshKey, onDecided }: { refreshKey: number; 
           ))}
         </ul>
       )}
-      <p className="muted">
+      <Hint>
         {t("Accept and it is a known loss. Reject and it is added back to stock, so it shows as missing at day end. The day cannot be closed while an entry is waiting.")}
-      </p>
+      </Hint>
       {limit !== null && (
         <div className="inline-setting">
           <label>

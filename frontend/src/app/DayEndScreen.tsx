@@ -1,4 +1,5 @@
 /** Day end. Owner: wastage, count, variance and approval. Cashier: wastage and the blind count only. */
+import { Hint } from './Hint';
 import { useCallback, useState } from 'react';
 import { countableDays } from '../lib/dayend';
 import { AdherenceTrend } from './AdherenceTrend';
@@ -37,7 +38,7 @@ export function DayEndScreen() {
           </button>
         ))}
       </div>
-      <p className="muted">{t("Closing after midnight? Choose yesterday: the count belongs to the day you are closing.")}</p>
+      <Hint>{t("Closing after midnight? Choose yesterday: the count belongs to the day you are closing.")}</Hint>
       <CountPanel key={`${day}-count`} day={day} refreshKey={closed} onStatus={bump} />
       {isOwner && <DayReport key={`${day}-report`} day={day} refreshKey={refresh} onApproved={reloadCount} />}
       {isOwner && <HandoverReport key={`${day}-handover`} day={day} refreshKey={refresh} />}

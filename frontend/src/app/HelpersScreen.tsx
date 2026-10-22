@@ -2,6 +2,7 @@
  * Small helpers for the owner (README, "9.17"): what delivery apps cost, what to have ready
  * tomorrow, dishes that hide themselves when their ingredient is gone, and the end-of-day message.
  */
+import { Hint } from './Hint';
 import { useEffect, useState } from 'react';
 import { commission, percentToBp } from '../lib/commission';
 import { formatRupees } from '../lib/gst';
@@ -73,7 +74,7 @@ function Calculator() {
           )}
         </p>
       )}
-      <p className="muted">{t('Type your own numbers: the app does not know what the apps charge you.')}</p>
+      <Hint>{t('Type your own numbers: the app does not know what the apps charge you.')}</Hint>
     </section>
   );
 }
@@ -166,7 +167,7 @@ function WastedCard() {
           <p className="muted">{t('Counted when you switched a dish to “sold out” yourself, in the last 4 weeks.')}</p>
         </>
       )}
-      <p className="muted">{t('Only losses you wrote down and that count (not ones still waiting for you, or rejected).')}</p>
+      <Hint>{t('Only losses you wrote down and that count (not ones still waiting for you, or rejected).')}</Hint>
     </section>
   );
 }
@@ -222,7 +223,7 @@ function Switches() {
       <div className="fc-switch">
         <div>
           <strong>{t('Hide a dish when its ingredient runs out')}</strong>
-          <p className="muted">{t('Only for ingredients you have counted. Customers see “Sold out”; it clears when stock comes in.')}</p>
+          <Hint>{t('Only for ingredients you have counted. Customers see “Sold out”; it clears when stock comes in.')}</Hint>
         </div>
         <button
           role="switch"

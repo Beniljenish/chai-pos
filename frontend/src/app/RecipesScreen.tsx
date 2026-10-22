@@ -1,4 +1,5 @@
 /** Owner's SOPs: what every drink and every batch uses, plus the ingredient list. */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { formatQty, type BaseUnit } from '../lib/qty';
 import type { Catalogue, Ingredient, Recipe, RecipeLine } from '../lib/types';
@@ -59,9 +60,9 @@ export function RecipesScreen() {
           {t("+ New drink")}
         </button>
       </header>
-      <p className="muted">
+      <Hint>
         {t("The SOP for every drink: what one serving takes out of stock. Changing a recipe makes a new version; old bills keep theirs.")}
-      </p>
+      </Hint>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {menu === null ? (
         !error && <Loading />

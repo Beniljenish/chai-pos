@@ -3,6 +3,7 @@
  * month's GST summary in GSTR-1 shape, and what the stock is worth. Every table
  * can be downloaded as a CSV for the accountant.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { businessDate } from '../lib/billing';
 import { formatRupees } from '../lib/gst';
@@ -276,9 +277,9 @@ function GstReport() {
             <button onClick={() => download(`gstr1-hsn-${data.month}.csv`, tables.hsn)}>{t("HSN (CSV)")}</button>
             <button onClick={() => download(`gstr1-docs-${data.month}.csv`, tables.docs)}>{t("Documents (CSV)")}</button>
           </div>
-          <p className="muted">
+          <Hint>
             HSN codes are each item&apos;s code today. Check the figures with your accountant before filing.
-          </p>
+          </Hint>
         </>
       )}
     </section>

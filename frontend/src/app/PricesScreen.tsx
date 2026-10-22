@@ -1,4 +1,5 @@
 /** What was paid for each ingredient, and how the latest compares with the entries before it (README, "9.21"). */
+import { Hint } from './Hint';
 import { useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { t } from '../lib/i18n';
@@ -40,7 +41,7 @@ export function PricesScreen() {
       <header className="manage-head">
         <h1>{t('Prices paid')}</h1>
       </header>
-      <p className="muted">{t('From your stock-in entries that had a price. The change is against the average of the entries before the latest.')}</p>
+      <Hint>{t('From your stock-in entries that had a price. The change is against the average of the entries before the latest.')}</Hint>
       {error && (
         <p className="error" role="alert">
           {error}

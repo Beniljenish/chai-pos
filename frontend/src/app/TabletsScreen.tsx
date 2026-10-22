@@ -2,6 +2,7 @@
  * Owner: every tablet's health. Bills still waiting on it, bills the server
  * refused, and printed bills that never reached the server (lost).
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { ago, dayTime } from '../lib/health';
 import { api } from './apiClient';
@@ -70,9 +71,9 @@ export function TabletsScreen() {
           {t("Refresh")}
         </button>
       </header>
-      <p className="muted">
+      <Hint>
         {t("Each tablet reports what it still holds whenever it has internet. A bill printed on a tablet that never reached the server, and is no longer on the tablet, shows here as missing.")}
-      </p>
+      </Hint>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {tablets === null && !error && <Loading />}
       {tablets && (
@@ -112,11 +113,10 @@ export function TabletsScreen() {
                   </strong>{' '}
                   <span className="num">{tb.missing.join(', ')}</span>
                   {tb.missing_count > tb.missing.length && ' …'}
-                  <br />
-                  <span className="muted">
+                  <Hint>
                     Usually the tablet&apos;s browser data was cleared or the tablet was reset before these were sent.
                     Their sales are not in your reports; the paper receipts are the only record.
-                  </span>
+                  </Hint>
                 </li>
               )}
               {tb.pending_bills > 0 && (

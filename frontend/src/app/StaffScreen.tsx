@@ -2,6 +2,7 @@
  * Owner: the people who log in. Each has their own phone number and password,
  * so bills, voids and counts show who did them.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { firstPassword, formatPhone } from '../lib/staff';
 import type { StaffMember } from '../lib/types';
@@ -61,9 +62,9 @@ export function StaffScreen() {
           {t("+ Add staff")}
         </button>
       </header>
-      <p className="muted">
+      <Hint>
         {t("Everyone logs in with their own mobile number and password. Bills, voids and counts are recorded under the person who did them.")}
-      </p>
+      </Hint>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {staff === null ? (
         !error && <Loading />

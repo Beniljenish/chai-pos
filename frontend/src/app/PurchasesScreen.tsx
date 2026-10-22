@@ -3,6 +3,7 @@
  * "Fill from reorder levels" proposes what is running low; receiving an order
  * records what actually came and enters it as stock.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { dayTime } from '../lib/health';
@@ -95,9 +96,9 @@ export function PurchasesScreen() {
           {t("+ Order")}
         </button>
       </header>
-      <p className="muted">
+      <Hint>
         {t("Order from a supplier, then receive what actually came: it goes into stock at the price you paid.")}
-      </p>
+      </Hint>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {orders === null && !error && <Loading />}
 

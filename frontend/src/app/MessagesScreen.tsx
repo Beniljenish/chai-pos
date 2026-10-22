@@ -3,6 +3,7 @@
  * order is ready", only for customers who agreed. Numbers are shown masked.
  * Without an Inkbox key on the server, messages are written here and not sent.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { dayTime } from '../lib/health';
 import { api } from './apiClient';
@@ -71,10 +72,10 @@ export function MessagesScreen() {
           </button>
         )}
       </header>
-      <p className="muted">
+      <Hint>
         Receipts and &quot;order ready&quot; go by iMessage to customers who agreed when their number was taken (Tables →
         Customer). Only the last four digits are shown here.
-      </p>
+      </Hint>
       {data?.provider === 'log' && (
         <p className="warn">
           {t("Sending is not set up yet: messages are written here but not sent. Adding the Inkbox key on the server turns sending on.")}

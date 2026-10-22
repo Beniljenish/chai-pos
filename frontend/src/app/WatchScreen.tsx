@@ -2,6 +2,7 @@
  * Owner: three things to keep an eye on (README, "9.16"): UPI bills the shop's account never saw,
  * everything that took money out of a sale today, and how close turnover is to the GST limit.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { businessDate } from '../lib/billing';
 import { formatRupees } from '../lib/gst';
@@ -36,7 +37,7 @@ export function WatchScreen() {
       <header className="manage-head">
         <h1>{t('Watch')}</h1>
       </header>
-      <p className="muted">{t('Things worth a look, worked out from your records. Nothing here is a guess.')}</p>
+      <Hint>{t('Things worth a look, worked out from your records. Nothing here is a guess.')}</Hint>
       <div className="chips" role="tablist" aria-label={t('Watch')}>
         {TABS.map(([id, label]) => (
           <button key={id} role="tab" className="chip" aria-selected={tab === id} aria-pressed={tab === id} onClick={() => setTab(id)}>
@@ -78,9 +79,9 @@ function UpiTab() {
   const verdict = data ? upiVerdict(data) : null;
   return (
     <>
-      <p className="muted">
+      <Hint>
         {t('Every UPI bill against the money Razorpay confirmed. A bill rung as UPI that Razorpay never saw may have been paid to another QR.')}
-      </p>
+      </Hint>
       <div className="chips" role="group" aria-label={t('Period')}>
         {RANGES.map(([days, label]) => (
           <button key={days} className="chip" aria-pressed={back === days} onClick={() => setBack(days)}>

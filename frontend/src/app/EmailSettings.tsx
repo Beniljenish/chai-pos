@@ -1,4 +1,5 @@
 /** Where the owner's reports go, which ones, and a button to prove it works. */
+import { Hint } from './Hint';
 import { useEffect, useState } from 'react';
 import { api } from './apiClient';
 import { explainError } from './errors';
@@ -99,7 +100,7 @@ export function EmailSettings() {
             <span>
               {s.label}
               <br />
-              <span className="muted">{s.hint}</span>
+              <Hint>{s.hint}</Hint>
             </span>
           </label>
         ))}

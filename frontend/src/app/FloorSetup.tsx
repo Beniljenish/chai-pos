@@ -2,6 +2,7 @@
  * Owner: the dining floor. Areas (Hall, AC room, Outdoor) and their tables.
  * Bulk add makes setting up a 20-table restaurant a minute's work.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { nextNames } from '../lib/floor';
 import { api } from './apiClient';
@@ -59,10 +60,10 @@ export function FloorSetup() {
           {t("+ Area")}
         </button>
       </header>
-      <p className="muted">
+      <Hint>
         Areas and tables for table service. Tables appear on every tablet&apos;s Tables screen; switching one off hides it
         without losing its history.
-      </p>
+      </Hint>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {areas === null && !error && <Loading />}
       {areas?.length === 0 && (

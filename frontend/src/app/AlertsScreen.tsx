@@ -2,6 +2,7 @@
  * Owner: what needs attention, worked out by the server from the day's records
  * (drawer, voids, discounts, waiting wastage, ingredient prices, recipe use).
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { groupAlerts, URGENCY_LABEL } from '../lib/alerts';
 import type { AlertItem } from '../lib/types';
@@ -44,7 +45,7 @@ export function AlertsScreen({ onOpen }: { onOpen: (section: string) => void }) 
           Refresh
         </button>
       </header>
-      <p className="muted">What went wrong or changed, worked out from your records. Nothing here is a guess.</p>
+      <Hint>What went wrong or changed, worked out from your records. Nothing here is a guess.</Hint>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {items === null ? (
         !error && <Loading />

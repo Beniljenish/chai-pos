@@ -3,6 +3,7 @@
  * switches their own outlet's "taking online orders" on and off. Making courts and
  * adding or removing outlets is the super admin's (/admin), not the owner's (README, "9.12").
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { boardPath, courtPath, isPaused } from '../lib/foodcourt';
 import { getLang, t } from '../lib/i18n';
@@ -203,11 +204,11 @@ export function FoodCourtScreen() {
           <div className="panel-inline fc-switch">
             <div>
               <strong>{t('Pickup times')}</strong>
-              <p className="muted">
+              <Hint>
                 {v.pickup_enabled
                   ? t('Customers can choose a time, 15 minutes apart. Your kitchen sees an order from 15 minutes before its time.')
                   : t('Customers can only order for now.')}
-              </p>
+              </Hint>
             </div>
             <button
               role="switch"
@@ -249,9 +250,9 @@ export function FoodCourtScreen() {
           <div className="panel-inline fc-switch">
             <div>
               <strong>{t('Pause when busy')}</strong>
-              <p className="muted">
+              <Hint>
                 {t('When this many online orders are open, new ones pause for 10 minutes by themselves and customers see when you are back.')}
-              </p>
+              </Hint>
             </div>
             <button
               role="switch"
@@ -416,14 +417,14 @@ export function FoodCourtScreen() {
 
           <section className="panel-inline" aria-label={t('Display board')}>
             <h2>{t('Display board')}</h2>
-            <p className="muted">{t('Open this link on a TV or tablet at the food court. It shows ready tokens, big, and says them aloud once sound is switched on.')}</p>
+            <Hint>{t('Open this link on a TV or tablet at the food court. It shows ready tokens, big, and says them aloud once sound is switched on.')}</Hint>
             <code>{`${window.location.origin}${boardPath(court.slug)}`}</code>
           </section>
 
           {myOutletId && tables.length > 0 && (
             <section className="panel-inline fc-tables" aria-label={t('Table QR codes')}>
               <h2>{t('Table QR codes')}</h2>
-              <p className="muted">{t('Stick one on each table. A customer who scans it orders from your menu and the order says which table to bring it to.')}</p>
+              <Hint>{t('Stick one on each table. A customer who scans it orders from your menu and the order says which table to bring it to.')}</Hint>
               <ul className="fc-table-qrs">
                 {tables.map((name) => (
                   <li key={name}>

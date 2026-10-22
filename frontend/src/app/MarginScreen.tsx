@@ -2,6 +2,7 @@
  * Owner: what each item costs to make and keeps. Cost = the current recipe at
  * the latest price paid for each ingredient; revenue is the price without GST.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { marginTone, sortMargins, whyNoMargin, type MarginSort } from '../lib/margin';
@@ -42,10 +43,10 @@ export function MarginScreen() {
           Refresh
         </button>
       </header>
-      <p className="muted">
+      <Hint>
         What each item costs to make and what is left. Cost is the recipe at the latest price you paid for each
         ingredient; the price is counted without GST.
-      </p>
+      </Hint>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {items === null ? (
         !error && <Loading />

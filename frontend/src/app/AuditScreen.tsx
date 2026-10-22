@@ -1,4 +1,5 @@
 /** The change log (README, "9.21"): who changed a price, recipe, offer, person or GST setting. */
+import { Hint } from './Hint';
 import { useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { t } from '../lib/i18n';
@@ -72,7 +73,7 @@ export function AuditScreen() {
       <header className="manage-head">
         <h1>{t('Changes')}</h1>
       </header>
-      <p className="muted">{t('Who changed prices, recipes, offers, people and GST settings in the last 60 days. It can only grow: nobody can edit or delete a line.')}</p>
+      <Hint>{t('Who changed prices, recipes, offers, people and GST settings in the last 60 days. It can only grow: nobody can edit or delete a line.')}</Hint>
       {error && (
         <p className="error" role="alert">
           {error}

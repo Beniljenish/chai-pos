@@ -1,4 +1,5 @@
 /** Owner's variance report for one day, and approval. */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { adherenceWords, reasonLabel } from '../lib/dayend';
 import { formatRupees } from '../lib/gst';
@@ -85,10 +86,10 @@ export function DayReport({
         </p>
       )}
       {rep.surplus_paise > 0 && (
-        <p className="muted">
+        <Hint>
           Extra on the shelf: {formatRupees(rep.surplus_paise)} (net {formatRupees(net)}). Extra stock usually means a
           missing stock-in entry or a wrong count.
-        </p>
+        </Hint>
       )}
       {Object.keys(rep.wastage_by_reason).length > 0 && (
         <p className="muted">

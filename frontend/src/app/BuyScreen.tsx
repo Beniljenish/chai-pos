@@ -3,6 +3,7 @@
  * before it is saved (README, "9.16"). Nothing is saved until "Save": the saving is the ordinary
  * stock-in, one per line, so stock still moves only through the ledger.
  */
+import { Hint } from './Hint';
 import { useEffect, useState } from 'react';
 import {
   draftTotal,
@@ -150,9 +151,9 @@ export function BuyScreen() {
       <header className="manage-head">
         <h1>{t('Buy by voice or photo')}</h1>
       </header>
-      <p className="muted">
+      <Hint>
         {t('Say or type what you bought, or photograph the supplier’s bill. You check the draft, then save. Nothing is saved before that.')}
-      </p>
+      </Hint>
       {status && !status.on && (
         <p className="cx-note">{t('The AI helpers are not switched on yet. You can still type a stock-in in Stock.')}</p>
       )}

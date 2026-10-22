@@ -3,6 +3,7 @@
  * owner logins (proving both passwords) and sees each outlet's day side by side. It never lets one
  * login act inside another shop: to work in another outlet you still log in there.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { t } from '../lib/i18n';
@@ -75,9 +76,9 @@ export function OutletsScreen() {
         <h1>{t('My outlets')}</h1>
         <button onClick={() => setAdding(!adding)}>{adding ? t('Cancel') : t('+ Link an outlet')}</button>
       </header>
-      <p className="muted">
+      <Hint>
         {t('See your outlets together. To change something inside another outlet, log in there with its own number: linking only lets you look.')}
-      </p>
+      </Hint>
       {error && (
         <p className="error" role="alert">
           {error}

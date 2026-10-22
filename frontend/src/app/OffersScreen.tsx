@@ -2,6 +2,7 @@
  * The outlet's offers (README, "9.19"): codes customers type in their cart on the food court app.
  * The outlet pays for its own offers; the server works out what each takes off.
  */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { rupeesToPaise } from '../lib/foodcourt';
 import { t } from '../lib/i18n';
@@ -94,9 +95,9 @@ export function OffersScreen() {
         <h1>{t('Offers')}</h1>
         <button onClick={() => setAdding(!adding)}>{adding ? t('Cancel') : t('+ New offer')}</button>
       </header>
-      <p className="muted">
+      <Hint>
         {t('Customers type the code in their cart on the food court app. You give up that money, and the food court fee is worked out on what they actually pay.')}
-      </p>
+      </Hint>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -164,7 +165,7 @@ export function OffersScreen() {
                   <strong>{o.code}</strong> · {offerText(o)}
                   <br />
                   <span className="muted">
-                    {stateText[st]} · {t('used {n} times', { n: o.uses })}
+                    {stateText[st]} · {o.uses === 1 ? t('used once') : t('used {n} times', { n: o.uses })}
                     {o.max_uses !== null ? ` / ${o.max_uses}` : ''}
                     {o.valid_until ? ` · ${t('until {date}', { date: o.valid_until })}` : ''}
                   </span>

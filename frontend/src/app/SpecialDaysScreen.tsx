@@ -1,4 +1,5 @@
 /** Festivals and other special days, with what the same date brought last year (README, "9.21"). */
+import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { t } from '../lib/i18n';
@@ -67,9 +68,9 @@ export function SpecialDaysScreen() {
       <header className="manage-head">
         <h1>{t('Special days')}</h1>
       </header>
-      <p className="muted">
+      <Hint>
         {t('Mark a festival or event. You see what the same date brought last year against that weekday’s usual, so you can prepare. Festivals that move each year (Diwali, Pongal, Eid) are yours to add.')}
-      </p>
+      </Hint>
       {error && (
         <p className="error" role="alert">
           {error}

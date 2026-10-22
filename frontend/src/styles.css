@@ -6311,3 +6311,56 @@ button.link.danger {
     font-size: 0.72rem;
   }
 }
+
+/* ⓘ hint: one small button; the words only when asked for */
+.hint {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0 0 var(--s2);
+}
+.hint-btn {
+  position: relative;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.hint-btn::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+.hint-btn[aria-expanded='true'] {
+  color: var(--brand);
+}
+.hint-text {
+  margin: var(--s1) 0 0;
+  padding: var(--s2) var(--s3);
+  border-radius: 12px;
+  background: var(--brand-soft);
+  font-size: 0.88rem;
+}
+
+/* Offers: each offer is one card with its own small switch button */
+.sop-list li.offer-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+.sop-list li.offer-row > button {
+  width: auto;
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--s3);
+  display: inline-flex;
+  align-items: center;
+}

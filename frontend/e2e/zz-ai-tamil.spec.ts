@@ -54,7 +54,10 @@ test('owner: Tamil switch, Watch, Buy by note, Ask, a dish in Tamil, a bill hist
   await page.locator('.tabs').getByRole('button', { name: 'Manage' }).click();
   await openSection(page, 'Watch');
   await expect(page.getByRole('heading', { name: 'Watch' })).toBeVisible();
-  await expect(page.getByText('Every UPI bill against the money Razorpay confirmed.')).toBeVisible();
+  // the explanation sits behind ⓘ and opens on a tap
+  await expect(page.getByText(/Every UPI bill against/)).toHaveCount(0);
+  for (const info of await page.getByRole('button', { name: 'More info' }).all()) await info.click();
+  await expect(page.getByText(/Every UPI bill against the money Razorpay confirmed/)).toBeVisible();
   await page.getByRole('tab', { name: 'Changes' }).click();
   await expect(page.getByLabel('Day')).toBeVisible();
   await page.getByRole('tab', { name: 'GST limit' }).click();

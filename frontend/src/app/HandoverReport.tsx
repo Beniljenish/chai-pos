@@ -1,4 +1,5 @@
 /** Owner: the day's gap on milk and fruit, split at each shift change (Phase 10.3). */
+import { Hint } from './Hint';
 import { useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { formatDelta } from '../lib/qty';
@@ -29,10 +30,10 @@ export function HandoverReport({ day, refreshKey }: { day: string; refreshKey: n
   return (
     <section className="handover-report" aria-labelledby="handover-report-title">
       <h2 id="handover-report-title">{t("Shift handovers")}</h2>
-      <p className="muted">
+      <Hint>
         Milk and fruit are counted at each shift change, so the day&apos;s gap is split by when it opened. With two
         counters open, everyone on duty in that time is listed.
-      </p>
+      </Hint>
       <ol className="periods">
         {rep.periods.map((p) => (
           <li key={p.end}>

@@ -3,6 +3,7 @@
  * fixed reports on your own records; the AI only chooses the report and phrases the result, and it
  * cannot change anything.
  */
+import { Hint } from './Hint';
 import { useState, type FormEvent } from 'react';
 import type { AskAnswer } from '../lib/aiTypes';
 import { getLang, t, useLang } from '../lib/i18n';
@@ -53,7 +54,7 @@ export function AskScreen() {
       <header className="manage-head">
         <h1>{t('Ask your shop')}</h1>
       </header>
-      <p className="muted">{t('Ask in Tamil or English. Answers come from your own records. It only reads: it cannot change anything.')}</p>
+      <Hint>{t('Ask in Tamil or English. Answers come from your own records. It only reads: it cannot change anything.')}</Hint>
       {status && !status.on && <p className="cx-note">{t('The AI helpers are not switched on yet.')}</p>}
       {status?.pretend && <p className="cx-note">{t('Pretend mode: simple rules stand in for the AI. Real Tamil needs the real AI.')}</p>}
       <form className="ask-form" onSubmit={submit}>

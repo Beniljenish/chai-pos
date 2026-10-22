@@ -2,6 +2,7 @@
  * Owner: the cash drawer, shift by shift (in Sales), and the on/off switch
  * (in Shop & GST). Expected = float + cash sales + paid in - paid out.
  */
+import { Hint } from './Hint';
 import { useEffect, useState } from "react";
 import { formatRupees } from "../lib/gst";
 import type { ShiftReport } from "../lib/types";
@@ -193,12 +194,11 @@ export function CashSettings() {
         />
         <span>
           {t("Count the cash at every shift")}
-          <br />
-          <span className="muted">
-            {t("Each tablet asks for the cash in the drawer at its first bill and for a count at the end, and Sales shows whether it matched. Switch off only if the shop takes no cash at the counter.")}
-          </span>
         </span>
       </label>
+      <Hint>
+        {t("Each tablet asks for the cash in the drawer at its first bill and for a count at the end, and Sales shows whether it matched. Switch off only if the shop takes no cash at the counter.")}
+      </Hint>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -251,9 +251,9 @@ export function DiscountSettings() {
           onChange={(e) => setPct(e.target.value)}
         />
       </label>
-      <p className="muted">
+      <Hint>
         {t("Every discount needs a reason and shows under Sales. You can give any discount yourself. A bill over the limit from an older or offline tablet is still saved, and flagged for you.")}
-      </p>
+      </Hint>
       <button disabled={!valid || pct === saved} onClick={() => void save()}>
         {t("Save limit")}
       </button>
