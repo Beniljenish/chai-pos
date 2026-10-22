@@ -8,7 +8,7 @@ three stay alike.
 
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -26,7 +26,7 @@ from app.models import (
     Shop,
 )
 from app.services import auth as auth_service
-from app.services import online
+from app.services import online, phone_codes, ratelimit
 from app.services.online import OnlineError
 
 # No 0/O/1/l/I: the admin reads this out over the phone.
@@ -48,7 +48,10 @@ def account_view(c: CustomerAccount) -> dict:
     return {"name": c.name, "phone": c.phone, "must_change_password": c.must_change_password}
 
 
-def signup(db: Session, name: str, phone: str, password: str) -> dict:
+SIGNUPS_PER_HOUR = 8  # from one address: a family on one wifi, not a script
+
+
+def signup(db: Session, name: str, phone: str, password: str, code: str = "", ip: str = "") -> dict:
     name = _clean_name(name)
     if not name:
         raise OnlineError("name_required", "Enter your name")
@@ -57,7 +60,27 @@ def signup(db: Session, name: str, phone: str, password: str) -> dict:
         raise OnlineError("weak_password", problem)
     if db.scalar(select(CustomerAccount.id).where(CustomerAccount.phone == phone)):
         raise OnlineError("phone_taken", "This number already has an account. Log in instead.", 409)
-    c = CustomerAccount(name=name, phone=phone, password_hash=hash_password(password))
+    try:
+        ratelimit.hit(
+            db,
+            f"signup:{ip or 'unknown'}",
+            limit=SIGNUPS_PER_HOUR,
+            window=timedelta(hours=1),
+            message="Too many accounts were made from here. Please try again in an hour.",
+        )
+    except ratelimit.RateLimited as e:
+        db.rollback()
+        raise OnlineError("too_many_signups", e.message, 429) from None
+    verified = None
+    if phone_codes.available():
+        if not code.strip():
+            db.rollback()
+            raise OnlineError("code_required", "Enter the code sent to your mobile number.", 422)
+        phone_codes.check(db, phone, "signup", code)
+        verified = datetime.now(UTC)
+    c = CustomerAccount(
+        name=name, phone=phone, password_hash=hash_password(password), phone_verified_at=verified
+    )
     db.add(c)
     try:
         db.commit()
@@ -107,6 +130,34 @@ def change_password(db: Session, c: CustomerAccount, current: str, new: str) -> 
     c.token_version += 1  # every other device is logged out
     db.commit()
     return _issue(c)
+
+
+def reset_with_code(db: Session, phone: str, code: str, new: str) -> dict:
+    """A forgotten password, reset by the customer: the code sent to their number is the proof."""
+    c = db.scalar(select(CustomerAccount).where(CustomerAccount.phone == phone).with_for_update())
+    if c is None or not c.is_active:
+        # Same answer as a wrong code, so this cannot be used to find out who has an account.
+        db.rollback()
+        raise OnlineError("code_wrong", "That code is not right.", 422)
+    phone_codes.check(db, phone, "reset", code)
+    problem = auth_service.password_problem(new, phone)
+    if problem:
+        db.rollback()
+        raise OnlineError("weak_password", problem)
+    c.password_hash = hash_password(new)
+    c.must_change_password = False
+    c.token_version += 1
+    c.failed_logins, c.locked_until = 0, None
+    c.phone_verified_at = c.phone_verified_at or datetime.now(UTC)
+    db.commit()
+    return _issue(c)
+
+
+def forgot(db: Session, phone: str) -> dict:
+    """Send a reset code if the number has an account. The answer is the same either way."""
+    if db.scalar(select(CustomerAccount.id).where(CustomerAccount.phone == phone)):
+        return phone_codes.send(db, phone, "reset")
+    return {"sent": True, "cooldown_seconds": int(phone_codes.COOLDOWN.total_seconds())}
 
 
 def rename(db: Session, c: CustomerAccount, name: str) -> dict:

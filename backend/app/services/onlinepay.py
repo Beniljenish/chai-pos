@@ -10,8 +10,10 @@ each outlet afterwards (`OnlineSettlement`). Razorpay's own confirmation is the 
 marks a payment paid (the signature, then a look at the payment itself), exactly as for a till bill.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -250,24 +252,117 @@ def _paid_orders(db: Session, shop_id: uuid.UUID):
     )
 
 
+def fee_of(paid_paise: int, fee_bp: int) -> int:
+    """What the operator keeps of one order's payment: basis points, rounded half up per order so
+    a month of small orders adds up exactly the same as the statement lines."""
+    return (paid_paise * fee_bp * 2 + 10_000) // 20_000
+
+
+def fee_bp_of(db: Session, shop_id: uuid.UUID) -> int:
+    return db.scalar(select(FoodCourtOutlet.fee_bp).where(FoodCourtOutlet.shop_id == shop_id)) or 0
+
+
 def outlet_money(db: Session, shop_id: uuid.UUID) -> dict:
-    """What customers paid online for this outlet, what the operator has paid it so far, and
-    the difference. `db` is a system session (the figures cross tenants)."""
-    sub = _paid_orders(db, shop_id).subquery()
-    paid, count = db.execute(
-        select(func.coalesce(func.sum(sub.c.paid_paise), 0), func.count(sub.c.id))
-    ).one()
+    """What customers paid online for this outlet, the operator's fee, what the operator has paid
+    it so far, and the difference. `db` is a system session (the figures cross tenants)."""
+    fee_bp = fee_bp_of(db, shop_id)
+    paid_each = db.scalars(select(_paid_orders(db, shop_id).subquery().c.paid_paise)).all()
+    paid = sum(int(p or 0) for p in paid_each)
+    fee = sum(fee_of(int(p or 0), fee_bp) for p in paid_each)
     settled = db.scalar(
         select(func.coalesce(func.sum(OnlineSettlement.amount_paise), 0)).where(
             OnlineSettlement.shop_id == shop_id
         )
     )
+    settled = int(settled or 0)
     return {
-        "orders": int(count),
-        "paid_paise": int(paid),
-        "settled_paise": int(settled or 0),
-        "owed_paise": int(paid) - int(settled or 0),
+        "orders": len(paid_each),
+        "paid_paise": paid,
+        "fee_bp": fee_bp,
+        "fee_paise": fee,
+        "net_paise": paid - fee,
+        "settled_paise": settled,
+        "owed_paise": paid - fee - settled,
     }
+
+
+def statement(db: Session, shop_id: uuid.UUID, start: date, end: date) -> dict:
+    """One outlet's statement for a range of days: what was sold online, what went back to
+    customers, the operator's fee, what was paid to the outlet in the range, and what is still
+    owed now (all time, not just the range). `db` is a system session."""
+    if end < start or (end - start).days > 92:
+        raise OnlineError("bad_range", "Choose up to 92 days", 422)
+    fee_bp = fee_bp_of(db, shop_id)
+    rows = db.execute(
+        select(OnlineOrder, Order)
+        .join(Order, Order.id == OnlineOrder.order_id)
+        .where(
+            OnlineOrder.shop_id == shop_id,
+            OnlineOrder.payment_id.is_not(None),
+            OnlineOrder.business_date >= start,
+            OnlineOrder.business_date <= end,
+        )
+        .order_by(OnlineOrder.business_date, OnlineOrder.created_at)
+    ).all()
+    orders, sales, refunds, fee = [], 0, 0, 0
+    for oo, order in rows:
+        cancelled = order.status == OrderStatus.cancelled
+        paid = int(oo.paid_paise or 0)
+        orders.append(
+            {
+                "date": oo.business_date,
+                "token": oo.token,
+                "paid_paise": paid,
+                "cancelled": cancelled,
+                "refunded_paise": int(oo.refunded_paise or 0),
+                "refund_pending": cancelled and not oo.refunded_paise,
+                "fee_paise": 0 if cancelled else fee_of(paid, fee_bp),
+            }
+        )
+        if cancelled:
+            refunds += paid
+        else:
+            sales += paid
+            fee += fee_of(paid, fee_bp)
+    paid_out = db.scalars(
+        select(OnlineSettlement)
+        .where(
+            OnlineSettlement.shop_id == shop_id,
+            func.date(func.timezone("Asia/Kolkata", OnlineSettlement.created_at)) >= start,
+            func.date(func.timezone("Asia/Kolkata", OnlineSettlement.created_at)) <= end,
+        )
+        .order_by(OnlineSettlement.created_at)
+    ).all()
+    money = outlet_money(db, shop_id)
+    return {
+        "from": start,
+        "to": end,
+        "fee_bp": fee_bp,
+        "orders": orders,
+        "sales_paise": sales,
+        "refunds_paise": refunds,
+        "fee_paise": fee,
+        "earned_paise": sales - fee,
+        "paid_out": [
+            {"date": s.created_at, "amount_paise": s.amount_paise, "note": s.note} for s in paid_out
+        ],
+        "paid_out_paise": sum(s.amount_paise for s in paid_out),
+        "owed_now_paise": money["owed_paise"],
+    }
+
+
+def auto_refund(order_id: uuid.UUID) -> None:
+    """An outlet cancelled a whole order that the customer had paid for online: give the money
+    back now instead of waiting for the admin. Best effort and safe to repeat: a refund that
+    fails stays on the admin's "refunds due" list, and one already made is not made twice."""
+    try:
+        with online.system_session() as db:
+            oo = db.scalar(select(OnlineOrder).where(OnlineOrder.order_id == order_id))
+            if oo is None or oo.payment_id is None or oo.refunded_paise:
+                return
+            refund(db, f"order:{order_id}")
+    except Exception:  # noqa: BLE001 - never breaks the outlet's sync
+        logging.getLogger(__name__).exception("automatic refund failed")
 
 
 def settle(db: Session, admin_id: uuid.UUID, shop_id: uuid.UUID, amount: int, note: str) -> None:

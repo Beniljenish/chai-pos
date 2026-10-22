@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { cleanPhone, courtPath, rupeesToPaise } from '../lib/foodcourt';
 import { formatRupees } from '../lib/gst';
+import { feePercent, percentToBp } from '../lib/statement';
 import {
   AdminError,
   adminApi,
@@ -17,6 +18,7 @@ import {
   type RefundDue,
 } from '../lib/adminApi';
 import { Qr } from './Qr';
+import { StatementPanel } from './StatementPanel';
 import { Sheet } from './Sheet';
 
 export function AdminApp() {
@@ -283,6 +285,7 @@ function OnlineMoney({ token, onSignedOut }: { token: string; onSignedOut(): voi
   const [refunds, setRefunds] = useState<RefundDue[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState<string | null>(null); // the outlet whose payment form is open
+  const [viewing, setViewing] = useState<string | null>(null); // the outlet whose statement is open
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -322,6 +325,25 @@ function OnlineMoney({ token, onSignedOut }: { token: string; onSignedOut(): voi
     }
   }
 
+  async function changeFee(o: OutletMoney) {
+    const typed = window.prompt(`What % does the food court keep of ${o.outlet}'s online sales? (0 to 30)`, String(o.fee_bp / 100));
+    if (typed === null) return;
+    const bp = percentToBp(typed);
+    if (bp === null) {
+      setError('Type a percentage from 0 to 30, like 5 or 2.5.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setOutlets((await adminApi.setFee(token, o.court_id, o.outlet_id, bp)).outlets);
+    } catch (e) {
+      guard(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refund(r: RefundDue) {
     if (!window.confirm(`Refund ${formatRupees(r.amount_paise)} to ${r.customer} (${r.phone})?`)) return;
     setBusy(true);
@@ -354,8 +376,8 @@ function OnlineMoney({ token, onSignedOut }: { token: string; onSignedOut(): voi
               <strong>{o.outlet}</strong>
               <br />
               <span className="muted">
-                {o.court} · {o.orders} order{o.orders === 1 ? '' : 's'} · paid {formatRupees(o.paid_paise)} · settled{' '}
-                {formatRupees(o.settled_paise)}
+                {o.court} · {o.orders} order{o.orders === 1 ? '' : 's'} · paid {formatRupees(o.paid_paise)} · fee{' '}
+                {feePercent(o.fee_bp)} ({formatRupees(o.fee_paise)}) · settled {formatRupees(o.settled_paise)}
               </span>
             </span>
             <strong className="num">Owed {formatRupees(o.owed_paise)}</strong>
@@ -383,15 +405,29 @@ function OnlineMoney({ token, onSignedOut }: { token: string; onSignedOut(): voi
                 </button>
               </form>
             ) : (
-              <button
-                disabled={o.owed_paise <= 0}
-                onClick={() => {
-                  setPaying(o.outlet_id);
-                  setAmount(String(o.owed_paise / 100));
-                }}
-              >
-                Record payment to outlet
-              </button>
+              <>
+                <button
+                  disabled={o.owed_paise <= 0}
+                  onClick={() => {
+                    setPaying(o.outlet_id);
+                    setAmount(String(o.owed_paise / 100));
+                  }}
+                >
+                  Record payment to outlet
+                </button>
+                <button className="quiet" disabled={busy} onClick={() => void changeFee(o)}>
+                  Change fee
+                </button>
+                <button className="quiet" onClick={() => setViewing(viewing === o.outlet_id ? null : o.outlet_id)}>
+                  {viewing === o.outlet_id ? 'Hide statement' : 'Statement'}
+                </button>
+              </>
+            )}
+            {viewing === o.outlet_id && (
+              <StatementPanel
+                title={`Statement: ${o.outlet}`}
+                load={(from, to) => adminApi.statement(token, o.court_id, o.outlet_id, from, to)}
+              />
             )}
           </li>
         ))}

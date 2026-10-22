@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     # LOCAL TESTING ONLY: a rule-based stand-in for the model, so the AI screens can be tried
     # and tested with no key and no cost. Same guard as FAKE_PAYMENTS.
     fake_ai: bool = False
+    # LOCAL TESTING ONLY: phone codes (sign-up check, forgot password) are shown on screen instead
+    # of sent by SMS. Same guard as the other pretend modes. With no real SMS sender and this off,
+    # customers sign up without a code, as before.
+    fake_sms: bool = False
 
     @model_validator(mode="after")
     def local_test_modes_only_with_a_local_database(self):
@@ -77,6 +81,7 @@ class Settings(BaseSettings):
             (self.dev_login, "DEV_LOGIN", "lets anyone in without a password"),
             (self.fake_payments, "FAKE_PAYMENTS", "accepts pretend payments"),
             (self.fake_ai, "FAKE_AI", "answers with a rule-based stand-in instead of a model"),
+            (self.fake_sms, "FAKE_SMS", "shows phone codes on screen instead of sending them"),
         ):
             if on and (self.env == "prod" or host not in LOCAL_DB_HOSTS):
                 raise ValueError(

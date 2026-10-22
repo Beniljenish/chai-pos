@@ -8,7 +8,7 @@
  * outlet and the admin see the money. Screenshots for review.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { openSection } from './helpers';
+import { openSection, submitSignup } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const ADMIN = process.env.E2E_ADMIN ?? '9840000099';
@@ -112,13 +112,13 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await customer.getByLabel('Your name').fill('Ravi');
   await customer.getByLabel('Mobile number').fill('12345');
   await expect(customer.getByText('A mobile number has 10 digits.')).toBeVisible();
-  await expect(customer.getByRole('button', { name: 'Create account and continue' })).toBeDisabled();
+  await expect(customer.getByRole('button', { name: /^(Send code|Create account and continue)$/ })).toBeDisabled();
   await customer.getByLabel('Mobile number').fill('98400 12345');
   await customer.getByLabel('Choose a password').fill('short');
-  await customer.getByRole('button', { name: 'Create account and continue' }).click();
+  await submitSignup(customer);
   await expect(customer.getByRole('alert')).toContainText('at least 8 characters');
   await customer.getByLabel('Choose a password').fill('ravi-secret-77');
-  await customer.getByRole('button', { name: 'Create account and continue' }).click();
+  await submitSignup(customer);
 
   // ---- pick the food court by searching its name or place
   await expect(customer.getByRole('heading', { name: 'Where are you eating?' })).toBeVisible();

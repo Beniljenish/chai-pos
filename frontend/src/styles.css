@@ -5567,3 +5567,27 @@ button.save {
 .trail small {
   display: block;
 }
+
+.cx-sub {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.fc-statement dl {
+  margin: 0.5rem 0;
+}
+.fc-statement dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+.fc-statement dt {
+  color: var(--muted, #666);
+}
+.fc-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}

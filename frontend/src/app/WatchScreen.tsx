@@ -108,6 +108,11 @@ function UpiTab() {
                   confirmed: formatRupees(data.confirmed_paise),
                 })}
               </span>
+              {!!data.via_food_court_paise && (
+                <span className="muted">
+                  {t('{amount} was paid through the food court app and is left out.', { amount: formatRupees(data.via_food_court_paise) })}
+                </span>
+              )}
             </div>
           )}
           {data.unconfirmed.length > 0 && (

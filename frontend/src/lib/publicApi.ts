@@ -163,8 +163,15 @@ const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.strin
 
 export const publicApi = {
   // ---- account
-  signup: (name: string, phone: string, password: string) =>
-    call<Signed>('/customer/signup', post({ name, phone, password })),
+  signup: (name: string, phone: string, password: string, code = '') =>
+    call<Signed>('/customer/signup', post({ name, phone, password, code })),
+  /** Whether sign-up asks for a code sent to the mobile number (only when the server can send one). */
+  verification: () => call<{ required: boolean }>('/customer/verification'),
+  /** Ask for a code. `dev_code` comes back only in local test mode, where nothing is really sent. */
+  sendCode: (phone: string, purpose: 'signup' | 'reset') =>
+    call<{ sent: boolean; cooldown_seconds: number; dev_code?: string }>('/customer/phone/code', post({ phone, purpose })),
+  resetPassword: (phone: string, code: string, new_password: string) =>
+    call<Signed>('/customer/password/reset', post({ phone, code, new_password })),
   login: (phone: string, password: string) => call<Signed>('/customer/login', post({ phone, password })),
   me: (token: string) => call<Account>('/customer/me', undefined, token),
   changePassword: (token: string, current_password: string, new_password: string) =>

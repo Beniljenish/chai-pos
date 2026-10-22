@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -18,7 +18,7 @@ from app.core.security import decode_customer_token
 from app.models import CustomerAccount, OnlinePayment
 from app.schemas import _normalise_phone
 from app.services import auth as auth_service
-from app.services import customer_accounts, extras, online, onlinepay, webpush
+from app.services import customer_accounts, extras, online, onlinepay, phone_codes, webpush
 
 router = APIRouter(prefix="/customer", tags=["customer"])
 _bearer = HTTPBearer(auto_error=False)
@@ -54,6 +54,7 @@ class SignupIn(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     phone: str
     password: str = Field(min_length=1, max_length=128)
+    code: str = Field(default="", max_length=10)  # the phone code, when codes are switched on
 
     _phone = field_validator("phone")(_normalise_phone)
 
@@ -117,11 +118,65 @@ def _no_store(response: Response) -> None:
     response.headers["Cache-Control"] = "no-store"
 
 
-@router.post("/signup", status_code=201)
-def signup(body: SignupIn, response: Response, db: Session = Depends(system_db)) -> dict:
+def client_ip(request: Request) -> str:
+    """The caller's address: the first hop the host's proxy reports, else the socket's."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()[:45]
+    return request.client.host if request.client else ""
+
+
+class CodeIn(BaseModel):
+    phone: str
+    purpose: str = Field(pattern="^(signup|reset)$")
+
+    _phone = field_validator("phone")(_normalise_phone)
+
+
+class ResetIn(BaseModel):
+    phone: str
+    code: str = Field(min_length=1, max_length=10)
+    new_password: str = Field(min_length=1, max_length=128)
+
+    _phone = field_validator("phone")(_normalise_phone)
+
+
+@router.get("/verification")
+def verification(response: Response) -> dict:
+    """Whether the page should ask for a phone code at sign-up (it cannot if none can be sent)."""
+    _no_store(response)
+    return {"required": phone_codes.available()}
+
+
+@router.post("/phone/code")
+def send_code(body: CodeIn, response: Response, db: Session = Depends(system_db)) -> dict:
     _no_store(response)
     try:
-        return customer_accounts.signup(db, body.name, body.phone, body.password)
+        if body.purpose == "reset":
+            return customer_accounts.forgot(db, body.phone)
+        return phone_codes.send(db, body.phone, "signup")
+    except online.OnlineError as e:
+        raise fail(e) from None
+
+
+@router.post("/password/reset")
+def reset_password(body: ResetIn, response: Response, db: Session = Depends(system_db)) -> dict:
+    _no_store(response)
+    try:
+        return customer_accounts.reset_with_code(db, body.phone, body.code, body.new_password)
+    except online.OnlineError as e:
+        raise fail(e) from None
+
+
+@router.post("/signup", status_code=201)
+def signup(
+    body: SignupIn, request: Request, response: Response, db: Session = Depends(system_db)
+) -> dict:
+    _no_store(response)
+    try:
+        return customer_accounts.signup(
+            db, body.name, body.phone, body.password, body.code, client_ip(request)
+        )
     except online.OnlineError as e:
         raise fail(e) from None
 

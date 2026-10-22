@@ -6,8 +6,9 @@ and off. Making courts, and adding or removing outlets, is the super admin's
 """
 
 from collections.abc import Iterator
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -38,6 +39,8 @@ class OutletSettingsIn(BaseModel):
 
     accepting_orders: bool | None = None
     prep_minutes: int | None = Field(default=None, ge=0, le=180)
+    pickup_enabled: bool | None = None
+    pickup_capacity: int | None = Field(default=None, ge=1, le=60)
 
 
 @router.get("/food-court")
@@ -61,6 +64,24 @@ def set_accepting(
             online.set_accepting(db, caller.ctx.shop_id, body.accepting_orders)
         if "prep_minutes" in body.model_fields_set:
             extras.set_prep_minutes(db, caller.ctx.shop_id, body.prep_minutes or None)
+        if body.pickup_enabled is not None or body.pickup_capacity is not None:
+            online.set_pickup(db, caller.ctx.shop_id, body.pickup_enabled, body.pickup_capacity)
     except online.OnlineError as e:
         raise fail(e) from None
     return online.view(db, caller.ctx.shop_id)
+
+
+@router.get("/food-court/statement")
+def my_statement(
+    start: date = Query(alias="from"),
+    end: date = Query(alias="to"),
+    caller: Caller = Depends(require_owner),
+    db: Session = Depends(system_db),
+) -> dict:
+    """This outlet's online sales, refunds, the fee and what is still owed, for a range."""
+    if online.my_outlet(db, caller.ctx.shop_id) is None:
+        raise HTTPException(404, "This shop is not in a food court")
+    try:
+        return onlinepay.statement(db, caller.ctx.shop_id, start, end)
+    except online.OnlineError as e:
+        raise fail(e) from None

@@ -101,6 +101,9 @@ def view(db: Session, shop_id: uuid.UUID) -> dict:
         "court": {"id": court.id, "name": court.name, "slug": court.slug},
         "accepting_orders": mine.accepting_orders,
         "prep_minutes": mine.prep_minutes,
+        "fee_bp": mine.fee_bp,
+        "pickup_enabled": mine.pickup_enabled,
+        "pickup_capacity": mine.pickup_capacity,
         "outlets": [
             {
                 "id": o.id,
@@ -111,6 +114,17 @@ def view(db: Session, shop_id: uuid.UUID) -> dict:
             for o, name in rows
         ],
     }
+
+
+def set_pickup(db: Session, shop_id: uuid.UUID, enabled: bool | None, capacity: int | None) -> None:
+    mine = my_outlet(db, shop_id)
+    if mine is None:
+        raise OnlineError("not_in_a_court", "This shop is not in a food court", 404)
+    if enabled is not None:
+        mine.pickup_enabled = enabled
+    if capacity is not None:
+        mine.pickup_capacity = capacity
+    db.commit()
 
 
 def set_accepting(db: Session, shop_id: uuid.UUID, on: bool) -> None:

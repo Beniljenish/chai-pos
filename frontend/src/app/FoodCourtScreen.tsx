@@ -10,6 +10,8 @@ import type { FoodCourtView } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
 import { Qr } from './Qr';
+import { StatementPanel } from './StatementPanel';
+import type { Statement } from '../lib/statement';
 import { Loading, LoadError } from './Status';
 
 export function FoodCourtScreen() {
@@ -152,6 +154,13 @@ export function FoodCourtScreen() {
                 </div>
               </dl>
             </section>
+          )}
+
+          {v.online_money && v.online_money.orders > 0 && (
+            <StatementPanel
+              title="Statement"
+              load={(from, to) => api.get<Statement>(`/food-court/statement?from=${from}&to=${to}`)}
+            />
           )}
 
           <section className="fc-qr-card" aria-label="QR code to print">

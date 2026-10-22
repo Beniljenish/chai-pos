@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     UniqueConstraint,
     func,
@@ -85,3 +86,37 @@ class AiUsage(IdMixin, TenantScoped, Base):
 
     day: Mapped[date] = mapped_column(Date)
     calls: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class PhoneCode(IdMixin, Base):
+    """A 6-digit code sent to a mobile number (sign-up check, forgot password). Belongs to no
+    shop. Only a hash is kept; it expires, allows a few wrong tries, and works once."""
+
+    __tablename__ = "phone_codes"
+
+    phone: Mapped[str] = mapped_column(String(15), index=True)
+    purpose: Mapped[str] = mapped_column(String(10))  # "signup" | "reset"
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RateHit(IdMixin, Base):
+    """One counted event for a rate limit (a sign-up from an address, a code sent to a number)."""
+
+    __tablename__ = "rate_hits"
+
+    key: Mapped[str] = mapped_column(String(120), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DishPhoto(IdMixin, TenantScoped, Base):
+    """A picture an outlet took of a dish, kept in the database (shrunk by the phone first)."""
+
+    __tablename__ = "dish_photos"
+
+    content_type: Mapped[str] = mapped_column(String(20))
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

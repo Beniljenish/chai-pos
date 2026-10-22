@@ -2,9 +2,10 @@
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -91,6 +92,10 @@ class AcceptingIn(BaseModel):
     accepting_orders: bool
 
 
+class FeeIn(BaseModel):
+    fee_bp: int = Field(ge=0, le=3000)  # up to 30%: more is almost certainly a typo
+
+
 @router.post("/login")
 def login(body: LoginIn, db: Session = Depends(system_db)) -> dict:
     try:
@@ -155,6 +160,28 @@ def set_accepting(
 ) -> dict:
     _run(platform_service.set_outlet_accepting, a.db, court_id, outlet_id, body.accepting_orders)
     return {"courts": platform_service.list_courts(a.db)}
+
+
+@router.patch("/courts/{court_id}/outlets/{outlet_id}/fee")
+def set_fee(
+    court_id: uuid.UUID, outlet_id: uuid.UUID, body: FeeIn, a: Admin = Depends(current_admin)
+) -> dict:
+    """What the food court keeps of this outlet's online sales (500 = 5%). It changes what the
+    outlet is owed from now on, for all of its online orders."""
+    _run(platform_service.set_outlet_fee, a.db, court_id, outlet_id, body.fee_bp)
+    return {"outlets": onlinepay.outlets_report(a.db)}
+
+
+@router.get("/courts/{court_id}/outlets/{outlet_id}/statement")
+def outlet_statement(
+    court_id: uuid.UUID,
+    outlet_id: uuid.UUID,
+    start: date = Query(alias="from"),
+    end: date = Query(alias="to"),
+    a: Admin = Depends(current_admin),
+) -> dict:
+    outlet = _run(platform_service.outlet_of_court, a.db, court_id, outlet_id)
+    return _run(onlinepay.statement, a.db, outlet.shop_id, start, end)
 
 
 @router.delete("/courts/{court_id}/outlets/{outlet_id}")

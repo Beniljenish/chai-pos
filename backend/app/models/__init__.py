@@ -62,6 +62,11 @@ class Shop(IdMixin, TimestampMixin, Base):
     # Turnover (paise, a financial year) at which this shop must register for GST. The owner
     # sets it after asking an accountant; empty = no watch.
     gst_threshold_paise: Mapped[int | None] = mapped_column(BigInteger)
+    # Online menu: hide a dish whose ingredient has run out (only where a count has been done).
+    auto_sold_out: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # The owner's evening summary message: where it goes, and whether it is sent.
+    summary_phone: Mapped[str | None] = mapped_column(String(15))
+    summary_on: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class User(IdMixin, TimestampMixin, TenantScoped, Base):
@@ -255,8 +260,11 @@ from app.models.customer_account import CustomerAccount  # noqa: E402
 from app.models.enhance import (  # noqa: E402
     AiUsage,  # noqa: F401
     CustomerFavourite,
+    DishPhoto,  # noqa: F401
     OrderFeedback,
+    PhoneCode,  # noqa: F401
     PushSubscription,
+    RateHit,  # noqa: F401
 )
 from app.models.onlinepay import OnlinePayment, OnlineSettlement  # noqa: E402
 from app.models.platform import PlatformAdmin  # noqa: E402

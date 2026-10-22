@@ -13,7 +13,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Bill, BillStatus, Payment, User
+from app.models import Bill, BillStatus, OnlineOrder, Payment, User
 from app.services import payments
 from app.services.insights import _parts
 
@@ -35,6 +35,19 @@ def build(db: Session, start: date, end: date) -> dict:
     if ids:
         for p in db.scalars(select(Payment).where(Payment.bill_id.in_(ids))):
             pays[p.bill_id].append(p)
+    # An online order the customer already paid through the food court's account: the outlet
+    # bills it as UPI, but the money was never meant to reach the outlet's own QR. Not a mismatch.
+    order_ids = [b.order_id for b in bills if b.order_id is not None]
+    prepaid = set()
+    if order_ids:
+        prepaid = set(
+            db.scalars(
+                select(OnlineOrder.order_id).where(
+                    OnlineOrder.order_id.in_(order_ids), OnlineOrder.payment_id.is_not(None)
+                )
+            )
+        )
+    via_court = 0
     ever = db.scalar(select(Payment.id).limit(1)) is not None
     names = dict(db.execute(select(User.id, User.name)).all())
 
@@ -50,6 +63,9 @@ def build(db: Session, start: date, end: date) -> dict:
             continue
         upi = _upi_paise(b)
         if upi == 0:
+            continue
+        if b.order_id in prepaid:
+            via_court += upi
             continue
         who = names.get(b.cashier_id, "Unknown")
         per[who]["upi_bills"] += 1
@@ -89,6 +105,7 @@ def build(db: Session, start: date, end: date) -> dict:
         "online_on": ever or payments.online_enabled(),
         "upi_bills": sum(r["upi_bills"] for r in by_cashier),
         "upi_billed_paise": billed,
+        "via_food_court_paise": via_court,
         "confirmed_paise": confirmed,
         "unconfirmed": unconfirmed,
         "differs": differs,

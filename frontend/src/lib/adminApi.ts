@@ -1,6 +1,8 @@
 /** The super admin's calls (/api/v1/platform). Its own small client: a super admin has no
  * shop, no tablet and no offline queue, and its token lives only in this browser tab. */
 
+import type { Statement } from './statement';
+
 export interface AdminOutlet {
   id: string;
   name: string;
@@ -29,6 +31,9 @@ export interface OutletMoney {
   paid_paise: number;
   settled_paise: number;
   owed_paise: number;
+  fee_bp: number;
+  fee_paise: number;
+  net_paise: number;
 }
 
 export interface RefundDue {
@@ -105,6 +110,13 @@ export const adminApi = {
   onlineMoney: (t: string) => call<{ outlets: OutletMoney[]; refunds_due: RefundDue[] }>('/online-money', t),
   settle: (t: string, courtId: string, outletId: string, amountPaise: number, note: string) =>
     call<{ outlets: OutletMoney[] }>(`/courts/${courtId}/outlets/${outletId}/settlements`, t, body({ amount_paise: amountPaise, note })),
+  setFee: (t: string, courtId: string, outletId: string, feeBp: number) =>
+    call<{ outlets: OutletMoney[] }>(`/courts/${courtId}/outlets/${outletId}/fee`, t, {
+      method: 'PATCH',
+      body: JSON.stringify({ fee_bp: feeBp }),
+    }),
+  statement: (t: string, courtId: string, outletId: string, from: string, to: string) =>
+    call<Statement>(`/courts/${courtId}/outlets/${outletId}/statement?from=${from}&to=${to}`, t),
   refund: (t: string, ref: string) => call<{ refunds_due: RefundDue[] }>('/refunds', t, body({ ref })),
   /** A forgotten customer password: returns a temporary one, once, for the admin to read out. */
   resetCustomer: (t: string, phone: string) =>

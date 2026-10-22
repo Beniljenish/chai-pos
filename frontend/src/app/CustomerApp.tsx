@@ -134,8 +134,10 @@ export function CustomerApp({ slug }: { slug: string | null }) {
 }
 
 // ---------------------------------------------------------------- sign up / log in
+type AuthMode = 'signup' | 'login' | 'forgot';
+
 function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: Signed): void }) {
-  const [mode, setMode] = useState<'signup' | 'login'>('signup');
+  const [mode, setModeRaw] = useState<AuthMode>('signup');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -144,6 +146,12 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
   const [court, setCourt] = useState<PublicCourt | null>(null);
   // Local testing only: the server says so, and then log-in asks for no password.
   const [noPassword, setNoPassword] = useState(false);
+  // Phone codes: only when the server can send one (otherwise sign-up is as it always was).
+  const [needCode, setNeedCode] = useState(false);
+  const [step, setStep] = useState<'details' | 'code'>('details');
+  const [code, setCode] = useState('');
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [wait, setWait] = useState(0);
 
   useEffect(() => {
     if (slug) {
@@ -159,11 +167,44 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
       .then((r) => (r.ok ? r.json() : { enabled: false }))
       .then((d: { enabled?: boolean }) => setNoPassword(d.enabled === true))
       .catch(() => setNoPassword(false));
+    publicApi
+      .verification()
+      .then((v) => setNeedCode(v.required))
+      .catch(() => setNeedCode(false));
   }, [slug]);
 
+  // "Resend in 24s" counts down.
+  useEffect(() => {
+    if (wait <= 0) return;
+    const timer = window.setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [wait]);
+
+  function setMode(next: AuthMode) {
+    setModeRaw(next);
+    setStep('details');
+    setCode('');
+    setDevCode(null);
+    setError(null);
+  }
+
   const clean = cleanPhone(phone);
+  const codeFlow = mode === 'forgot' || (mode === 'signup' && needCode);
   const loginNeedsPassword = !(mode === 'login' && noPassword);
-  const ready = clean !== null && (mode === 'login' || name.trim() !== '') && (!loginNeedsPassword || password !== '');
+  // The password box: always, except the first step of a code flow that has not got that far.
+  const showPassword = mode === 'login' ? loginNeedsPassword : mode === 'signup' || step === 'code';
+  const ready =
+    clean !== null &&
+    (mode !== 'signup' || name.trim() !== '') &&
+    (step === 'details' ? (mode === 'forgot' || !showPassword || password !== '') : code.trim().length >= 4 && password !== '');
+
+  async function ask() {
+    if (clean === null) return;
+    const r = await publicApi.sendCode(clean, mode === 'forgot' ? 'reset' : 'signup');
+    setDevCode(r.dev_code ?? null);
+    setWait(r.cooldown_seconds);
+    setStep('code');
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -171,10 +212,16 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
     setBusy(true);
     setError(null);
     try {
+      if (codeFlow && step === 'details') {
+        await ask();
+        return;
+      }
       const signed =
         mode === 'signup'
-          ? await publicApi.signup(name.trim(), clean, password)
-          : await publicApi.login(clean, loginNeedsPassword ? password : '-');
+          ? await publicApi.signup(name.trim(), clean, password, code.trim())
+          : mode === 'forgot'
+            ? await publicApi.resetPassword(clean, code.trim(), password)
+            : await publicApi.login(clean, loginNeedsPassword ? password : '-');
       onSignedIn(signed);
     } catch (err) {
       setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : t("No signal. Please try again."));
@@ -182,6 +229,30 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
       setBusy(false);
     }
   }
+
+  async function resend() {
+    setBusy(true);
+    setError(null);
+    try {
+      await ask();
+    } catch (err) {
+      setError(err instanceof PublicError ? accountProblem(err.status, err.code, err.message) : t("No signal. Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const button = busy
+    ? t("Please wait…")
+    : mode === 'signup'
+      ? step === 'details' && needCode
+        ? t("Send code")
+        : t("Create account and continue")
+      : mode === 'forgot'
+        ? step === 'details'
+          ? t("Send code")
+          : t("Set new password and continue")
+        : t("Log in");
 
   return (
     <main className="cx">
@@ -195,11 +266,12 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
         <button role="tab" aria-selected={mode === 'signup'} onClick={() => setMode('signup')}>
           {t("Create account")}
         </button>
-        <button role="tab" aria-selected={mode === 'login'} onClick={() => setMode('login')}>
+        <button role="tab" aria-selected={mode !== 'signup'} onClick={() => setMode('login')}>
           {t("Log in")}
         </button>
       </div>
       <form className="cx-form" onSubmit={submit}>
+        {mode === 'forgot' && <h2 className="cx-sub">{t("Forgot your password?")}</h2>}
         {mode === 'signup' && (
           <label>
             {t("Your name")}
@@ -214,6 +286,7 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
             inputMode="tel"
             autoComplete="username"
             aria-invalid={phone !== '' && clean === null}
+            disabled={step === 'code'}
             required
           />
         </label>
@@ -223,20 +296,48 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
             <strong>{t("Local test mode:")}</strong> {t("no password needed to log in.")}
           </p>
         ) : (
-          <label>
-            {mode === 'signup' ? t("Choose a password") : t("Password")}
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              required
-            />
-          </label>
+          showPassword && (
+            <label>
+              {mode === 'signup' ? t("Choose a password") : mode === 'forgot' ? t("Choose a new password") : t("Password")}
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                required
+              />
+            </label>
+          )
         )}
-        {mode === 'signup' && (
+        {step === 'code' && (
+          <>
+            <p className="cx-note" role="status">
+              {t('We sent a 6-digit code to {phone}.', { phone: clean ?? phone })}
+            </p>
+            {devCode && (
+              <p className="login-test-note" role="note">
+                <strong>{t("Local test mode:")}</strong> {t('your code is {code}.', { code: devCode })}
+              </p>
+            )}
+            <label>
+              {t("Code from the message")}
+              <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} inputMode="numeric" maxLength={6} autoComplete="one-time-code" required />
+            </label>
+            <p className="cx-note">
+              <button type="button" className="link" disabled={busy || wait > 0} onClick={() => void resend()}>
+                {wait > 0 ? t('Resend in {n}s', { n: wait }) : t('Send the code again')}
+              </button>{' '}
+              <button type="button" className="link" onClick={() => setMode(mode)}>
+                {t('Wrong number?')}
+              </button>
+            </p>
+          </>
+        )}
+        {mode === 'signup' && step === 'details' && (
           <p className="cx-note">
-            {t("8 or more characters. If you forget it, the food court team can give you a temporary one.")}
+            {needCode
+              ? t("8 or more characters. We will send a code to this number to check it.")
+              : t("8 or more characters. If you forget it, the food court team can give you a temporary one.")}
           </p>
         )}
         {error && (
@@ -245,8 +346,18 @@ function AuthScreen({ slug, onSignedIn }: { slug: string | null; onSignedIn(s: S
           </p>
         )}
         <button className="primary" disabled={!ready || busy}>
-          {busy ? t("Please wait…") : mode === 'signup' ? t("Create account and continue") : t("Log in")}
+          {button}
         </button>
+        {mode === 'login' && needCode && (
+          <button type="button" className="link" onClick={() => setMode('forgot')}>
+            {t("Forgot your password?")}
+          </button>
+        )}
+        {mode === 'forgot' && (
+          <button type="button" className="link" onClick={() => setMode('login')}>
+            {t("Back to log in")}
+          </button>
+        )}
       </form>
     </main>
   );

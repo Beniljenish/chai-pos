@@ -7,7 +7,7 @@
  * it must not disturb.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { openSection } from './helpers';
+import { openSection, submitSignup } from './helpers';
 
 const OWNER = process.env.E2E_OWNER ?? '9000000001';
 const PASSWORD = process.env.E2E_PASSWORD ?? 'devpass123';
@@ -119,7 +119,7 @@ test('a customer chooses Tamil on the log-in page and sees the dish in Tamil', a
   await page.getByLabel('உங்கள் பெயர்').fill('தமிழ் வாடிக்கையாளர்');
   await page.getByLabel('கைபேசி எண்').fill(`98${stamp}`);
   await page.getByLabel('கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும்').fill('tamil-pass-1234');
-  await page.getByRole('button', { name: 'கணக்கை உருவாக்கித் தொடரவும்' }).click();
+  await submitSignup(page, ['குறியீட்டை அனுப்பு', 'கணக்கை உருவாக்கித் தொடரவும்'], 'செய்தியில் வந்த குறியீடு');
 
   await expect(page.getByRole('heading', { name: 'எங்கே சாப்பிடப் போகிறீர்கள்?' })).toBeVisible();
   await expect(page.getByPlaceholder('உணவு அரங்கு அல்லது இடத்தைத் தேடுங்கள்')).toBeVisible();

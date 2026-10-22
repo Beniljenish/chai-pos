@@ -224,6 +224,18 @@ export function accountProblem(status: number, code?: string, serverMessage?: st
       return t('Your current password is not right.');
     case 'name_required':
       return t('Enter your name.');
+    case 'code_required':
+      return t('Enter the code sent to your mobile number.');
+    case 'code_wrong':
+      return t('That code is not right.');
+    case 'code_expired':
+      return t('That code has expired. Ask for a new one.');
+    case 'code_locked':
+      return t('Too many wrong tries. Ask for a new code.');
+    case 'too_soon':
+    case 'too_many':
+    case 'too_many_signups':
+      return serverMessage || t('Please try again a little later.');
   }
   if (status === 401) return t('Phone number or password is wrong.');
   if (status === 422) return t('Check your name, a 10-digit mobile number and a password.');

@@ -85,6 +85,7 @@ jobs:
       JWT_SECRET: ci-only-secret-0123456789abcdef0123456789
       CORS_ORIGINS: '["http://localhost:4173"]'
       FAKE_PAYMENTS: 'true'  # pretend online payment, so the browser tests can pay (local database only)
+      FAKE_SMS: 'true'  # phone codes appear on the page instead of being sent (local database only)
       FAKE_AI: 'true'  # simple rules stand in for the AI model, so the browser tests need no key (local database only)
       SEED_PASSWORD: e2e-password-123
     steps:

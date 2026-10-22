@@ -15,6 +15,8 @@ export interface UpiMatch {
   online_on: boolean;
   upi_bills: number;
   upi_billed_paise: number;
+  /** UPI bills that were paid through the food court app: not expected to show in this shop's own UPI account. */
+  via_food_court_paise?: number;
   confirmed_paise: number;
   unconfirmed: UpiMiss[];
   differs: { bill_id: string; invoice_no: string; cashier: string; upi_paise: number; paid_paise: number }[];

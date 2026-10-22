@@ -283,14 +283,22 @@ def ingest(ctx: OrderContext, events: list[dict]) -> list[tuple[uuid.UUID, str, 
             out.append((ev["id"], "rejected", "id_conflict"))
     from app.services import extras, messages  # local: both import models only
 
+    cancelled: list[uuid.UUID] = []
     for oid in touched:
         order = recompute(ctx.db, oid)
+        if order.status == OrderStatus.cancelled:
+            cancelled.append(oid)
         messages.order_changed(ctx.db, order)
         try:
             extras.notify_ready(ctx.db, order)  # a phone notification: never breaks the sync
         except Exception:  # noqa: BLE001
             logging.getLogger(__name__).exception("ready notification failed")
     ctx.db.commit()
+    # A paid online order the outlet has just cancelled: refund it (after the cancel is saved).
+    from app.services import onlinepay  # local: onlinepay imports the same models
+
+    for oid in cancelled:
+        onlinepay.auto_refund(oid)
     return out
 
 

@@ -66,6 +66,11 @@ class FoodCourtOutlet(IdMixin, Base):
     )
     # The outlet's own promise of how long an order usually takes (null = not said).
     prep_minutes: Mapped[int | None] = mapped_column(Integer)
+    # What the food court operator keeps of every online sale, in basis points (500 = 5%).
+    fee_bp: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Customers may order for a time later today; at most this many orders per 15-minute slot.
+    pickup_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    pickup_capacity: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -97,4 +102,8 @@ class OnlineOrder(IdMixin, TenantScoped, Base):
         UUID(as_uuid=True), ForeignKey("customer_accounts.id", ondelete="RESTRICT"), index=True
     )
     business_date: Mapped[date] = mapped_column(Date, index=True)
+    # A time the customer asked for ("1:00 pm"); null = as soon as possible.
+    pickup_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The table the customer scanned, for dine-in ("T4"); empty = a takeaway order.
+    table_name: Mapped[str] = mapped_column(String(20), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

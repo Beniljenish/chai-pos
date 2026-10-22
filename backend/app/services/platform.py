@@ -193,6 +193,12 @@ def set_outlet_accepting(db: Session, court_id: uuid.UUID, outlet_id: uuid.UUID,
     db.commit()
 
 
+def set_outlet_fee(db: Session, court_id: uuid.UUID, outlet_id: uuid.UUID, fee_bp: int) -> None:
+    outlet = _outlet(db, _court(db, court_id), outlet_id)
+    outlet.fee_bp = fee_bp
+    db.commit()
+
+
 def remove_outlet(db: Session, court_id: uuid.UUID, outlet_id: uuid.UUID) -> None:
     """The shop and its orders are untouched: it just stops being in the court."""
     outlet = _outlet(db, _court(db, court_id), outlet_id)

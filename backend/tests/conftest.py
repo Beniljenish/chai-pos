@@ -40,6 +40,7 @@ def _clean():
         conn.execute(text("TRUNCATE shops CASCADE"))
         # Food courts and super admins belong to no shop, so the line above misses them.
         conn.execute(text("TRUNCATE food_courts, platform_admins, customer_accounts CASCADE"))
+        conn.execute(text("TRUNCATE phone_codes, rate_hits"))
 
 
 @pytest.fixture(autouse=True)

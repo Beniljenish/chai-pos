@@ -310,6 +310,7 @@ def test_an_order_the_outlet_cancels_after_payment_is_a_refund_due_not_money_owe
     }
     assert before[shop_a.shop.name]["owed_paise"] == a_order["amount_paise"]
 
+    rzp.refuse_refunds = True  # the automatic refund fails: it waits for the admin instead
     live = _live(client, shop_a)[0]
     _events(client, shop_a, live["id"], [("cancel_order", {"reason": "out of milk"})])
 
@@ -320,6 +321,7 @@ def test_an_order_the_outlet_cancels_after_payment_is_a_refund_due_not_money_owe
     ref = money["refunds_due"][0]
     assert ref["amount_paise"] == a_order["amount_paise"] and ref["outlet"] == shop_a.shop.name
 
+    rzp.refuse_refunds = False
     r = client.post(f"{API}/platform/refunds", json={"ref": ref["ref"]}, headers=court["admin"])
     assert r.status_code == 200 and r.json()["refunds_due"] == []
     assert rzp.refunds == [("pay_TEST0001", a_order["amount_paise"])]

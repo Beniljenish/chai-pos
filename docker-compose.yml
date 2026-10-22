@@ -29,6 +29,8 @@ services:
       FAKE_PAYMENTS: "true"
       # Local testing only: simple rules stand in for the AI model. A real key (below) replaces them.
       FAKE_AI: "true"
+      # Local testing only: phone codes (sign-up, forgot password) appear on the page, nothing is sent.
+      FAKE_SMS: "true"
     # Phone-notification keys for this computer only (./local.sh makes the file; it is not committed),
     # and, if you want to try the real AI, your own key in .local-ai.env as ANTHROPIC_API_KEY=... (not committed).
     env_file:
