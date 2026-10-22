@@ -6,6 +6,7 @@ import { formatQty } from '../lib/qty';
 import type { WastageRow } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 export function PendingWastage({ refreshKey, onDecided }: { refreshKey: number; onDecided: () => void }) {
   const [rows, setRows] = useState<WastageRow[]>([]);
@@ -65,9 +66,9 @@ export function PendingWastage({ refreshKey, onDecided }: { refreshKey: number; 
   const validLimit = limit !== null && /^\d{1,6}$/.test(limit);
   return (
     <section className="pending-wastage" aria-labelledby="pending-wastage-title">
-      <h2 id="pending-wastage-title">Wastage to check</h2>
+      <h2 id="pending-wastage-title">{t("Wastage to check")}</h2>
       {rows.length === 0 ? (
-        <p className="muted">Nothing waiting for you.</p>
+        <p className="muted">{t("Nothing waiting for you.")}</p>
       ) : (
         <ul className="ledger">
           {rows.map((r) => (
@@ -85,10 +86,10 @@ export function PendingWastage({ refreshKey, onDecided }: { refreshKey: number; 
               <span className="num right">{formatRupees(r.value_paise ?? 0)}</span>
               <span className="row-actions">
                 <button disabled={busy === r.id} onClick={() => void decide(r.id, true)}>
-                  Accept
+                  {t("Accept")}
                 </button>
                 <button disabled={busy === r.id} onClick={() => void decide(r.id, false)}>
-                  Reject
+                  {t("Reject")}
                 </button>
               </span>
             </li>
@@ -96,17 +97,16 @@ export function PendingWastage({ refreshKey, onDecided }: { refreshKey: number; 
         </ul>
       )}
       <p className="muted">
-        Accept and it is a known loss. Reject and it is added back to stock, so it shows as missing at day end. The day
-        cannot be closed while an entry is waiting.
+        {t("Accept and it is a known loss. Reject and it is added back to stock, so it shows as missing at day end. The day cannot be closed while an entry is waiting.")}
       </p>
       {limit !== null && (
         <div className="inline-setting">
           <label>
-            Ask me when a cashier's wastage is over (₹)
+            {t("Ask me when a cashier's wastage is over (₹)")}
             <input inputMode="numeric" value={limit} onChange={(e) => setLimit(e.target.value)} />
           </label>
           <button disabled={!validLimit || limit === savedLimit} onClick={() => void saveLimit()}>
-            Save
+            {t("Save")}
           </button>
         </div>
       )}

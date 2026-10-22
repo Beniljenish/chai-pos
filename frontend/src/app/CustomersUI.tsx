@@ -12,6 +12,7 @@ import { explainError } from './errors';
 import { useSession } from './session';
 import { Sheet } from './Sheet';
 import { Loading, LoadError } from './Status';
+import { t } from '../lib/i18n';
 
 interface CustomerRow {
   id: string;
@@ -55,13 +56,13 @@ export function CustomersSheet({ onClose }: { onClose(): void }) {
 
   if (open) return <CustomerDetail id={open} onClose={onClose} onBack={() => setOpen(null)} />;
   return (
-    <Sheet title="Customers" onClose={onClose}>
+    <Sheet title={t("Customers")} onClose={onClose}>
       <label>
-        Phone or name
+        {t("Phone or name")}
         <input value={q} autoFocus maxLength={40} onChange={(e) => setQ(e.target.value)} />
       </label>
       {error && <p className="error">{error}</p>}
-      {q.trim().length >= 2 && found?.length === 0 && <p className="muted">No customer found. Customers are added on a bill.</p>}
+      {q.trim().length >= 2 && found?.length === 0 && <p className="muted">{t("No customer found. Customers are added on a bill.")}</p>}
       <ul className="sop-list">
         {(found ?? []).map((c) => (
           <li key={c.id}>
@@ -127,7 +128,7 @@ export function CustomerDetail({ id, onClose, onBack }: { id: string; onClose():
     <Sheet title={c ? c.name || c.phone : 'Customer'} onClose={onClose}>
       {onBack && (
         <button className="quiet" onClick={onBack}>
-          ← All customers
+          {t("← All customers")}
         </button>
       )}
       {error && <LoadError error={error} onRetry={() => void load()} />}
@@ -138,7 +139,7 @@ export function CustomerDetail({ id, onClose, onBack }: { id: string; onClose():
           <p className="khata-owed">
             {c.outstanding_paise > 0 ? (
               <>
-                Owes <strong className="num">{formatRupees(c.outstanding_paise)}</strong>
+                {t("Owes")} <strong className="num">{formatRupees(c.outstanding_paise)}</strong>
               </>
             ) : (
               'Owes nothing'
@@ -151,9 +152,9 @@ export function CustomerDetail({ id, onClose, onBack }: { id: string; onClose():
           )}
           {c.outstanding_paise > 0 && (
             <fieldset className="repay">
-              <legend>Take a repayment</legend>
+              <legend>{t("Take a repayment")}</legend>
               <label>
-                Amount (₹)
+                {t("Amount (₹)")}
                 <input
                   inputMode="decimal"
                   value={amount}
@@ -169,12 +170,12 @@ export function CustomerDetail({ id, onClose, onBack }: { id: string; onClose():
                 ))}
               </div>
               <button className="primary" disabled={busy || paise <= 0 || paise > c.outstanding_paise} onClick={() => void repay()}>
-                Receive {paise > 0 ? formatRupees(paise) : ''}
+                {t("Receive")} {paise > 0 ? formatRupees(paise) : ''}
               </button>
             </fieldset>
           )}
-          <h3>Visits</h3>
-          {c.visits.length === 0 && <p className="muted">No bills yet.</p>}
+          <h3>{t("Visits")}</h3>
+          {c.visits.length === 0 && <p className="muted">{t("No bills yet.")}</p>}
           <ul className="void-list neutral-list">
             {c.visits.map((v) => (
               <li key={v.bill_id}>
@@ -186,7 +187,7 @@ export function CustomerDetail({ id, onClose, onBack }: { id: string; onClose():
           </ul>
           {c.repayments.length > 0 && (
             <>
-              <h3>Repayments</h3>
+              <h3>{t("Repayments")}</h3>
               <ul className="void-list neutral-list">
                 {c.repayments.map((r) => (
                   <li key={r.id}>
@@ -222,9 +223,9 @@ export function KhataScreen() {
   return (
     <section>
       <header className="manage-head">
-        <h1>Khata</h1>
+        <h1>{t("Khata")}</h1>
       </header>
-      <p className="muted">Bills on credit, less repayments. A voided credit bill is no longer owed.</p>
+      <p className="muted">{t("Bills on credit, less repayments. A voided credit bill is no longer owed.")}</p>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {data === null && !error && <Loading />}
       {data && (
@@ -235,7 +236,7 @@ export function KhataScreen() {
           {data.customers.length === 0 ? (
             <div className="empty-card">
               <p>
-                <strong>Nobody owes anything.</strong> Bills put on credit at the till (Credit) appear here.
+                <strong>{t("Nobody owes anything.")}</strong> {t("Bills put on credit at the till (Credit) appear here.")}
               </p>
             </div>
           ) : (

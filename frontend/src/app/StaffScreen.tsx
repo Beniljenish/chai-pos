@@ -11,6 +11,7 @@ import { explainError } from './errors';
 import { PasswordForm } from './PasswordForm';
 import { Sheet } from './Sheet';
 import { useSession } from './session';
+import { t } from '../lib/i18n';
 
 type Editing = { kind: 'new' } | { kind: 'person'; person: StaffMember } | { kind: 'me' };
 
@@ -40,13 +41,13 @@ export function StaffScreen() {
       <button onClick={() => setEditing(s.id === user?.id ? { kind: 'me' } : { kind: 'person', person: s })}>
         <span className="sop-name">
           <strong>{s.name}</strong>
-          <span className="muted"> · {s.role === 'owner' ? 'Owner' : 'Cashier'}</span>
-          {s.id === user?.id && <span className="muted"> (you)</span>}
+          <span className="muted"> · {s.role === 'owner' ? t("Owner") : t("Cashier")}</span>
+          {s.id === user?.id && <span className="muted"> {t("(you)")}</span>}
         </span>
         <span className="sop-lines num">{formatPhone(s.phone)}</span>
-        {s.locked && <span className="flag bad">Locked: too many wrong passwords</span>}
+        {s.locked && <span className="flag bad">{t("Locked: too many wrong passwords")}</span>}
         {!s.locked && s.must_change_password && s.is_active && (
-          <span className="flag wait">Has not set their own password yet</span>
+          <span className="flag wait">{t("Has not set their own password yet")}</span>
         )}
       </button>
     </li>
@@ -55,14 +56,13 @@ export function StaffScreen() {
   return (
     <section className="staff">
       <header className="manage-head">
-        <h1>Staff</h1>
+        <h1>{t("Staff")}</h1>
         <button className="primary" onClick={() => setEditing({ kind: 'new' })}>
-          + Add staff
+          {t("+ Add staff")}
         </button>
       </header>
       <p className="muted">
-        Everyone logs in with their own mobile number and password. Bills, voids and counts are recorded under the
-        person who did them.
+        {t("Everyone logs in with their own mobile number and password. Bills, voids and counts are recorded under the person who did them.")}
       </p>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {staff === null ? (
@@ -72,7 +72,7 @@ export function StaffScreen() {
           <ul className="sop-list staff-list">{active.map(row)}</ul>
           {off.length > 0 && (
             <>
-              <h2>Switched off</h2>
+              <h2>{t("Switched off")}</h2>
               <ul className="sop-list staff-list off">{off.map(row)}</ul>
             </>
           )}
@@ -98,9 +98,9 @@ export function StaffScreen() {
         />
       )}
       {editing?.kind === 'me' && (
-        <Sheet title="Your password" onClose={() => setEditing(null)}>
+        <Sheet title={t("Your password")} onClose={() => setEditing(null)}>
           <PasswordForm forced={false} onDone={() => setEditing(null)} />
-          <p className="muted">Saving logs you out on your other phones and tablets.</p>
+          <p className="muted">{t("Saving logs you out on your other phones and tablets.")}</p>
         </Sheet>
       )}
     </section>
@@ -118,7 +118,7 @@ function FirstPassword({ name, phone, password }: { name: string; phone: string;
         {password}
       </p>
       <p className="muted">
-        It is shown only now. {name} will be asked to choose their own password straight away, so you will not
+        {t("It is shown only now.")} {name} will be asked to choose their own password straight away, so you will not
         know it after that.
       </p>
     </div>
@@ -155,35 +155,34 @@ function AddStaff({ onClose, onAdded }: { onClose(): void; onAdded(): void }) {
           <FirstPassword name={done.name} phone={done.phone} password={password} />
           <div className="sheet-actions">
             <button className="primary" onClick={onClose}>
-              Done
+              {t("Done")}
             </button>
           </div>
         </>
       ) : (
         <>
           <label>
-            Name
+            {t("Name")}
             <input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
           </label>
           <label>
-            Mobile number (they log in with it)
+            {t("Mobile number (they log in with it)")}
             <input inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </label>
-          <fieldset className="opt-row" aria-label="Role">
-            <legend>Role</legend>
+          <fieldset className="opt-row" aria-label={t("Role")}>
+            <legend>{t("Role")}</legend>
             <label className="check">
               <input type="radio" name="role" checked={role === 'cashier'} onChange={() => setRole('cashier')} />
-              Cashier
+              {t("Cashier")}
             </label>
             <label className="check">
               <input type="radio" name="role" checked={role === 'owner'} onChange={() => setRole('owner')} />
-              Owner
+              {t("Owner")}
             </label>
           </fieldset>
           {role === 'owner' && (
             <p className="warn">
-              An owner sees every price and report, changes recipes and prices, voids bills and manages staff.
-              Give this only to a partner you trust with the money.
+              {t("An owner sees every price and report, changes recipes and prices, voids bills and manages staff. Give this only to a partner you trust with the money.")}
             </p>
           )}
           {error && (
@@ -193,9 +192,9 @@ function AddStaff({ onClose, onAdded }: { onClose(): void; onAdded(): void }) {
           )}
           <div className="sheet-actions">
             <button className="primary" disabled={busy || !name.trim() || !phone.trim()} onClick={() => void add()}>
-              Add {role === 'owner' ? 'owner' : 'cashier'}
+              {t("Add")} {role === 'owner' ? 'owner' : 'cashier'}
             </button>
-            <button onClick={onClose}>Cancel</button>
+            <button onClick={onClose}>{t("Cancel")}</button>
           </div>
         </>
       )}
@@ -232,7 +231,7 @@ function PersonSheet({
   return (
     <Sheet title={person.name} onClose={onClose}>
       <p className="muted">
-        {person.role === 'owner' ? 'Owner' : 'Cashier'} · {formatPhone(person.phone)}
+        {person.role === 'owner' ? t("Owner") : t("Cashier")} · {formatPhone(person.phone)}
         {!person.is_active && ' · switched off'}
       </p>
       {reset ? (
@@ -250,7 +249,7 @@ function PersonSheet({
               {person.locked ? 'Unlock and reset password' : 'Reset password'}
             </button>
             <p className="muted">
-              For a forgotten password or a lost phone. {person.name} is logged out everywhere and must choose a new
+              {t("For a forgotten password or a lost phone.")} {person.name} is logged out everywhere and must choose a new
               password at the next login.
             </p>
           </>
@@ -259,11 +258,10 @@ function PersonSheet({
       {person.is_active ? (
         <>
           <button className="danger" disabled={busy} onClick={() => void patch({ is_active: false })}>
-            Switch off {person.name}
+            {t("Switch off")} {person.name}
           </button>
           <p className="muted">
-            For someone who has left. They are logged out at once and cannot log in. Their bills and counts stay on
-            record under their name.
+            {t("For someone who has left. They are logged out at once and cannot log in. Their bills and counts stay on record under their name.")}
           </p>
         </>
       ) : (

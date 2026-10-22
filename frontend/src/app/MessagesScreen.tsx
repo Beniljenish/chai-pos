@@ -8,6 +8,7 @@ import { dayTime } from '../lib/health';
 import { api } from './apiClient';
 import { explainError } from './errors';
 import { Loading, LoadError } from './Status';
+import { t } from '../lib/i18n';
 
 interface OutboxMessage {
   id: string;
@@ -63,10 +64,10 @@ export function MessagesScreen() {
   return (
     <section className="messages-screen">
       <header className="manage-head">
-        <h1>Messages</h1>
+        <h1>{t("Messages")}</h1>
         {waiting > 0 && (
           <button className="quiet" onClick={() => void retry()} disabled={busy}>
-            Send {waiting} waiting now
+            {t("Send")} {waiting} waiting now
           </button>
         )}
       </header>
@@ -76,8 +77,7 @@ export function MessagesScreen() {
       </p>
       {data?.provider === 'log' && (
         <p className="warn">
-          Sending is not set up yet: messages are written here but not sent. Adding the Inkbox key on the server turns
-          sending on.
+          {t("Sending is not set up yet: messages are written here but not sent. Adding the Inkbox key on the server turns sending on.")}
         </p>
       )}
       {error && <LoadError error={error} onRetry={() => void load()} />}
@@ -85,8 +85,7 @@ export function MessagesScreen() {
       {data && data.messages.length === 0 && (
         <div className="empty-card">
           <p>
-            <strong>No messages yet.</strong> They appear when a takeaway is marked ready in the kitchen, or a table or
-            takeaway is settled, for a customer who agreed to messages.
+            <strong>{t("No messages yet.")}</strong> {t("They appear when a takeaway is marked ready in the kitchen, or a table or takeaway is settled, for a customer who agreed to messages.")}
           </p>
         </div>
       )}

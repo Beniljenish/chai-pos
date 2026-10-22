@@ -12,6 +12,7 @@ import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { ItemSheet } from './ItemSheet';
 import { PrepPanel } from './PrepPanel';
+import { t } from '../lib/i18n';
 
 export function StockScreen() {
   const [rows, setRows] = useState<StockRow[] | null>(null);
@@ -57,16 +58,15 @@ export function StockScreen() {
   return (
     <section className="stock">
       <header className="manage-head">
-        <h1>Stock</h1>
+        <h1>{t("Stock")}</h1>
         <button className="quiet" onClick={() => void load()}>
-          Refresh
+          {t("Refresh")}
         </button>
       </header>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {notCounted > 0 && (
         <p className="warn">
-          {notCounted} item{notCounted === 1 ? ' has' : 's have'} no opening count yet. Count what is on the shelf
-          and enter it once per item: the numbers below are only right after that.
+          {notCounted} {t("item")}{notCounted === 1 ? ' has' : 's have'} {t("no opening count yet. Count what is on the shelf and enter it once per item: the numbers below are only right after that.")}
         </p>
       )}
 
@@ -74,29 +74,29 @@ export function StockScreen() {
         !error && <Loading />
       ) : (
         <>
-        <div className="chips" role="group" aria-label="Order the list">
+        <div className="chips" role="group" aria-label={t("Order the list")}>
           {([['worst', 'Worst first'], ['az', 'A–Z'], ['low', 'Low only']] as const).map(([id, label]) => (
             <button key={id} className="chip" aria-pressed={sort === id} onClick={() => setSort(id)}>
               {label}
             </button>
           ))}
         </div>
-        {listed.length === 0 && <p className="muted">Nothing is low.</p>}
+        {listed.length === 0 && <p className="muted">{t("Nothing is low.")}</p>}
         <ul className="stock-list">
           {listed.map((r) => (
             <li key={r.ingredient_id}>
               <button onClick={() => setOpen(r.ingredient_id)}>
                 <span className="stock-name">
                   <strong>{r.name}</strong>
-                  {r.kind === 'prep' && <span className="muted"> made here</span>}
+                  {r.kind === 'prep' && <span className="muted"> {t("made here")}</span>}
                 </span>
                 <span className={`num stock-qty ${r.is_negative ? 'neg' : ''}`}>
                   {formatQty(r.on_hand, r.base_unit)}
                 </span>
                 <span className="stock-flags">
-                  {!r.has_opening && <span className="flag wait">Not counted</span>}
-                  {r.is_negative && <span className="flag bad">Below zero</span>}
-                  {r.below_reorder && !r.is_negative && <span className="flag wait">Reorder</span>}
+                  {!r.has_opening && <span className="flag wait">{t("Not counted")}</span>}
+                  {r.is_negative && <span className="flag bad">{t("Below zero")}</span>}
+                  {r.below_reorder && !r.is_negative && <span className="flag wait">{t("Reorder")}</span>}
                 </span>
                 {r.level.tickPct !== null && (
                   <span className={`level level-${r.level.tone}`} aria-hidden="true">

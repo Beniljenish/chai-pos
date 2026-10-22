@@ -8,6 +8,7 @@ import { api } from './apiClient';
 import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { useSession } from './session';
+import { t } from '../lib/i18n';
 
 interface Tablet {
   id: string;
@@ -47,10 +48,10 @@ export function TabletsScreen() {
     void load();
   }, [load]);
 
-  async function setActive(t: Tablet, active: boolean) {
+  async function setActive(tb: Tablet, active: boolean) {
     setBusy(true);
     try {
-      await api.patch(`/devices/${t.id}`, { is_active: active });
+      await api.patch(`/devices/${tb.id}`, { is_active: active });
       await load();
     } catch (e) {
       setError(explainError(e));
@@ -59,19 +60,18 @@ export function TabletsScreen() {
     }
   }
 
-  const problems = (tablets ?? []).filter((t) => t.is_active && (t.missing_count || t.stuck || t.rejected)).length;
+  const problems = (tablets ?? []).filter((tb) => tb.is_active && (tb.missing_count || tb.stuck || tb.rejected)).length;
 
   return (
     <section className="tablets">
       <header className="manage-head">
-        <h1>Tablets</h1>
+        <h1>{t("Tablets")}</h1>
         <button className="quiet" onClick={() => void load()}>
-          Refresh
+          {t("Refresh")}
         </button>
       </header>
       <p className="muted">
-        Each tablet reports what it still holds whenever it has internet. A bill printed on a tablet that never reached
-        the server, and is no longer on the tablet, shows here as missing.
+        {t("Each tablet reports what it still holds whenever it has internet. A bill printed on a tablet that never reached the server, and is no longer on the tablet, shows here as missing.")}
       </p>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {tablets === null && !error && <Loading />}
@@ -83,35 +83,35 @@ export function TabletsScreen() {
         </p>
       )}
       <ul className="tablet-list">
-        {(tablets ?? []).map((t) => (
-          <li key={t.id} className={t.is_active ? '' : 'off'}>
+        {(tablets ?? []).map((tb) => (
+          <li key={tb.id} className={tb.is_active ? '' : 'off'}>
             <div className="shift-head">
               <strong>
-                {t.name} <span className="muted">({t.code})</span>
-                {t.id === device?.id && <span className="muted"> · this one</span>}
+                {tb.name} <span className="muted">({tb.code})</span>
+                {tb.id === device?.id && <span className="muted"> {t("· this one")}</span>}
               </strong>
-              {!t.is_active ? (
-                <span className="flag wait">Switched off</span>
-              ) : t.missing_count || t.stuck || t.rejected ? (
-                <span className="flag bad">Check</span>
-              ) : !t.last_seen_at ? (
-                <span className="flag wait">Not used yet</span>
+              {!tb.is_active ? (
+                <span className="flag wait">{t("Switched off")}</span>
+              ) : tb.missing_count || tb.stuck || tb.rejected ? (
+                <span className="flag bad">{t("Check")}</span>
+              ) : !tb.last_seen_at ? (
+                <span className="flag wait">{t("Not used yet")}</span>
               ) : (
-                <span className="flag ok">OK</span>
+                <span className="flag ok">{t("OK")}</span>
               )}
             </div>
             <p className="muted">
-              {t.last_seen_at ? `Last seen ${ago(t.last_seen_at)}` : 'Never synced yet'}
-              {t.app_version && ` · app ${t.app_version}`}
+              {tb.last_seen_at ? `Last seen ${ago(tb.last_seen_at)}` : 'Never synced yet'}
+              {tb.app_version && ` · app ${tb.app_version}`}
             </p>
             <ul className="tablet-facts">
-              {t.missing_count > 0 && (
+              {tb.missing_count > 0 && (
                 <li className="bad-text">
                   <strong>
-                    {t.missing_count} printed bill{t.missing_count === 1 ? '' : 's'} never reached the server:
+                    {tb.missing_count} printed bill{tb.missing_count === 1 ? '' : 's'} never reached the server:
                   </strong>{' '}
-                  <span className="num">{t.missing.join(', ')}</span>
-                  {t.missing_count > t.missing.length && ' …'}
+                  <span className="num">{tb.missing.join(', ')}</span>
+                  {tb.missing_count > tb.missing.length && ' …'}
                   <br />
                   <span className="muted">
                     Usually the tablet&apos;s browser data was cleared or the tablet was reset before these were sent.
@@ -119,35 +119,34 @@ export function TabletsScreen() {
                   </span>
                 </li>
               )}
-              {t.pending_bills > 0 && (
-                <li className={t.stuck ? 'bad-text' : ''}>
-                  {t.pending_bills} bill{t.pending_bills === 1 ? '' : 's'} waiting to send
-                  {t.oldest_pending_at && ` since ${dayTime(t.oldest_pending_at)}`}
-                  {t.stuck && ': check that tablet has internet and someone is logged in'}
+              {tb.pending_bills > 0 && (
+                <li className={tb.stuck ? 'bad-text' : ''}>
+                  {tb.pending_bills} bill{tb.pending_bills === 1 ? '' : 's'} waiting to send
+                  {tb.oldest_pending_at && ` since ${dayTime(tb.oldest_pending_at)}`}
+                  {tb.stuck && ': check that tablet has internet and someone is logged in'}
                 </li>
               )}
-              {t.rejected > 0 && (
+              {tb.rejected > 0 && (
                 <li className="bad-text">
-                  {t.rejected} refused by the server: open that tablet&apos;s Today screen to see why
+                  {tb.rejected} refused by the server: open that tablet&apos;s Today screen to see why
                 </li>
               )}
-              {t.unseen && t.is_active && t.last_seen_at && <li className="bad-text">Not seen for over a day</li>}
-              {t.persisted_storage === false && (
+              {tb.unseen && tb.is_active && tb.last_seen_at && <li className="bad-text">{t("Not seen for over a day")}</li>}
+              {tb.persisted_storage === false && (
                 <li>
-                  Its browser may clear saved bills when the tablet runs low on space. Add the app to the home screen
-                  (browser menu → Install app) to protect them.
+                  {t("Its browser may clear saved bills when the tablet runs low on space. Add the app to the home screen (browser menu → Install app) to protect them.")}
                 </li>
               )}
             </ul>
-            {t.is_active ? (
-              t.id !== device?.id && (
-                <button className="quiet" disabled={busy} onClick={() => void setActive(t, false)}>
-                  Switch off (lost or no longer used)
+            {tb.is_active ? (
+              tb.id !== device?.id && (
+                <button className="quiet" disabled={busy} onClick={() => void setActive(tb, false)}>
+                  {t("Switch off (lost or no longer used)")}
                 </button>
               )
             ) : (
-              <button className="quiet" disabled={busy} onClick={() => void setActive(t, true)}>
-                Switch back on
+              <button className="quiet" disabled={busy} onClick={() => void setActive(tb, true)}>
+                {t("Switch back on")}
               </button>
             )}
           </li>

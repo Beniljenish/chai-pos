@@ -9,6 +9,7 @@ import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
 import { Sheet } from './Sheet';
 import { useSession } from './session';
+import { t } from '../lib/i18n';
 
 interface Table {
   id: string;
@@ -53,9 +54,9 @@ export function FloorSetup() {
   return (
     <section className="floor-setup">
       <header className="manage-head">
-        <h1>Floor</h1>
+        <h1>{t("Floor")}</h1>
         <button className="primary" onClick={() => setSheet({ kind: 'area' })}>
-          + Area
+          {t("+ Area")}
         </button>
       </header>
       <p className="muted">
@@ -67,7 +68,7 @@ export function FloorSetup() {
       {areas?.length === 0 && (
         <div className="empty-card">
           <p>
-            <strong>No tables yet.</strong> Add an area (for example &quot;Hall&quot;), then add its tables. A counter-only
+            <strong>{t("No tables yet.")}</strong> Add an area (for example &quot;Hall&quot;), then add its tables. A counter-only
             tea shop can skip this: quick billing works without tables.
           </p>
         </div>
@@ -92,7 +93,7 @@ export function FloorSetup() {
             ))}
             <li>
               <button className="add" onClick={() => setSheet({ kind: 'add', area: a })} aria-label={`Add tables to ${a.name}`}>
-                + Tables
+                {t("+ Tables")}
               </button>
             </li>
           </ul>
@@ -123,13 +124,13 @@ function AreaSheet({ onClose, onDone }: { onClose(): void; onDone(): void }) {
     }
   }
   return (
-    <Sheet title="New area" onClose={onClose}>
+    <Sheet title={t("New area")} onClose={onClose}>
       <label>
-        Name
-        <input value={name} maxLength={40} placeholder="Hall" autoFocus onChange={(e) => setName(e.target.value)} />
+        {t("Name")}
+        <input value={name} maxLength={40} placeholder={t("Hall")} autoFocus onChange={(e) => setName(e.target.value)} />
       </label>
-      <div className="chips" role="group" aria-label="Common names">
-        {['Hall', 'AC room', 'Outdoor', 'Family', 'Counter'].map((n) => (
+      <div className="chips" role="group" aria-label={t("Common names")}>
+        {[t("Hall"), 'AC room', 'Outdoor', 'Family', 'Counter'].map((n) => (
           <button key={n} className="chip" aria-pressed={name === n} onClick={() => setName(n)}>
             {n}
           </button>
@@ -142,9 +143,9 @@ function AreaSheet({ onClose, onDone }: { onClose(): void; onDone(): void }) {
       )}
       <div className="sheet-actions">
         <button className="primary" disabled={!name.trim()} onClick={() => void save()}>
-          Add area
+          {t("Add area")}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
     </Sheet>
   );
@@ -181,15 +182,15 @@ function AddTablesSheet({ area, allNames, onClose, onDone }: { area: Area; allNa
     <Sheet title={`Add tables to ${area.name}`} onClose={onClose}>
       <div className="form-row">
         <label>
-          How many
+          {t("How many")}
           <input inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, ''))} />
         </label>
         <label>
-          Name starts with
+          {t("Name starts with")}
           <input value={prefix} maxLength={10} onChange={(e) => setPrefix(e.target.value)} />
         </label>
         <label>
-          Seats each
+          {t("Seats each")}
           <input inputMode="numeric" value={seats} onChange={(e) => setSeats(e.target.value.replace(/\D/g, ''))} />
         </label>
       </div>
@@ -201,9 +202,9 @@ function AddTablesSheet({ area, allNames, onClose, onDone }: { area: Area; allNa
       )}
       <div className="sheet-actions">
         <button className="primary" disabled={busy || names.length === 0} onClick={() => void add()}>
-          Add {names.length} table{names.length === 1 ? '' : 's'}
+          {t("Add")} {names.length} table{names.length === 1 ? '' : 's'}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
     </Sheet>
   );
@@ -241,16 +242,16 @@ function TableSheet({
     <Sheet title={`Table ${table.name}`} onClose={onClose}>
       <div className="form-row">
         <label>
-          Name
+          {t("Name")}
           <input value={name} maxLength={20} onChange={(e) => setName(e.target.value)} />
         </label>
         <label>
-          Seats
+          {t("Seats")}
           <input inputMode="numeric" value={seats} onChange={(e) => setSeats(e.target.value.replace(/\D/g, ''))} />
         </label>
       </div>
       <label>
-        Area
+        {t("Area")}
         <select value={areaId} onChange={(e) => setAreaId(e.target.value)}>
           {areas.map((a) => (
             <option key={a.id} value={a.id}>
@@ -270,12 +271,12 @@ function TableSheet({
           disabled={!name.trim() || !(Number(seats) > 0)}
           onClick={() => void save({ name: name.trim(), seats: Number(seats), area_id: areaId })}
         >
-          Save
+          {t("Save")}
         </button>
         {table.is_active ? (
-          <button onClick={() => void save({ is_active: false })}>Switch off</button>
+          <button onClick={() => void save({ is_active: false })}>{t("Switch off")}</button>
         ) : (
-          <button onClick={() => void save({ is_active: true })}>Switch on</button>
+          <button onClick={() => void save({ is_active: true })}>{t("Switch on")}</button>
         )}
       </div>
     </Sheet>

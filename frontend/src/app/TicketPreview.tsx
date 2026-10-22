@@ -7,6 +7,7 @@ import { db } from '../lib/db';
 import type { Row } from '../lib/escpos';
 import { browserEnv, loadPrinter, printRows } from '../lib/printer';
 import { PrinterSheet } from './PrinterSettings';
+import { t } from '../lib/i18n';
 
 export function TicketPreview({
   title,
@@ -56,9 +57,9 @@ export function TicketPreview({
         )}
         <div className="sheet-actions no-print">
           <button className="primary" onClick={onClose} autoFocus>
-            Done
+            {t("Done")}
           </button>
-          <button onClick={() => void print()}>Print again</button>
+          <button onClick={() => void print()}>{t("Print again")}</button>
         </div>
       </div>
       {settingsOpen && <PrinterSheet onClose={() => setSettingsOpen(false)} />}

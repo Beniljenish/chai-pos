@@ -8,6 +8,7 @@ import type { ShiftReport } from "../lib/types";
 import { api } from "./apiClient";
 import { explainError } from "./errors";
 import { useSession } from "./session";
+import { t } from '../lib/i18n';
 
 const time = (iso: string) =>
   new Intl.DateTimeFormat("en-IN", {
@@ -17,8 +18,8 @@ const time = (iso: string) =>
 
 function Difference({ paise }: { paise: number | null }) {
   if (paise === null)
-    return <span className="flag wait">Not counted</span>;
-  if (paise === 0) return <span className="flag ok">Matched</span>;
+    return <span className="flag wait">{t("Not counted")}</span>;
+  if (paise === 0) return <span className="flag ok">{t("Matched")}</span>;
   return (
     <span className={`flag ${paise < 0 ? "bad" : "wait"}`}>
       {formatRupees(Math.abs(paise))} {paise < 0 ? "short" : "over"}
@@ -56,7 +57,7 @@ export function CashDrawer({
 
   return (
     <>
-      <h2>Cash drawer</h2>
+      <h2>{t("Cash drawer")}</h2>
       <p className="muted">
         {report.shifts.length} drawer{report.shifts.length === 1 ? "" : "s"}.
         Tap one for its sums; a drawer that is short or over opens by itself.
@@ -85,12 +86,12 @@ export function CashDrawer({
                   </span>
                 </summary>
                 {s.closed_by_name && s.closed_by_name !== s.opened_by_name && (
-                  <p className="muted">Counted by {s.closed_by_name}</p>
+                  <p className="muted">{t("Counted by")} {s.closed_by_name}</p>
                 )}
                 <table className="sales-table">
                   <tbody>
                     <tr>
-                      <th scope="row">Started with</th>
+                      <th scope="row">{t("Started with")}</th>
                       <td className="num">
                         {formatRupees(s.opening_float_paise)}
                       </td>
@@ -115,14 +116,14 @@ export function CashDrawer({
                       </tr>
                     ))}
                     <tr className="total-row">
-                      <th scope="row">Should be in the drawer</th>
+                      <th scope="row">{t("Should be in the drawer")}</th>
                       <td className="num">
                         {formatRupees(s.expected_cash_paise)}
                       </td>
                     </tr>
                     {s.counted_cash_paise !== null && (
                       <tr className="total-row">
-                        <th scope="row">Counted</th>
+                        <th scope="row">{t("Counted")}</th>
                         <td className="num">
                           {formatRupees(s.counted_cash_paise)}
                         </td>
@@ -183,7 +184,7 @@ export function CashSettings() {
   if (on === null) return error ? <p className="error">{error}</p> : null;
   return (
     <section aria-labelledby="cash-title">
-      <h2 id="cash-title">Cash drawer</h2>
+      <h2 id="cash-title">{t("Cash drawer")}</h2>
       <label className="check email-switch">
         <input
           type="checkbox"
@@ -191,12 +192,10 @@ export function CashSettings() {
           onChange={(e) => void change(e.target.checked)}
         />
         <span>
-          Count the cash at every shift
+          {t("Count the cash at every shift")}
           <br />
           <span className="muted">
-            Each tablet asks for the cash in the drawer at its first bill and
-            for a count at the end, and Sales shows whether it matched. Switch
-            off only if the shop takes no cash at the counter.
+            {t("Each tablet asks for the cash in the drawer at its first bill and for a count at the end, and Sales shows whether it matched. Switch off only if the shop takes no cash at the counter.")}
           </span>
         </span>
       </label>
@@ -243,9 +242,9 @@ export function DiscountSettings() {
   const valid = /^\d{1,3}(\.\d{1,2})?$/.test(pct) && Number(pct) <= 100;
   return (
     <section aria-labelledby="discount-title">
-      <h2 id="discount-title">Discounts</h2>
+      <h2 id="discount-title">{t("Discounts")}</h2>
       <label>
-        Most a cashier can take off a bill (%)
+        {t("Most a cashier can take off a bill (%)")}
         <input
           inputMode="decimal"
           value={pct}
@@ -253,12 +252,10 @@ export function DiscountSettings() {
         />
       </label>
       <p className="muted">
-        Every discount needs a reason and shows under Sales. You can give any
-        discount yourself. A bill over the limit from an older or offline tablet
-        is still saved, and flagged for you.
+        {t("Every discount needs a reason and shows under Sales. You can give any discount yourself. A bill over the limit from an older or offline tablet is still saved, and flagged for you.")}
       </p>
       <button disabled={!valid || pct === saved} onClick={() => void save()}>
-        Save limit
+        {t("Save limit")}
       </button>
       {error && (
         <p className="error" role="alert">

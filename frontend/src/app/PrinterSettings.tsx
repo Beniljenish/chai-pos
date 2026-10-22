@@ -14,6 +14,7 @@ import {
   type PrinterSettings,
 } from '../lib/printer';
 import { Sheet } from './Sheet';
+import { t } from '../lib/i18n';
 
 const KINDS: { kind: PrinterKind; label: string; hint: string }[] = [
   {
@@ -62,13 +63,13 @@ export function PrinterSheet({ onClose }: { onClose(): void }) {
   }
 
   return (
-    <Sheet title="Printer (this tablet)" label="Printer" onClose={onClose}>
+    <Sheet title={t("Printer (this tablet)")} label={t("Printer")} onClose={onClose}>
       {!s ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t("Loading…")}</p>
       ) : (
         <>
           <fieldset>
-            <legend>How receipts reach the printer</legend>
+            <legend>{t("How receipts reach the printer")}</legend>
             {KINDS.filter((k) => k.kind !== 'bluetooth' || bluetoothAvailable() || s.kind === 'bluetooth').map(
               (k) => (
                 <label key={k.kind} className="check email-switch">
@@ -98,7 +99,7 @@ export function PrinterSheet({ onClose }: { onClose(): void }) {
           )}
           {s.kind !== 'browser' && (
             <fieldset className="opt-row">
-              <legend>Paper</legend>
+              <legend>{t("Paper")}</legend>
               <label className="check">
                 <input type="radio" name="paper" checked={s.width === 32} onChange={() => void change({ width: 32 })} />
                 58 mm
@@ -111,11 +112,11 @@ export function PrinterSheet({ onClose }: { onClose(): void }) {
           )}
           <label className="check">
             <input type="checkbox" checked={s.autoPrint} onChange={(e) => void change({ autoPrint: e.target.checked })} />
-            Print every bill as soon as it is saved
+            {t("Print every bill as soon as it is saved")}
           </label>
           <label className="check">
             <input type="checkbox" checked={s.printKot} onChange={(e) => void change({ printKot: e.target.checked })} />
-            Print a kitchen ticket (KOT) for every round sent from Tables
+            {t("Print a kitchen ticket (KOT) for every round sent from Tables")}
           </label>
           {message && (
             <p className={message.ok ? 'ok' : 'error'} role={message.ok ? 'status' : 'alert'}>
@@ -124,9 +125,9 @@ export function PrinterSheet({ onClose }: { onClose(): void }) {
           )}
           <div className="sheet-actions">
             <button className="primary" onClick={() => void test()}>
-              Test print
+              {t("Test print")}
             </button>
-            <button onClick={onClose}>Done</button>
+            <button onClick={onClose}>{t("Done")}</button>
           </div>
         </>
       )}

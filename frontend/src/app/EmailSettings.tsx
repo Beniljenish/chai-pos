@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from './apiClient';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 interface Settings {
   report_email: string | null;
@@ -48,7 +49,7 @@ export function EmailSettings() {
       const s = await api.patch<Settings>('/shop', { ...draft, report_email: draft!.report_email ?? '' });
       setSaved(s);
       setDraft(s);
-      setMessage({ ok: true, text: 'Saved.' });
+      setMessage({ ok: true, text: t("Saved.") });
     } catch (e) {
       setMessage({ ok: false, text: explainError(e) });
     } finally {
@@ -75,10 +76,10 @@ export function EmailSettings() {
 
   return (
     <section className="email-settings" aria-labelledby="email-title">
-      <h2 id="email-title">Reports by email</h2>
+      <h2 id="email-title">{t("Reports by email")}</h2>
       <div className="panel-inline">
         <label>
-          Send reports to
+          {t("Send reports to")}
           <input
             type="email"
             inputMode="email"
@@ -104,13 +105,13 @@ export function EmailSettings() {
         ))}
         <div className="sheet-actions">
           <button className="primary" disabled={!dirty || busy} onClick={() => void save()}>
-            Save email settings
+            {t("Save email settings")}
           </button>
           <button disabled={dirty || busy || !saved.report_email} onClick={() => void test()}>
-            Send test email
+            {t("Send test email")}
           </button>
         </div>
-        {dirty && <p className="muted">Save first, then send a test.</p>}
+        {dirty && <p className="muted">{t("Save first, then send a test.")}</p>}
         {message && (
           <p className={message.ok ? 'ok' : 'error'} role={message.ok ? 'status' : 'alert'}>
             {message.text}

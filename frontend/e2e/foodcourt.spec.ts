@@ -87,6 +87,14 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   await taking.click();
   await expect(taking).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByLabel('QR code for the food court')).toBeVisible();
+  // pickup times are on by default; the display board has its own link, and opens with no login
+  await expect(page.getByRole('switch', { name: 'Pickup times' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByLabel('Orders per time slot')).toBeVisible();
+  const boardPage = await (await browser.newContext({ viewport: { width: 1000, height: 700 } })).newPage();
+  await boardPage.goto(`/board/${link.split('/order/')[1]}`);
+  await expect(boardPage.getByRole('heading', { name: /E2E Food Court · Now serving/ })).toBeVisible();
+  await expect(boardPage.getByLabel('Ready tokens')).toContainText('No order is ready yet');
+  await shot(boardPage, 'foodcourt-2b-board-empty');
   await expect(page.getByRole('list').filter({ hasText: 'E2E Anna Biryani' })).toBeVisible();
   await shot(page, 'foodcourt-2-owner');
   // the till rings for a customer's order: one switch per tablet (browsers need a tap first)
@@ -158,6 +166,12 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   if (await counter.count()) await counter.check();
   await expect(customer.getByText('You pay ₹140 at the counters')).toBeVisible();
   await shot(customer, 'foodcourt-6-cart');
+  // a time can be chosen, 15 minutes apart (no slots in the last hours of the day: nothing to check then)
+  const when = customer.getByRole('group', { name: 'When do you want it?' }).first();
+  if (await when.count()) {
+    await expect(when.getByRole('button', { name: 'As soon as possible' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(when.getByRole('button', { name: /\d{1,2}:(00|15|30|45) [ap]m/ }).first()).toBeVisible();
+  }
   await customer.getByRole('button', { name: 'Place 2 orders' }).click();
 
   // ---- a token per outlet

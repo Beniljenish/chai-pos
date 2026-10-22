@@ -13,6 +13,7 @@ import { RazorpaySettings } from './OnlinePayment';
 import { EmailSettings } from './EmailSettings';
 import { MenuPrices } from './MenuPrices';
 import { useSession } from './session';
+import { t } from '../lib/i18n';
 
 interface Shop {
   id: string;
@@ -122,17 +123,17 @@ export function ShopScreen() {
 
       <div className="panel-inline">
         <label>
-          Shop name (printed on bills)
+          {t("Shop name (printed on bills)")}
           <input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
         </label>
         <label>
-          Address (printed on bills)
+          {t("Address (printed on bills)")}
           <input value={address} maxLength={500} onChange={(e) => setAddress(e.target.value)} />
         </label>
       </div>
 
       <fieldset className="gst-types">
-        <legend>GST registration</legend>
+        <legend>{t("GST registration")}</legend>
         {TYPES.map((t) => (
           <label key={t.id} className={`gst-type ${type === t.id ? 'chosen' : ''}`}>
             <input type="radio" name="gst" checked={type === t.id} onChange={() => setType(t.id)} />
@@ -177,7 +178,7 @@ export function ShopScreen() {
             <dd>{TYPES.find((t) => t.id === type)?.prints}</dd>
             {type === 'regular' && (
               <>
-                <dt>Taxable value</dt>
+                <dt>{t("Taxable value")}</dt>
                 <dd>{formatRupees(preview.taxable)}</dd>
                 <dt>CGST @{formatRate(sample.gst_rate_bp / 2)}</dt>
                 <dd>{formatRupees(preview.cgst)}</dd>
@@ -199,12 +200,12 @@ export function ShopScreen() {
       )}
       <div className="sheet-actions">
         <button className="primary" disabled={!dirty || blocked || busy} onClick={() => void save()}>
-          Save shop settings
+          {t("Save shop settings")}
         </button>
       </div>
       {saved && !dirty && (
         <p className="ok" role="status">
-          Saved.
+          {t("Saved.")}
         </p>
       )}
       {error && (
