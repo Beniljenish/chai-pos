@@ -250,7 +250,7 @@ export function FoodCourtScreen() {
               <ul className="fc-table-qrs">
                 {tables.map((name) => (
                   <li key={name}>
-                    <Qr text={tableLink(window.location.origin, court.slug, myOutletId, name)} />
+                    <Qr text={tableLink(window.location.origin, court.slug, myOutletId, name)} label={`QR code for ${name}`} />
                     <strong>{name}</strong>
                   </li>
                 ))}

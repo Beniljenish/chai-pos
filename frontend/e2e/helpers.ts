@@ -50,8 +50,12 @@ export async function submitSignup(
 ) {
   const [ask, create] = labels;
   const button = page.getByRole('button', { name: new RegExp(`^(${ask}|${create})$`) });
+  const pressed = ((await button.textContent()) ?? '').trim();
   await button.click();
+  if (pressed === create) return; // the code was already filled in: that press made the account
   const box = page.getByLabel(codeLabel);
+  // the code box appears once the server has sent a code (a moment after the tap)
+  await box.waitFor({ timeout: 3000 }).catch(() => undefined);
   if (await box.isVisible()) {
     if ((await box.inputValue()) === '') {
       const note = await page.getByText(/\b\d{6}\b/).first().textContent();
