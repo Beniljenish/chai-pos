@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.api.common import commit_or_409, get_or_404, unprocessable
 from app.api.deps import Caller, get_caller, require_owner
 from app.api.v1.orders import floor as dining_floor
+from app.core.time import business_date, utcnow
 from app.models import (
     Ingredient,
     IngredientKind,
@@ -25,6 +26,7 @@ from app.models import (
     Recipe,
     RecipeLine,
     Shop,
+    SoldOutEvent,
     User,
 )
 from app.schemas_catalogue import (
@@ -246,8 +248,11 @@ def update_menu_item(
     menu_item_id: uuid.UUID, body: MenuItemUpdate, caller: Caller = Depends(require_owner)
 ):
     item = get_or_404(caller.db, MenuItem, menu_item_id)
+    was_sold_out = item.is_sold_out
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
+    if item.is_sold_out and not was_sold_out:  # the history behind "sold out most"
+        caller.db.add(SoldOutEvent(menu_item_id=item.id, business_date=business_date(utcnow())))
     commit_or_409(caller.db, "A menu item with that name already exists")
     return item
 

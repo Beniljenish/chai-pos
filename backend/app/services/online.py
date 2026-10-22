@@ -434,6 +434,7 @@ class OrderInput:
         None  # a 15-minute slot the customer chose; None = as soon as possible
     )
     table_name: str = ""  # from a table's QR: "bring it to Table 4"
+    coupon_code: str = ""  # an offer of this outlet; the server works out the discount
 
 
 def _clean_text(s: str, limit: int) -> str:
@@ -480,7 +481,7 @@ def _actor(db: Session) -> tuple[Device, User]:
     return device, user
 
 
-def _total(lines: list[dict], gst_type) -> int:
+def _total(lines: list[dict], gst_type, discount_paise: int = 0) -> int:
     live = [ln for ln in lines if ln["qty"] > 0]
     if not live:
         return 0
@@ -498,6 +499,7 @@ def _total(lines: list[dict], gst_type) -> int:
             for ln in live
         ],
         gst_type,
+        discount_paise,
     ).total
 
 
@@ -632,10 +634,12 @@ def quote(
     outlet_id: uuid.UUID,
     items: list[Pick],
     pickup_at: datetime | None = None,
-) -> tuple[str, int]:
+    coupon_code: str = "",
+    customer_id: uuid.UUID | None = None,
+) -> tuple[str, int, int]:
     """What an order would cost at this outlet right now, with the same checks as placing
     it (open, dishes on the menu and not sold out, options offered, size limits) and nothing
-    written. Returns (outlet name, total in paise)."""
+    written. Returns (outlet name, total in paise after any coupon, the coupon's paise)."""
     court = _court(sysdb, slug)
     outlet = _outlet(sysdb, court, outlet_id)
     if not outlet.accepting_orders:
@@ -648,7 +652,13 @@ def quote(
         lines = _cart_lines(menu, wanted, _load_mods(db, wanted))
         if pickup_at is not None:
             check_pickup(db, outlet, pickup_at, paid=False)
-        return shop.name, _total(lines, shop.gst_type)
+        before = _total(lines, shop.gst_type)
+        if not coupon_code.strip():
+            return shop.name, before, 0
+        from app.services import coupons  # local: coupons raises this module's OnlineError
+
+        _, off = coupons.resolve(db, coupon_code, customer_id, before)
+        return shop.name, _total(lines, shop.gst_type, off), off
 
 
 def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInput) -> dict:
@@ -732,7 +742,21 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
         db.add(order)
         db.flush()
         lines = _cart_lines(menu, wanted, snaps, ids=True)
-        if body.paid is not None and _total(lines, shop.gst_type) != body.paid[1]:
+        before = _total(lines, shop.gst_type)
+        coupon, off = None, 0
+        if body.coupon_code.strip():
+            from app.services import coupons  # local: coupons raises this module's OnlineError
+
+            # An order already paid for keeps its discount even if the code has since run out.
+            coupon, off = coupons.resolve(
+                db,
+                body.coupon_code,
+                body.customer_id,
+                before,
+                strict=body.paid is None,
+                lock=True,
+            )
+        if body.paid is not None and _total(lines, shop.gst_type, off) != body.paid[1]:
             # The prices moved between paying and placing: do not serve what was not paid for.
             raise OnlineError("price_changed", "Prices changed while you were paying", 409)
         name = _clean_text(body.name, 40)
@@ -749,6 +773,11 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
                     "note": _clean_text(body.note, 120),
                     "source": "online",
                     **({"paid_online_paise": body.paid[1]} if body.paid is not None else {}),
+                    **(
+                        {"coupon_code": coupon.code, "coupon_discount_paise": off}
+                        if coupon is not None
+                        else {}
+                    ),
                 },
             ),
             (
@@ -788,10 +817,17 @@ def place_order(sysdb: Session, slug: str, outlet_id: uuid.UUID, body: OrderInpu
                 paid_paise=body.paid[1] if body.paid is not None else None,
                 pickup_at=body.pickup_at,
                 table_name=_clean_text(body.table_name, 20),
+                coupon_code=coupon.code if coupon is not None else "",
+                discount_paise=off,
             )
         )
         try:
             db.flush()
+            if coupon is not None:
+                from app.services import coupons
+
+                coupons.redeem(db, coupon, order.id, body.customer_id, off)
+                db.flush()
         except IntegrityError:
             db.rollback()
             raise OnlineError("busy", "Please try again", 503) from None
@@ -839,7 +875,9 @@ def public_order(key: str) -> dict:
             "outlet": shop.name,
             "status": public_state(order.state),
             "items": [{"name": line_label(ln), "qty": ln["qty"]} for ln in lines if ln["qty"] > 0],
-            "total_paise": _total(lines, shop.gst_type),
+            "total_paise": _total(lines, shop.gst_type, online.discount_paise),
+            "coupon_code": online.coupon_code,
+            "discount_paise": online.discount_paise,
             # Paid in the app (README, "9.14"): the page says "Paid", not "Pay at the counter".
             "paid_online": online.payment_id is not None,
         }

@@ -35,6 +35,7 @@ class PublicOrderIn(BaseModel):
     items: list[ItemIn] = Field(min_length=1, max_length=online.MAX_LINES)
     pickup_at: datetime | None = None
     table_name: str = Field(default="", max_length=20)
+    coupon_code: str = Field(default="", max_length=30)
 
 
 def _no_store(response: Response) -> None:
@@ -136,6 +137,7 @@ def place_order(
                 ],
                 pickup_at=body.pickup_at,
                 table_name=body.table_name,
+                coupon_code=body.coupon_code,
             ),
         )
     except online.OnlineError as e:

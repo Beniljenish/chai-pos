@@ -70,6 +70,8 @@ ID_ROUTES = {
     "/api/v1/bills/{bill_id}/void": ("bill", {"POST": {"reason": "wrong_item"}}),
     "/api/v1/devices/{device_id}/sync-state": ("device", {"GET": None}),
     "/api/v1/wastage/{entry_id}/decision": ("wastage", {"POST": {"accept": False}}),
+    "/api/v1/coupons/{coupon_id}": ("coupon", {"PATCH": {"is_active": False}}),
+    "/api/v1/links/{user_id}": ("cashier", {"DELETE": None}),
     "/api/v1/devices/{device_id}/report": (
         "device",
         {"POST": {"seq_by_fy": {"26-27": 999}, "pending_bills": 0}},
@@ -97,7 +99,7 @@ DATE_ROUTES = {
 
 
 def _foreign_id(shop: ShopFixture, cat: Catalogue, key: str) -> str:
-    if key in ("bill", "area", "table", "order", "supplier", "po", "customer", "wastage"):
+    if key in ("bill", "area", "table", "order", "supplier", "po", "customer", "wastage", "coupon"):
         return getattr(cat, f"{key}_id")
     if key.startswith("cat."):
         return getattr(cat, key[4:])["id"]
@@ -140,6 +142,9 @@ def _with_bill(client, shop) -> Catalogue:
         json={"ingredient_id": cat.milk["id"], "qty": "100", "reason": "spilled"},
         headers=h,
     ).json()["id"]
+    cat.coupon_id = client.post(
+        "/api/v1/coupons", json={"code": "TENANT10", "kind": "percent", "value": 10}, headers=h
+    ).json()["coupons"][0]["id"]
     cat.order_id = str(uuid.uuid4())
     r = client.post(
         "/api/v1/sync/orders",

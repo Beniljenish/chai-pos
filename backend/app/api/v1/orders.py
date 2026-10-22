@@ -229,14 +229,31 @@ def online_paid(caller: Caller = Depends(get_caller)) -> dict:
     # The pickup time a customer chose and the table they scanned (README, "9.17"): in the same
     # small call, for the same reason, so the shared order rules do not grow either field.
     extra = caller.db.execute(
-        select(OnlineOrder.order_id, OnlineOrder.pickup_at, OnlineOrder.table_name)
+        select(
+            OnlineOrder.order_id,
+            OnlineOrder.pickup_at,
+            OnlineOrder.table_name,
+            OnlineOrder.coupon_code,
+            OnlineOrder.discount_paise,
+        )
         .join(Order, Order.id == OnlineOrder.order_id)
-        .where(open_, (OnlineOrder.pickup_at.is_not(None)) | (OnlineOrder.table_name != ""))
+        .where(
+            open_,
+            (OnlineOrder.pickup_at.is_not(None))
+            | (OnlineOrder.table_name != "")
+            | (OnlineOrder.coupon_code != ""),
+        )
     ).all()
     return {
         "paid": {str(oid): paise for oid, paise in rows},
-        "pickup": {str(oid): at for oid, at, _ in extra if at is not None},
-        "table": {str(oid): name for oid, _, name in extra if name},
+        "pickup": {str(oid): at for oid, at, _, _, _ in extra if at is not None},
+        "table": {str(oid): name for oid, _, name, _, _ in extra if name},
+        # an offer the customer used: the till bills the order with this same discount
+        "coupon": {
+            str(oid): {"code": code, "discount_paise": off}
+            for oid, _, _, code, off in extra
+            if code
+        },
     }
 
 

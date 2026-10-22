@@ -221,7 +221,9 @@ def history(db: Session, customer_id: uuid.UUID, limit: int = 50) -> list[dict]:
                     }
                     for ln in lines
                 ],
-                "total_paise": online._total(order.state["lines"], shop.gst_type),
+                "total_paise": online._total(
+                    order.state["lines"], shop.gst_type, oo.discount_paise
+                ),
                 "status_key": online.status_key(oo.shop_id, order.id),
                 "paid_online": oo.payment_id is not None,
                 "rating": rating,

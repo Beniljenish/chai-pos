@@ -34,6 +34,7 @@ from app.models import (
     LedgerReason,
     MenuItem,
     Modifier,
+    OnlineOrder,
     Recipe,
     Shop,
     StockLedger,
@@ -373,7 +374,21 @@ def _flags(ctx: SyncContext, b: dict, bill: Bill, cashier_id, gross: int) -> lis
     out = []
     if bill.discount_paise:
         limit = ctx.shop.max_discount_bp
-        if cashier_id not in ctx.owner_ids and bill.discount_paise * 10_000 > limit * gross:
+        # An offer the customer used online is the outlet's own, not the cashier's to ration: the
+        # till bills the order with exactly the discount the server worked out for it.
+        coupon_off = (
+            ctx.db.scalar(
+                select(OnlineOrder.discount_paise).where(OnlineOrder.order_id == bill.order_id)
+            )
+            if bill.order_id is not None
+            else None
+        )
+        is_offer = bool(coupon_off) and coupon_off == bill.discount_paise
+        if (
+            not is_offer
+            and cashier_id not in ctx.owner_ids
+            and bill.discount_paise * 10_000 > limit * gross
+        ):
             out.append("discount_over_limit")
         if not bill.discount_reason.strip():
             out.append("discount_without_reason")

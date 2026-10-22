@@ -10,12 +10,14 @@ from app.api.v1 import (
     auth,
     bills,
     catalogue,
+    coupons,
     cron,
     customer_accounts,
     customers,
     dayend,
     foodcourt,
     insights,
+    links,
     messages,
     orders,
     payments,
@@ -61,6 +63,8 @@ def create_app() -> FastAPI:
     app.include_router(platform.router, prefix="/api/v1")
     app.include_router(ai.router, prefix="/api/v1")
     app.include_router(watch.router, prefix="/api/v1")
+    app.include_router(coupons.router, prefix="/api/v1")
+    app.include_router(links.router, prefix="/api/v1")
 
     @app.get("/health", tags=["ops"])
     def health() -> dict:

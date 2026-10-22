@@ -112,4 +112,8 @@ class OnlineOrder(IdMixin, TenantScoped, Base):
     pickup_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # The table the customer scanned, for dine-in ("T4"); empty = a takeaway order.
     table_name: Mapped[str] = mapped_column(String(20), default="", server_default="")
+    # An offer the customer used: the code, and the paise taken off the total (0 = none). The
+    # till bills the order with the same discount, so the bill equals what the customer owes.
+    coupon_code: Mapped[str] = mapped_column(String(20), default="", server_default="")
+    discount_paise: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

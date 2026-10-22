@@ -45,6 +45,7 @@ class PartIn:
     items: list[online.Pick]
     pickup_at: datetime | None = None
     table_name: str = ""
+    coupon_code: str = ""
 
 
 _PAYMENT_WORDS = {
@@ -91,7 +92,9 @@ def start(
 
     parts, total = [], 0
     for o in orders:
-        outlet_name, amount = online.quote(db, slug, o.outlet_id, o.items, o.pickup_at)
+        outlet_name, amount, off = online.quote(
+            db, slug, o.outlet_id, o.items, o.pickup_at, o.coupon_code, account.id
+        )
         if amount <= 0:
             raise OnlineError("empty_order", "Choose at least one dish")
         total += amount
@@ -104,6 +107,8 @@ def start(
                 "note": online._clean_text(o.note, 120),
                 "pickup_at": o.pickup_at.isoformat() if o.pickup_at else None,
                 "table_name": online._clean_text(o.table_name, 20),
+                "coupon_code": online._clean_text(o.coupon_code, 20).upper() if off else "",
+                "discount_paise": off,
                 "items": [[str(i.item_id), i.qty, [str(m) for m in i.mods]] for i in o.items],
             }
         )
@@ -204,6 +209,7 @@ def fulfil(db: Session, op: OnlinePayment) -> None:
                         datetime.fromisoformat(part["pickup_at"]) if part.get("pickup_at") else None
                     ),
                     table_name=part.get("table_name", ""),
+                    coupon_code=part.get("coupon_code", ""),
                 ),
             )
             part["status_key"], part["token"] = placed["status_key"], placed["token"]

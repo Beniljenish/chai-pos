@@ -5,6 +5,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -119,4 +121,79 @@ class DishPhoto(IdMixin, TenantScoped, Base):
 
     content_type: Mapped[str] = mapped_column(String(20))
     data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Coupon(IdMixin, TenantScoped, Base):
+    """An offer one outlet makes: a code that takes a percentage or a fixed amount off an online
+    order. The outlet pays for it (it is the outlet's own revenue given up); the food court's fee
+    and its statements are worked out on what the customer actually paid."""
+
+    __tablename__ = "coupons"
+    __table_args__ = (
+        UniqueConstraint("shop_id", "code", name="uq_coupons_code"),
+        CheckConstraint("kind IN ('percent', 'amount')", name="ck_coupons_kind"),
+        CheckConstraint("value > 0", name="ck_coupons_value"),
+    )
+
+    code: Mapped[str] = mapped_column(String(20))
+    kind: Mapped[str] = mapped_column(String(10))
+    # percent: 1 to 100; amount: paise
+    value: Mapped[int] = mapped_column(Integer)
+    min_order_paise: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # For a percentage: the most it may take off (null = no cap).
+    max_discount_paise: Mapped[int | None] = mapped_column(Integer)
+    valid_until: Mapped[date | None] = mapped_column(Date)  # last day it works; null = no end
+    max_uses: Mapped[int | None] = mapped_column(Integer)  # in all; null = unlimited
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CouponRedemption(IdMixin, TenantScoped, Base):
+    """One use of a coupon on one order. A cancelled order's use is not counted."""
+
+    __tablename__ = "coupon_redemptions"
+    __table_args__ = (UniqueConstraint("order_id", name="uq_coupon_redemptions_order"),)
+
+    coupon_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("coupons.id", ondelete="RESTRICT"), index=True
+    )
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("orders.id", ondelete="RESTRICT")
+    )
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customer_accounts.id", ondelete="RESTRICT"), index=True
+    )
+    discount_paise: Mapped[int] = mapped_column(Integer)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SoldOutEvent(IdMixin, TenantScoped, Base):
+    """A dish was switched "sold out" by the owner (README, "9.19"): the history behind
+    "sold out most". Dishes hidden by the stock check are not recorded: nobody switched them."""
+
+    __tablename__ = "sold_out_events"
+
+    menu_item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("menu_items.id", ondelete="RESTRICT"), index=True
+    )
+    business_date: Mapped[date] = mapped_column(Date, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UserLink(IdMixin, Base):
+    """Two owner logins, in two shops, that belong to the same person (README, "9.19"). Made only
+    by someone who proved both passwords, and stored both ways. It lets the owner see an overview
+    of every linked outlet from one login; it does not let anyone act inside another shop, and no
+    token is ever issued from it."""
+
+    __tablename__ = "user_links"
+    __table_args__ = (UniqueConstraint("user_id", "linked_user_id", name="uq_user_links_pair"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    linked_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

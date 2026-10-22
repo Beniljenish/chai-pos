@@ -98,7 +98,10 @@ def _issue(db: Session, user: User, family_id: uuid.UUID) -> TokenPair:
     )
 
 
-def login(db: Session, phone: str, password: str) -> TokenPair:
+def authenticate(db: Session, phone: str, password: str) -> User:
+    """Check a phone and password with every login rule (lockout, equal-time wrong-number check)
+    and return the person. Nothing is issued; the caller decides what the proof is for. Leaves a
+    transaction open on success (the failure counters are reset); the caller commits."""
     mark_system(db)
     user = db.scalar(select(User).where(User.phone == phone).with_for_update())
     now = datetime.now(UTC)
@@ -122,6 +125,11 @@ def login(db: Session, phone: str, password: str) -> TokenPair:
         db.rollback()
         raise AuthError("Invalid phone or password")
     user.failed_logins, user.locked_until = 0, None
+    return user
+
+
+def login(db: Session, phone: str, password: str) -> TokenPair:
+    user = authenticate(db, phone, password)
     pair = _issue(db, user, family_id=uuid.uuid4())
     db.commit()
     return pair

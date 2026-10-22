@@ -259,12 +259,16 @@ __all__ += ["FoodCourt", "FoodCourtOutlet", "OnlineOrder"]
 from app.models.customer_account import CustomerAccount  # noqa: E402
 from app.models.enhance import (  # noqa: E402
     AiUsage,  # noqa: F401
+    Coupon,  # noqa: F401
+    CouponRedemption,  # noqa: F401
     CustomerFavourite,
     DishPhoto,  # noqa: F401
     OrderFeedback,
     PhoneCode,  # noqa: F401
     PushSubscription,
     RateHit,  # noqa: F401
+    SoldOutEvent,  # noqa: F401
+    UserLink,  # noqa: F401
 )
 from app.models.onlinepay import OnlinePayment, OnlineSettlement  # noqa: E402
 from app.models.platform import PlatformAdmin  # noqa: E402

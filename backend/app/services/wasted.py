@@ -5,10 +5,10 @@ waiting for the owner, and one the owner rejected, are left out."""
 from collections import defaultdict
 from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Ingredient, MenuItem, WastageEntry, WastageStatus
+from app.models import Ingredient, MenuItem, SoldOutEvent, WastageEntry, WastageStatus
 
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 TOP = 5
@@ -39,6 +39,14 @@ def build(db: Session, end: date, days: int = 28) -> dict:
         by_item[names.get(r.ingredient_id or r.menu_item_id, "Unknown")] += r.value_paise
         by_day[r.business_date.weekday()] += r.value_paise
         by_reason[r.reason.value] += r.value_paise
+    sold_out = db.execute(
+        select(MenuItem.name, func.count())
+        .join(SoldOutEvent, SoldOutEvent.menu_item_id == MenuItem.id)
+        .where(SoldOutEvent.business_date >= start, SoldOutEvent.business_date <= end)
+        .group_by(MenuItem.name)
+        .order_by(func.count().desc(), MenuItem.name)
+        .limit(TOP)
+    ).all()
     total = sum(by_day)
     worst = max(range(7), key=lambda d: by_day[d]) if total else None
     return {
@@ -58,6 +66,7 @@ def build(db: Session, end: date, days: int = 28) -> dict:
             "paise": by_day[worst],
             "top_reason": _top_reason([r for r in rows if r.business_date.weekday() == worst]),
         },
+        "sold_out": [{"name": n, "times": int(c)} for n, c in sold_out],
         "reasons": [
             {"reason": k, "paise": v} for k, v in sorted(by_reason.items(), key=lambda kv: -kv[1])
         ],

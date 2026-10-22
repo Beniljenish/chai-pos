@@ -6,7 +6,7 @@ passes: a shop user's or the super admin's has the wrong type.
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -19,7 +19,15 @@ from app.core.security import decode_customer_token
 from app.models import CustomerAccount, OnlinePayment
 from app.schemas import _normalise_phone
 from app.services import auth as auth_service
-from app.services import customer_accounts, extras, online, onlinepay, phone_codes, webpush
+from app.services import (
+    customer_accounts,
+    extras,
+    online,
+    onlinepay,
+    phone_codes,
+    ratelimit,
+    webpush,
+)
 
 router = APIRouter(prefix="/customer", tags=["customer"])
 _bearer = HTTPBearer(auto_error=False)
@@ -84,6 +92,7 @@ class CheckoutPartIn(BaseModel):
     note: str = Field(default="", max_length=120)
     pickup_at: datetime | None = None
     table_name: str = Field(default="", max_length=20)
+    coupon_code: str = Field(default="", max_length=30)
     items: list[CheckoutItemIn] = Field(min_length=1, max_length=online.MAX_LINES)
 
 
@@ -234,6 +243,47 @@ def usual(
     return {"usual": customer_accounts.usual(c.db, c.account.id, outlet_id)}
 
 
+class CouponCheckIn(BaseModel):
+    slug: str = Field(max_length=60)
+    outlet_id: uuid.UUID
+    code: str = Field(min_length=1, max_length=30)
+    items: list[CheckoutItemIn] = Field(min_length=1, max_length=online.MAX_LINES)
+
+
+@router.post("/coupon-check")
+def coupon_check(
+    body: CouponCheckIn, response: Response, c: Customer = Depends(current_customer)
+) -> dict:
+    """What a code would take off this cart at this outlet, and what the customer would pay.
+    Nothing is used up: the code is spent when the order is placed. Limited per customer so it
+    cannot be used to guess codes."""
+    _no_store(response)
+    try:
+        ratelimit.hit(
+            c.db,
+            f"coupon:{c.account.id}",
+            limit=30,
+            window=timedelta(hours=1),
+            message="Too many tries. Please try again later.",
+        )
+    except ratelimit.RateLimited as e:
+        c.db.rollback()
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, e.message) from None
+    try:
+        name, total, off = online.quote(
+            c.db,
+            body.slug,
+            body.outlet_id,
+            [online.Pick(i.menu_item_id, i.qty, tuple(i.modifier_ids)) for i in body.items],
+            None,
+            body.code,
+            c.account.id,
+        )
+    except online.OnlineError as e:
+        raise fail(e) from None
+    return {"outlet": name, "discount_paise": off, "total_paise": total}
+
+
 @router.post("/checkout", status_code=201)
 def checkout(body: CheckoutIn, response: Response, c: Customer = Depends(current_customer)) -> dict:
     """Open an online payment for a cart (one or more outlets of one food court). Nothing is
@@ -252,6 +302,7 @@ def checkout(body: CheckoutIn, response: Response, c: Customer = Depends(current
                     note=o.note,
                     pickup_at=o.pickup_at,
                     table_name=o.table_name,
+                    coupon_code=o.coupon_code,
                     items=[
                         online.Pick(i.menu_item_id, i.qty, tuple(i.modifier_ids)) for i in o.items
                     ],
