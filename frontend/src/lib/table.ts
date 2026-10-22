@@ -44,10 +44,12 @@ export interface PricedOrder {
 }
 
 /** What the table owes right now, by the same GST rules as a counter bill. */
-export function priceOrder(state: OrderState, catalogue: Catalogue): PricedOrder {
+export function priceOrder(state: OrderState, catalogue: Catalogue, offerPaise = 0): PricedOrder {
   const lines = billLines(state, recipeFor(catalogue));
   if (lines.length === 0) return { lines, totals: null };
-  return { lines, totals: priceLines(lines, catalogue.shop.gst_type) };
+  // An offer the customer used online: the server worked out the discount; the till bills the order
+  // with exactly that, so the bill equals what the customer was told (and paid).
+  return { lines, totals: priceLines(lines, catalogue.shop.gst_type, offerPaise) };
 }
 
 /**

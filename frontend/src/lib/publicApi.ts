@@ -93,6 +93,7 @@ export interface CheckoutBody {
     note: string;
     pickup_at: string | null;
     table_name: string;
+    coupon_code: string;
     items: { menu_item_id: string; qty: number; modifier_ids: string[] }[];
   }[];
 }
@@ -218,6 +219,11 @@ export const publicApi = {
     call<{ enabled: boolean; slots: { at: string; full: boolean }[] }>(`${slugPath(slug)}/outlets/${outletId}/slots`),
   board: (slug: string) => call<Board>(`${slugPath(slug)}/board`),
   order: (key: string) => call<PublicOrder>(`/public/orders/${key}`),
+  /** What a code would take off this cart at this outlet (nothing is used up yet). */
+  couponCheck: (
+    token: string,
+    body: { slug: string; outlet_id: string; code: string; items: { menu_item_id: string; qty: number; modifier_ids: string[] }[] },
+  ) => call<{ outlet: string; discount_paise: number; total_paise: number }>('/customer/coupon-check', post(body), token),
   usual: (token: string, outletId: string) =>
     call<{ usual: Usual[] }>(`/customer/usual?outlet_id=${encodeURIComponent(outletId)}`, undefined, token),
   // ---- paying in the app: one payment for the whole cart, orders placed once it is paid
@@ -234,6 +240,7 @@ export const publicApi = {
       message_ok: boolean;
       pickup_at: string | null;
       table_name: string;
+      coupon_code: string;
       items: { menu_item_id: string; qty: number; modifier_ids: string[] }[];
     },
   ) => call<PlacedOrder>(`${slugPath(slug)}/outlets/${outletId}/orders`, post(body), token),

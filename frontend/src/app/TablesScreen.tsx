@@ -55,18 +55,29 @@ function useLiveOrders() {
  * there is an online order on screen; if the call fails the badges are simply missing, and the
  * order still works as a pay-at-the-counter, collect-now one. */
 function useOnlineExtras(orderIds: string[]) {
-  const [extra, setExtra] = useState<{ paid: Record<string, number>; pickup: Record<string, string>; table: Record<string, string> }>({
+  const [extra, setExtra] = useState<{
+    paid: Record<string, number>;
+    pickup: Record<string, string>;
+    table: Record<string, string>;
+    coupon: Record<string, { code: string; discount_paise: number }>;
+  }>({
     paid: {},
     pickup: {},
     table: {},
+    coupon: {},
   });
   const wanted = orderIds.join(',');
   useEffect(() => {
     if (wanted === '') return;
     let live = true;
     api
-      .get<{ paid: Record<string, number>; pickup?: Record<string, string>; table?: Record<string, string> }>('/orders/online-paid')
-      .then((r) => live && setExtra({ paid: r.paid, pickup: r.pickup ?? {}, table: r.table ?? {} }))
+      .get<{
+        paid: Record<string, number>;
+        pickup?: Record<string, string>;
+        table?: Record<string, string>;
+        coupon?: Record<string, { code: string; discount_paise: number }>;
+      }>('/orders/online-paid')
+      .then((r) => live && setExtra({ paid: r.paid, pickup: r.pickup ?? {}, table: r.table ?? {}, coupon: r.coupon ?? {} }))
       .catch(() => undefined);
     return () => void (live = false);
   }, [wanted]);
@@ -93,7 +104,7 @@ export function TablesScreen() {
   useLang();
   const { catalogue } = useSession();
   const { orders, reload } = useLiveOrders();
-  const { paid: paidOnline, pickup: pickupAt, table: tableOf } = useOnlineExtras(
+  const { paid: paidOnline, pickup: pickupAt, table: tableOf, coupon: couponOf } = useOnlineExtras(
     (orders ?? []).filter((o) => onlineToken(o.state)).map((o) => o.id),
   );
   const [target, setTarget] = useState<Target | null>(null);
@@ -208,6 +219,9 @@ export function TablesScreen() {
                         )}
                         {pickupAt[o.id] && <span className="flag">{tr('For {time}', { time: slotLabel(pickupAt[o.id]) })}</span>}
                         {tableOf[o.id] && <span className="flag">{tableOf[o.id]}</span>}
+                        {couponOf[o.id] && (
+                          <span className="flag">{tr('Offer {code}', { code: couponOf[o.id].code })}</span>
+                        )}
                         <span className={`flag ${ready ? '' : 'bad'}`}>{ready ? tr('Ready') : tr('New')}</span>
                       </button>
                     </li>
@@ -411,14 +425,26 @@ function OrderScreen({
   const modifiers = useMemo(() => new Map(catalogue.modifiers.map((m) => [m.id, m])), [catalogue]);
   const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
+  // An offer the customer used on an online order (README, "9.19"): fetched once for this order.
+  const [offer, setOffer] = useState<{ code: string; discount_paise: number } | null>(null);
+  const isOnline = Boolean(state && onlineToken(state));
+  useEffect(() => {
+    if (!isOnline || !orderId) return;
+    let live = true;
+    api
+      .get<{ coupon?: Record<string, { code: string; discount_paise: number }> }>('/orders/online-paid')
+      .then((r) => live && setOffer(r.coupon?.[orderId] ?? null))
+      .catch(() => undefined); // offline: the bill is made without it, and the server flags the difference
+    return () => void (live = false);
+  }, [isOnline, orderId]);
   const priced = useMemo(() => {
     if (!state) return null;
     try {
-      return priceOrder(state, catalogue);
+      return priceOrder(state, catalogue, offer?.discount_paise ?? 0);
     } catch {
       return null;
     }
-  }, [state, catalogue]);
+  }, [state, catalogue, offer]);
   // priceOrder() returns the lines still charged, in order: pair them back up by id.
   const lineTotals = useMemo(
     () => new Map(state ? activeLines(state).map((l, i) => [l.line_id, priced?.lines[i]?.totals.total ?? 0]) : []),
@@ -560,6 +586,7 @@ function OrderScreen({
         paymentMode: payment,
         cashierId: user?.id,
         shiftId: needShift ? shiftId : undefined,
+        ...(offer ? { billDiscountPaise: offer.discount_paise, discountReason: `Coupon ${offer.code}` } : {}),
       });
       await act(db, orderId, 'settle', { bill_id: bill.id }, by);
       void worker?.kick();
@@ -958,6 +985,11 @@ function OrderScreen({
             <span>To pay</span>
             <strong className="num">{formatRupees(priced.totals.total)}</strong>
           </p>
+          {offer && (
+            <p className="muted">
+              Offer {offer.code} is on this bill: {formatRupees(offer.discount_paise)} off.
+            </p>
+          )}
           {!billed && <p className="muted">The bill was not printed; the receipt printed now is the customer&apos;s bill.</p>}
           <div className="payment" role="radiogroup" aria-label="Payment">
             {PAYMENT_MODES.map(({ mode, label: l }) => (
@@ -975,7 +1007,7 @@ function OrderScreen({
             <button className="primary save" disabled={busy} onClick={() => void settle()}>
               {busy ? 'Saving…' : 'Settle and print receipt'}
             </button>
-            {priced.lines.reduce((a, l) => a + l.qty, 0) > 1 && (
+            {!offer && priced.lines.reduce((a, l) => a + l.qty, 0) > 1 && (
               <button onClick={() => setOverlay({ kind: 'split' })}>Split bill</button>
             )}
           </div>

@@ -12,6 +12,7 @@ import { dayLabel, hourBars, hourLabel, PAYMENT_LABELS } from '../lib/sales';
 import { api } from './apiClient';
 import { explainError } from './errors';
 import { Loading, LoadError } from './Status';
+import { t } from '../lib/i18n';
 
 function download(name: string, rows: (string | number)[][]) {
   const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
@@ -46,7 +47,7 @@ export function ReportsScreen() {
   return (
     <section className="reports">
       <header className="manage-head">
-        <h1>Reports</h1>
+        <h1>{t("Reports")}</h1>
       </header>
       <RangeReport />
       <GstReport />
@@ -78,8 +79,8 @@ function RangeReport() {
 
   return (
     <section aria-labelledby="range-title">
-      <h2 id="range-title">Sales over time</h2>
-      <div className="chips" role="group" aria-label="Period">
+      <h2 id="range-title">{t("Sales over time")}</h2>
+      <div className="chips" role="group" aria-label={t("Period")}>
         {quick.map((p) => (
           <button
             key={p.label}
@@ -93,15 +94,15 @@ function RangeReport() {
       </div>
       <div className="range-dates">
         <label>
-          From
+          {t("From")}
           <input type="date" value={range.from} max={today} onChange={(e) => setRange({ ...range, from: e.target.value })} />
         </label>
         <label>
-          To
+          {t("To")}
           <input type="date" value={range.to} max={today} onChange={(e) => setRange({ ...range, to: e.target.value })} />
         </label>
       </div>
-      {!valid && <p className="error">The end date is before the start date.</p>}
+      {!valid && <p className="error">{t("The end date is before the start date.")}</p>}
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {valid && !data && !error && <Loading />}
       {data && (
@@ -115,7 +116,7 @@ function RangeReport() {
           <p>
             {data.by_mode.map((m) => `${PAYMENT_LABELS[m.mode] ?? m.mode} ${formatRupees(m.total_paise)}`).join(' · ')}
           </p>
-          <h3>By day</h3>
+          <h3>{t("By day")}</h3>
           <ul className="hour-bars day-bars">
             {data.days.map((d) => (
               <li key={d.business_date}>
@@ -127,16 +128,16 @@ function RangeReport() {
               </li>
             ))}
           </ul>
-          <h3>Items</h3>
+          <h3>{t("Items")}</h3>
           <table className="sales-table">
             <thead>
               <tr>
-                <th scope="col">Item</th>
+                <th scope="col">{t("Item")}</th>
                 <th scope="col" className="num">
-                  Qty
+                  {t("Qty")}
                 </th>
                 <th scope="col" className="num">
-                  Sales
+                  {t("Sales")}
                 </th>
               </tr>
             </thead>
@@ -150,7 +151,7 @@ function RangeReport() {
               ))}
             </tbody>
           </table>
-          <h3>By hour of the day</h3>
+          <h3>{t("By hour of the day")}</h3>
           <ul className="hour-bars">
             {hourBars(data.by_hour).map((h) => (
               <li key={h.hour}>
@@ -166,22 +167,22 @@ function RangeReport() {
             <button
               onClick={() =>
                 download(`sales-by-day-${data.from}-to-${data.to}.csv`, [
-                  ['Date', 'Bills', 'Sales (Rs)'],
+                  ['Date', t("Bills"), 'Sales (Rs)'],
                   ...data.days.map((d) => [d.business_date, d.bills, csvRupees(d.total_paise)]),
                 ])
               }
             >
-              Download days (CSV)
+              {t("Download days (CSV)")}
             </button>
             <button
               onClick={() =>
                 download(`sales-by-item-${data.from}-to-${data.to}.csv`, [
-                  ['Item', 'Qty', 'Sales (Rs)'],
+                  [t("Item"), t("Qty"), 'Sales (Rs)'],
                   ...data.items.map((i) => [i.name, i.qty, csvRupees(i.total_paise)]),
                 ])
               }
             >
-              Download items (CSV)
+              {t("Download items (CSV)")}
             </button>
           </div>
         </>
@@ -196,9 +197,9 @@ function GstReport() {
   const tables = data ? gstTables(data) : null;
   return (
     <section aria-labelledby="gst-title">
-      <h2 id="gst-title">GST for a month</h2>
+      <h2 id="gst-title">{t("GST for a month")}</h2>
       <label>
-        Month
+        {t("Month")}
         <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
       </label>
       {error && <LoadError error={error} onRetry={() => void load()} />}
@@ -217,13 +218,13 @@ function GstReport() {
             {formatRupees(data.totals.sgst_paise)}
             {data.nil_rated_paise > 0 && ` · nil-rated ${formatRupees(data.nil_rated_paise)}`}
           </p>
-          <h3>B2C (small) by rate</h3>
+          <h3>{t("B2C (small) by rate")}</h3>
           <table className="sales-table">
             <thead>
               <tr>
-                <th scope="col">Rate</th>
+                <th scope="col">{t("Rate")}</th>
                 <th scope="col" className="num">
-                  Taxable
+                  {t("Taxable")}
                 </th>
                 <th scope="col" className="num">
                   CGST
@@ -244,7 +245,7 @@ function GstReport() {
               ))}
             </tbody>
           </table>
-          <h3>HSN summary</h3>
+          <h3>{t("HSN summary")}</h3>
           <table className="sales-table">
             <tbody>
               {data.hsn.map((r) => (
@@ -258,7 +259,7 @@ function GstReport() {
               ))}
             </tbody>
           </table>
-          <h3>Invoices issued</h3>
+          <h3>{t("Invoices issued")}</h3>
           <ul className="void-list doc-list">
             {data.documents.map((d) => (
               <li key={d.series} className={d.missing ? 'after-bill' : ''}>
@@ -271,9 +272,9 @@ function GstReport() {
             ))}
           </ul>
           <div className="sheet-actions">
-            <button onClick={() => download(`gstr1-b2cs-${data.month}.csv`, tables.b2cs)}>B2CS (CSV)</button>
-            <button onClick={() => download(`gstr1-hsn-${data.month}.csv`, tables.hsn)}>HSN (CSV)</button>
-            <button onClick={() => download(`gstr1-docs-${data.month}.csv`, tables.docs)}>Documents (CSV)</button>
+            <button onClick={() => download(`gstr1-b2cs-${data.month}.csv`, tables.b2cs)}>{t("B2CS (CSV)")}</button>
+            <button onClick={() => download(`gstr1-hsn-${data.month}.csv`, tables.hsn)}>{t("HSN (CSV)")}</button>
+            <button onClick={() => download(`gstr1-docs-${data.month}.csv`, tables.docs)}>{t("Documents (CSV)")}</button>
           </div>
           <p className="muted">
             HSN codes are each item&apos;s code today. Check the figures with your accountant before filing.
@@ -302,7 +303,7 @@ function StockValue() {
   const { data, error, load } = useReport<StockValueData>('/reports/stock-value');
   return (
     <section aria-labelledby="value-title">
-      <h2 id="value-title">Stock value</h2>
+      <h2 id="value-title">{t("Stock value")}</h2>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {!data && !error && <Loading />}
       {data && (
@@ -329,12 +330,12 @@ function StockValue() {
             <button
               onClick={() =>
                 download(`stock-value-${businessDate(new Date())}.csv`, [
-                  ['Item', 'On hand', 'Unit', 'Value (Rs)'],
+                  [t("Item"), 'On hand', 'Unit', 'Value (Rs)'],
                   ...data.items.map((i) => [i.name, i.on_hand, i.base_unit, csvRupees(i.value_paise)]),
                 ])
               }
             >
-              Download (CSV)
+              {t("Download (CSV)")}
             </button>
           </div>
         </>

@@ -6,6 +6,7 @@ import type { AdherenceTrend as Trend } from '../lib/types';
 import { api } from './apiClient';
 import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 const W = 120;
 const H = 32;
@@ -62,7 +63,7 @@ export function AdherenceTrend() {
   if (!trend) return <Loading />;
   return (
     <section className="trend" aria-labelledby="trend-title">
-      <h2 id="trend-title">Recipe adherence, last 30 days</h2>
+      <h2 id="trend-title">{t("Recipe adherence, last 30 days")}</h2>
       {trend.lines.length === 0 ? (
         <p className="empty">
           {trend.closed_days.length === 0
@@ -79,7 +80,7 @@ export function AdherenceTrend() {
                 ({adherenceWords(trend.overall_pct)?.toLowerCase()}).
               </>
             )}{' '}
-            100% means staff used exactly what the recipe says.
+            {t("100% means staff used exactly what the recipe says.")}
           </p>
           <ul className="trend-list">
             {trend.lines.map((l) => {
@@ -96,7 +97,7 @@ export function AdherenceTrend() {
                     {l.variance_paise < 0 && <> · missing {formatRupees(-l.variance_paise)} in total</>}
                   </p>
                   <details>
-                    <summary>By day</summary>
+                    <summary>{t("By day")}</summary>
                     <ul className="trend-days">
                       {l.points.map((p) => (
                         <li key={p.business_date}>

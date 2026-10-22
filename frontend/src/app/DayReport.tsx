@@ -8,6 +8,7 @@ import { api } from './apiClient';
 import { ExplainDay } from './ExplainDay';
 import { Loading, LoadError } from './Status';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 export function DayReport({
   day,
@@ -53,8 +54,8 @@ export function DayReport({
   if (rep.lines.length === 0)
     return (
       <section className="report">
-        <h2>Variance</h2>
-        <p className="empty">Nothing counted for this day yet.</p>
+        <h2>{t("Variance")}</h2>
+        <p className="empty">{t("Nothing counted for this day yet.")}</p>
       </section>
     );
 
@@ -62,18 +63,18 @@ export function DayReport({
   const unpriced = rep.lines.filter((l) => Number(l.variance) !== 0 && Number(l.cost_per_unit_paise) === 0);
   return (
     <section className="report" aria-labelledby="report-title">
-      <h2 id="report-title">Variance</h2>
+      <h2 id="report-title">{t("Variance")}</h2>
       <div className="report-totals">
         <div>
-          <span className="muted">Missing</span>
+          <span className="muted">{t("Missing")}</span>
           <strong className={`num ${rep.missing_paise ? 'neg' : ''}`}>{formatRupees(rep.missing_paise)}</strong>
         </div>
         <div>
-          <span className="muted">Wasted (recorded)</span>
+          <span className="muted">{t("Wasted (recorded)")}</span>
           <strong className="num">{formatRupees(rep.wastage_paise)}</strong>
         </div>
         <div>
-          <span className="muted">Outside tolerance</span>
+          <span className="muted">{t("Outside tolerance")}</span>
           <strong className="num">{rep.flagged_count}</strong>
         </div>
       </div>
@@ -107,9 +108,9 @@ export function DayReport({
                 <summary>
                   <span className="v-name">
                     <strong>{l.name}</strong>
-                    {l.flagged && <span className="flag bad">Check</span>}
-                    {l.recounted && <span className="flag wait">Recounted</span>}
-                    {!l.has_opening && <span className="flag wait">No opening count</span>}
+                    {l.flagged && <span className="flag bad">{t("Check")}</span>}
+                    {l.recounted && <span className="flag wait">{t("Recounted")}</span>}
+                    {!l.has_opening && <span className="flag wait">{t("No opening count")}</span>}
                   </span>
                   <span className={`num v-qty ${Number(l.variance) < 0 ? 'neg' : ''}`}>
                     {Number(l.variance) === 0 ? 'Exact' : formatDelta(l.variance, l.base_unit)}
@@ -124,49 +125,49 @@ export function DayReport({
                   {words && <span className="v-words muted">{words}</span>}
                 </summary>
                 <dl className="breakdown num">
-                  <dt>Opening</dt>
+                  <dt>{t("Opening")}</dt>
                   <dd>{formatQty(l.opening, l.base_unit)}</dd>
                   {Number(l.stock_in) !== 0 && (
                     <>
-                      <dt>+ Stock in</dt>
+                      <dt>{t("+ Stock in")}</dt>
                       <dd>{formatQty(l.stock_in, l.base_unit)}</dd>
                     </>
                   )}
                   {Number(l.prep_in) !== 0 && (
                     <>
-                      <dt>+ Batches made</dt>
+                      <dt>{t("+ Batches made")}</dt>
                       <dd>{formatQty(l.prep_in, l.base_unit)}</dd>
                     </>
                   )}
                   {Number(l.prep_out) !== 0 && (
                     <>
-                      <dt>− Used in batches</dt>
+                      <dt>{t("− Used in batches")}</dt>
                       <dd>{formatQty(l.prep_out, l.base_unit)}</dd>
                     </>
                   )}
                   {Number(l.sold) !== 0 && (
                     <>
-                      <dt>− Sold (by recipe)</dt>
+                      <dt>{t("− Sold (by recipe)")}</dt>
                       <dd>{formatQty(l.sold, l.base_unit)}</dd>
                     </>
                   )}
                   {Number(l.wasted) !== 0 && (
                     <>
-                      <dt>− Wasted</dt>
+                      <dt>{t("− Wasted")}</dt>
                       <dd>{formatQty(l.wasted, l.base_unit)}</dd>
                     </>
                   )}
                   {Number(l.other) !== 0 && (
                     <>
-                      <dt>± Other</dt>
+                      <dt>{t("± Other")}</dt>
                       <dd>{formatDelta(l.other, l.base_unit)}</dd>
                     </>
                   )}
-                  <dt className="strong">= Should be</dt>
+                  <dt className="strong">{t("= Should be")}</dt>
                   <dd className="strong">{formatQty(l.expected, l.base_unit)}</dd>
-                  <dt className="strong">Counted</dt>
+                  <dt className="strong">{t("Counted")}</dt>
                   <dd className="strong">{formatQty(l.counted, l.base_unit)}</dd>
-                  <dt>Tolerance</dt>
+                  <dt>{t("Tolerance")}</dt>
                   <dd>±{l.tolerance_bp / 100}% of use</dd>
                 </dl>
               </details>
@@ -177,7 +178,7 @@ export function DayReport({
 
       {rep.status === 'approved' ? (
         <p className="ok">
-          Closed{rep.approved_by_name ? ` by ${rep.approved_by_name}` : ''}. Counted stock is now the stock on hand.
+          {t("Closed")}{rep.approved_by_name ? ` by ${rep.approved_by_name}` : ''}. Counted stock is now the stock on hand.
           {rep.late_bills > 0 &&
             ` ${rep.late_bills} bill${rep.late_bills === 1 ? '' : 's'} arrived after closing and explain ${formatRupees(rep.late_bills_explained_paise)} of the missing amount.`}
         </p>
@@ -195,18 +196,18 @@ export function DayReport({
             </p>
             <div className="sheet-actions">
               <button className="primary" disabled={busy} onClick={() => void approve()}>
-                Yes, close the day
+                {t("Yes, close the day")}
               </button>
-              <button onClick={() => setConfirming(false)}>Not yet</button>
+              <button onClick={() => setConfirming(false)}>{t("Not yet")}</button>
             </div>
           </div>
         ) : (
           <button className="primary" onClick={() => setConfirming(true)}>
-            Approve and close the day
+            {t("Approve and close the day")}
           </button>
         )
       ) : (
-        <p className="muted">Waiting for recounts before the day can be closed.</p>
+        <p className="muted">{t("Waiting for recounts before the day can be closed.")}</p>
       )}
       {error && (
         <p className="error" role="alert">

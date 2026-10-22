@@ -5,6 +5,7 @@ import { formatDelta } from '../lib/qty';
 import type { HandoverReport as Report } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 const time = (iso: string) =>
   new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', timeStyle: 'short' }).format(new Date(iso));
@@ -27,7 +28,7 @@ export function HandoverReport({ day, refreshKey }: { day: string; refreshKey: n
   if (!rep || rep.periods.length === 0) return null; // no shift counts that day
   return (
     <section className="handover-report" aria-labelledby="handover-report-title">
-      <h2 id="handover-report-title">Shift handovers</h2>
+      <h2 id="handover-report-title">{t("Shift handovers")}</h2>
       <p className="muted">
         Milk and fruit are counted at each shift change, so the day&apos;s gap is split by when it opened. With two
         counters open, everyone on duty in that time is listed.

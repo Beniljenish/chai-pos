@@ -31,7 +31,12 @@ function timeIST(iso: string) {
 
 export function BillsScreen() {
   useLang();
-  const { sync } = useSession();
+  const { sync, lastCounted } = useSession();
+  // The note the last shift left: shown on Today until someone taps "Got it" (kept on this tablet).
+  const [seenNote, setSeenNote] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    void db.getMeta<string>('handoverSeen').then((v) => setSeenNote(v ?? null));
+  }, []);
   const [bills, setBills] = useState<LocalBill[]>([]);
   const [open, setOpen] = useState<LocalBill | null>(null);
   const [printer, setPrinter] = useState(false);
@@ -75,6 +80,21 @@ export function BillsScreen() {
             </button>
           </span>
         </div>
+        {lastCounted?.note && seenNote !== undefined && seenNote !== lastCounted.at && (
+          <div className="handover" role="note">
+            <strong>{t('From {name}, for this shift', { name: lastCounted.byName })}</strong>
+            <p>{lastCounted.note}</p>
+            <button
+              className="quiet"
+              onClick={() => {
+                void db.setMeta('handoverSeen', lastCounted.at);
+                setSeenNote(lastCounted.at);
+              }}
+            >
+              {t('Got it')}
+            </button>
+          </div>
+        )}
         <div className="kpis">
           <div className="kpi">
             <span className="kpi-label">{t("Sales")}</span>

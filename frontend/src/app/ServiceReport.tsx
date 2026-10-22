@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
 import { api } from './apiClient';
+import { t } from '../lib/i18n';
 
 interface ServiceReportData {
   orders: { dine_in: number; takeaway: number; delivery: number };
@@ -36,8 +37,8 @@ export function ServiceReport({ day }: { day: string }) {
   if (total === 0) return null;
 
   return (
-    <section className="service-report" aria-label="Table service">
-      <h2>Table service</h2>
+    <section className="service-report" aria-label={t("Table service")}>
+      <h2>{t("Table service")}</h2>
       <p className="muted">
         {r.orders.dine_in} table order{r.orders.dine_in === 1 ? '' : 's'} · {r.orders.takeaway} takeaway · {r.orders.delivery} delivery
       </p>

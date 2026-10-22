@@ -284,6 +284,41 @@ export function rupeesToPaise(text: string): number | null {
   return paise > 0 ? paise : null;
 }
 
+/** Why a code was refused, in the customer's language (the server's own words are English). */
+export function couponProblem(code: string | undefined, message: string | undefined): string {
+  switch (code) {
+    case 'coupon_unknown':
+      return t('That code is not valid.');
+    case 'coupon_off':
+      return t('This offer has ended.');
+    case 'coupon_expired':
+      return t('This offer has expired.');
+    case 'coupon_used_up':
+      return t('This offer has been used up.');
+    case 'coupon_already_used':
+      return t('You have already used this code.');
+    case 'coupon_min':
+      return t('Your order is too small for this code.');
+    default:
+      return message || t('Could not check the code. Please try again.');
+  }
+}
+
+/** What the customer pays across the cart's outlets once any applied offers are taken off. */
+export function totalAfterOffers(
+  menus: Record<string, { items: PublicItem[]; gst_type: GstType }>,
+  carts: Carts,
+  applied: Record<string, { total: number } | undefined>,
+): number {
+  let sum = 0;
+  for (const id of Object.keys(carts)) {
+    const menu = menus[id];
+    if (!menu) continue;
+    sum += applied[id]?.total ?? cartTotal(menu.items, carts[id], menu.gst_type);
+  }
+  return sum;
+}
+
 /** Whether an outlet has paused new orders because it is busy, at `now` (ms). */
 export const isPaused = (menu: { paused_until?: string | null } | null, now = Date.now()): boolean =>
   Boolean(menu?.paused_until && Date.parse(menu.paused_until) > now);

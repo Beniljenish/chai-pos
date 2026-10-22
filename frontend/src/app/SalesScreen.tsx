@@ -34,6 +34,7 @@ import { WeekCompare } from './WeekCompare';
 import { CashDrawer } from './CashDrawer';
 import { explainError } from './errors';
 import { useSession } from './session';
+import { t } from '../lib/i18n';
 
 const time = (iso: string) =>
   new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', timeStyle: 'short' }).format(new Date(iso));
@@ -77,13 +78,13 @@ export function SalesScreen() {
   return (
     <section className="sales">
       <header className="manage-head">
-        <h1>Sales</h1>
-        <div className="day-nav" role="group" aria-label="Which day">
-          <button aria-label="Previous day" onClick={() => setDay((d) => shiftDay(d, -1))}>
+        <h1>{t("Sales")}</h1>
+        <div className="day-nav" role="group" aria-label={t("Which day")}>
+          <button aria-label={t("Previous day")} onClick={() => setDay((d) => shiftDay(d, -1))}>
             ‹
           </button>
           <span className="day-now">{dayLabel(day, today)}</span>
-          <button aria-label="Next day" disabled={day >= today} onClick={() => setDay((d) => shiftDay(d, 1))}>
+          <button aria-label={t("Next day")} disabled={day >= today} onClick={() => setDay((d) => shiftDay(d, 1))}>
             ›
           </button>
         </div>
@@ -131,13 +132,13 @@ export function SalesScreen() {
                   </li>
                 ))}
               </ul>
-              <p className="muted">They count at the printed amount (that is what the customer paid).</p>
+              <p className="muted">{t("They count at the printed amount (that is what the customer paid).")}</p>
             </div>
           )}
 
           {((report.discounts ?? []).length > 0 || Boolean(report.credit_given_paise) || Boolean(report.repaid_paise)) && (
-            <section aria-label="Discounts and credit">
-              <h2>Discounts and credit</h2>
+            <section aria-label={t("Discounts and credit")}>
+              <h2>{t("Discounts and credit")}</h2>
               {(report.discounts ?? []).length > 0 && (
                 <>
                   <p>
@@ -165,7 +166,7 @@ export function SalesScreen() {
           )}
           {(report.flagged ?? []).some((f) => f.flags.some((x) => x !== 'discount_over_limit')) && (
             <div className="panel-inline warn-box" role="note">
-              <strong>Bills to look at</strong>
+              <strong>{t("Bills to look at")}</strong>
               <ul>
                 {(report.flagged ?? []).map((f) => (
                   <li key={f.bill_id} className="num">
@@ -176,14 +177,14 @@ export function SalesScreen() {
             </div>
           )}
           {(report.online_payments ?? []).length > 0 && (
-            <section aria-label="Online payments">
-              <h2>Online payments (Razorpay)</h2>
+            <section aria-label={t("Online payments")}>
+              <h2>{t("Online payments (Razorpay)")}</h2>
               <ul className="void-list online-list">
                 {(report.online_payments ?? []).map((p) => (
                   <li key={p.bill_id} className={p.problem ? 'after-bill' : ''}>
-                    <span className="num">{p.invoice_no}</span> · {p.method === 'upi' ? 'UPI' : 'Card'} ·{' '}
+                    <span className="num">{p.invoice_no}</span> · {p.method === 'upi' ? t("UPI") : t("Card")} ·{' '}
                     <span className="num">{formatRupees(p.paid_paise ?? p.amount_paise)}</span> ·{' '}
-                    <strong>{p.status === 'paid' ? 'Paid' : p.status === 'failed' ? 'Failed' : 'Started'}</strong>
+                    <strong>{p.status === 'paid' ? t("Paid") : p.status === 'failed' ? 'Failed' : 'Started'}</strong>
                     {p.problem && (
                       <>
                         <br />
@@ -214,16 +215,16 @@ export function SalesScreen() {
 
           {report.items.length > 0 && (
             <>
-              <h2>Items</h2>
+              <h2>{t("Items")}</h2>
               <table className="sales-table">
                 <thead>
                   <tr>
-                    <th scope="col">Item</th>
+                    <th scope="col">{t("Item")}</th>
                     <th scope="col" className="num">
-                      Qty
+                      {t("Qty")}
                     </th>
                     <th scope="col" className="num">
-                      Sales
+                      {t("Sales")}
                     </th>
                   </tr>
                 </thead>
@@ -242,7 +243,7 @@ export function SalesScreen() {
 
           {report.by_hour.length > 0 && (
             <>
-              <h2>By hour</h2>
+              <h2>{t("By hour")}</h2>
               <ul className="hour-bars">
                 {hourBars(report.by_hour).map((h) => (
                   <li key={h.hour}>
@@ -259,7 +260,7 @@ export function SalesScreen() {
 
           {report.by_cashier.length > 1 && (
             <>
-              <h2>By staff</h2>
+              <h2>{t("By staff")}</h2>
               <ul className="mode-split">
                 {report.by_cashier.map((c) => (
                   <li key={c.name}>
@@ -274,13 +275,13 @@ export function SalesScreen() {
 
           {regular && report.gst_by_rate.length > 0 && (
             <>
-              <h2>GST collected</h2>
+              <h2>{t("GST collected")}</h2>
               <table className="sales-table">
                 <thead>
                   <tr>
-                    <th scope="col">Rate</th>
+                    <th scope="col">{t("Rate")}</th>
                     <th scope="col" className="num">
-                      Taxable
+                      {t("Taxable")}
                     </th>
                     <th scope="col" className="num">
                       CGST
@@ -308,7 +309,7 @@ export function SalesScreen() {
 
           {report.voids.length > 0 && (
             <>
-              <h2>Voided</h2>
+              <h2>{t("Voided")}</h2>
               <ul className="void-list">
                 {report.voids.map((v) => (
                   <li key={v.bill_id}>
@@ -325,11 +326,11 @@ export function SalesScreen() {
             </>
           )}
 
-          <h2>Bills</h2>
+          <h2>{t("Bills")}</h2>
           {closed && (
-            <p className="muted">This day is closed (count approved), so its bills can no longer be voided.</p>
+            <p className="muted">{t("This day is closed (count approved), so its bills can no longer be voided.")}</p>
           )}
-          {bills && bills.length === 0 && <p className="muted">No bills on this day.</p>}
+          {bills && bills.length === 0 && <p className="muted">{t("No bills on this day.")}</p>}
           <ul className="bill-list">
             {(bills ?? [])
               .slice()
@@ -341,7 +342,7 @@ export function SalesScreen() {
                     <span className="muted">{time(b.sold_at)}</span>
                     <span className={`num right ${b.status === 'void' ? 'struck' : ''}`}>{formatRupees(b.total_paise)}</span>
                     <span className={`status ${b.status === 'void' ? 'voided' : 'synced'}`}>
-                      {b.status === 'void' ? 'Voided' : PAYMENT_LABELS[b.payment_mode]}
+                      {b.status === 'void' ? t("Voided") : PAYMENT_LABELS[b.payment_mode]}
                     </span>
                   </button>
                 </li>
@@ -415,7 +416,7 @@ function BillSheet({
 
       {v && (
         <p className="void-stamp" role="status">
-          <strong>Voided</strong> by {v.voided_by_name} at {time(v.voided_at)}: {voidReasonLabel(v.reason)}
+          <strong>{t("Voided")}</strong> by {v.voided_by_name} at {time(v.voided_at)}: {voidReasonLabel(v.reason)}
           {v.note && ` (${v.note})`}.{' '}
           {v.stock_returned ? 'Stock was put back.' : 'The drink was made, so stock was not put back.'}
         </p>
@@ -438,7 +439,7 @@ function BillSheet({
             </tr>
           ))}
           <tr className="total-row">
-            <th scope="row">Total</th>
+            <th scope="row">{t("Total")}</th>
             <td className="num">{formatRupees(bill.total_paise)}</td>
           </tr>
         </tbody>
@@ -448,14 +449,14 @@ function BillSheet({
 
       {!v && canVoid && !voiding && (
         <button className="danger" onClick={() => setVoiding(true)}>
-          Void this bill
+          {t("Void this bill")}
         </button>
       )}
 
       {!v && voiding && (
         <fieldset className="void-form">
-          <legend>Why is it being voided?</legend>
-          <div role="radiogroup" aria-label="Reason">
+          <legend>{t("Why is it being voided?")}</legend>
+          <div role="radiogroup" aria-label={t("Reason")}>
             {VOID_REASONS.map((r) => (
               <label key={r.id} className="check">
                 <input type="radio" name="void-reason" checked={reason === r.id} onChange={() => setReason(r.id)} />
@@ -464,12 +465,12 @@ function BillSheet({
             ))}
           </div>
           <label>
-            Note {reason === 'other' ? '' : '(optional)'}
+            {t("Note")} {reason === 'other' ? '' : '(optional)'}
             <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
           </label>
           <label className="check">
             <input type="checkbox" checked={made} onChange={(e) => setMade(e.target.checked)} />
-            The drink was already made (do not put the stock back)
+            {t("The drink was already made (do not put the stock back)")}
           </label>
           <p className="muted">
             The bill stays on record with its number, marked voided, and drops out of the day&apos;s sales. This
@@ -477,9 +478,9 @@ function BillSheet({
           </p>
           <div className="sheet-actions">
             <button className="danger" disabled={busy} onClick={() => void confirm()}>
-              Void {formatRupees(bill.total_paise)}
+              {t("Void")} {formatRupees(bill.total_paise)}
             </button>
-            <button onClick={() => setVoiding(false)}>Keep the bill</button>
+            <button onClick={() => setVoiding(false)}>{t("Keep the bill")}</button>
           </div>
         </fieldset>
       )}

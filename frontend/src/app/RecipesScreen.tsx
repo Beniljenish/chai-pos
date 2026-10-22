@@ -10,6 +10,7 @@ import { MenuItemEditor } from './MenuPrices';
 import { OptionsPanel } from './OptionsPanel';
 import { RecipeEditor, type RecipeTarget } from './RecipeEditor';
 import { useSession } from './session';
+import { t } from '../lib/i18n';
 
 type MenuRow = Catalogue['menu_items'][number];
 
@@ -53,14 +54,13 @@ export function RecipesScreen() {
   return (
     <section className="recipes">
       <header className="manage-head">
-        <h1>Recipes</h1>
+        <h1>{t("Recipes")}</h1>
         <button className="primary" onClick={() => setAdding(true)}>
-          + New drink
+          {t("+ New drink")}
         </button>
       </header>
       <p className="muted">
-        The SOP for every drink: what one serving takes out of stock. Changing a recipe makes a new version; old bills
-        keep theirs.
+        {t("The SOP for every drink: what one serving takes out of stock. Changing a recipe makes a new version; old bills keep theirs.")}
       </p>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {menu === null ? (
@@ -97,7 +97,7 @@ export function RecipesScreen() {
 
           {preps.length > 0 && (
             <>
-              <h2>Made here (batches)</h2>
+              <h2>{t("Made here (batches)")}</h2>
               <ul className="sop-list">
                 {preps.map((p) => {
                   const r = prepRecipes[p.id] ?? null;

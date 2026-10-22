@@ -4,6 +4,7 @@ import { formatQty, type BaseUnit } from '../lib/qty';
 import type { Ingredient } from '../lib/types';
 import { api } from './apiClient';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 const UNIT_LABEL: Record<BaseUnit, string> = { ml: 'ml (liquids)', g: 'g (solids)', piece: 'pieces (cups, lids…)' };
 
@@ -62,7 +63,7 @@ export function IngredientsPanel({ ingredients, onChanged }: { ingredients: Ingr
 
   return (
     <section aria-labelledby="ing-title">
-      <h2 id="ing-title">Ingredients</h2>
+      <h2 id="ing-title">{t("Ingredients")}</h2>
       <ul className="ing-list">
         {ingredients
           .filter((i) => i.is_active)
@@ -71,7 +72,7 @@ export function IngredientsPanel({ ingredients, onChanged }: { ingredients: Ingr
               <div className="ing-head">
                 <strong>{i.name}</strong>
                 <span className="muted">
-                  {i.kind === 'prep' ? 'made here' : 'bought'} · {i.base_unit === 'piece' ? 'pieces' : i.base_unit}
+                  {i.kind === 'prep' ? t("made here") : 'bought'} · {i.base_unit === 'piece' ? 'pieces' : i.base_unit}
                 </span>
               </div>
               <p className="muted ing-packs">
@@ -94,7 +95,7 @@ export function IngredientsPanel({ ingredients, onChanged }: { ingredients: Ingr
                 (packFor === i.id ? (
                   <div className="pack-form">
                     <label>
-                      Pack name
+                      {t("Pack name")}
                       <input value={packName} maxLength={30} placeholder="crate" onChange={(e) => setPackName(e.target.value)} />
                     </label>
                     <label>
@@ -112,15 +113,15 @@ export function IngredientsPanel({ ingredients, onChanged }: { ingredients: Ingr
                         disabled={busy || !packName.trim() || !(Number(packSize) > 0)}
                         onClick={() => void addPack(i.id)}
                       >
-                        Add pack size
+                        {t("Add pack size")}
                       </button>
-                      <button onClick={() => setPackFor(null)}>Cancel</button>
+                      <button onClick={() => setPackFor(null)}>{t("Cancel")}</button>
                     </div>
-                    <p className="muted">Pack sizes cannot be edited later (past deliveries were counted with them).</p>
+                    <p className="muted">{t("Pack sizes cannot be edited later (past deliveries were counted with them).")}</p>
                   </div>
                 ) : (
                   <button className="quiet" onClick={() => setPackFor(i.id)}>
-                    + Pack size
+                    {t("+ Pack size")}
                   </button>
                 ))}
             </li>
@@ -130,11 +131,11 @@ export function IngredientsPanel({ ingredients, onChanged }: { ingredients: Ingr
       {adding ? (
         <div className="panel-inline">
           <label>
-            Name
+            {t("Name")}
             <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Ginger" />
           </label>
           <label>
-            Measured in
+            {t("Measured in")}
             <select value={unit} onChange={(e) => setUnit(e.target.value as BaseUnit)}>
               {(Object.keys(UNIT_LABEL) as BaseUnit[]).map((u) => (
                 <option key={u} value={u}>
@@ -144,22 +145,22 @@ export function IngredientsPanel({ ingredients, onChanged }: { ingredients: Ingr
             </select>
           </label>
           <label>
-            Where it comes from
+            {t("Where it comes from")}
             <select value={kind} onChange={(e) => setKind(e.target.value as 'raw' | 'prep')}>
-              <option value="raw">Bought</option>
-              <option value="prep">Made here in batches (like decoction)</option>
+              <option value="raw">{t("Bought")}</option>
+              <option value="prep">{t("Made here in batches (like decoction)")}</option>
             </select>
           </label>
-          <p className="muted">The unit cannot be changed later: every stock number is kept in it.</p>
+          <p className="muted">{t("The unit cannot be changed later: every stock number is kept in it.")}</p>
           <div className="sheet-actions">
             <button className="primary" disabled={busy || !name.trim()} onClick={() => void addIngredient()}>
-              Add ingredient
+              {t("Add ingredient")}
             </button>
-            <button onClick={() => setAdding(false)}>Cancel</button>
+            <button onClick={() => setAdding(false)}>{t("Cancel")}</button>
           </div>
         </div>
       ) : (
-        <button onClick={() => setAdding(true)}>+ New ingredient</button>
+        <button onClick={() => setAdding(true)}>{t("+ New ingredient")}</button>
       )}
       {error && (
         <p className="error" role="alert">

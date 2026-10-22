@@ -9,6 +9,7 @@ import type { Ingredient, Recipe } from '../lib/types';
 import { api } from './apiClient';
 import { Sheet } from './Sheet';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 export type RecipeTarget =
   | { kind: 'menu'; id: string; name: string }
@@ -116,7 +117,7 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
     >
 
       {versions === null ? (
-        <p className="muted">Loading…</p>
+        <p className="muted">{t("Loading…")}</p>
       ) : (
         <>
           <p className="muted">
@@ -129,14 +130,14 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
               return (
                 <li key={l.key}>
                   <label className="sr-only" htmlFor={`ing-${l.key}`}>
-                    Ingredient {i + 1}
+                    {t("Ingredient")} {i + 1}
                   </label>
                   <select
                     id={`ing-${l.key}`}
                     value={l.ingredient_id}
                     onChange={(e) => setLine(l.key, { ingredient_id: e.target.value })}
                   >
-                    <option value="">Choose…</option>
+                    <option value="">{t("Choose…")}</option>
                     {choices.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -164,15 +165,15 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
           <button
             onClick={() => edit(() => setLines((ls) => [...ls, { key: newKey(), ingredient_id: '', qty: '' }]))}
           >
-            + Add ingredient
+            {t("+ Add ingredient")}
           </button>
 
           {target.kind === 'menu' &&
             (juice ? (
               <fieldset className="juice">
-                <legend>Fresh juice: fruit worked out from the yield</legend>
+                <legend>{t("Fresh juice: fruit worked out from the yield")}</legend>
                 <label>
-                  Fruit
+                  {t("Fruit")}
                   <select
                     value={juice.ingredient_id}
                     onChange={(e) => edit(() => setJuice({ ...juice, ingredient_id: e.target.value }))}
@@ -186,7 +187,7 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
                 </label>
                 <div className="juice-row">
                   <label>
-                    Juice from 1 kg (ml)
+                    {t("Juice from 1 kg (ml)")}
                     <input
                       inputMode="decimal"
                       value={juice.ml_per_kg}
@@ -196,7 +197,7 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
                     />
                   </label>
                   <label>
-                    Glass (ml)
+                    {t("Glass (ml)")}
                     <input
                       inputMode="decimal"
                       value={juice.portion_ml}
@@ -211,7 +212,7 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
                   {byId[juice.ingredient_id]?.name ?? 'fruit'} per glass
                 </p>
                 <button className="quiet" onClick={() => edit(() => setJuice(null))}>
-                  Stop using juice yield
+                  {t("Stop using juice yield")}
                 </button>
               </fieldset>
             ) : (
@@ -241,13 +242,13 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
           {dirty && (
             <div className="sheet-actions">
               <button className="primary" disabled={busy} onClick={save}>
-                Save as version {(current?.version ?? 0) + 1}
+                {t("Save as version")} {(current?.version ?? 0) + 1}
               </button>
-              <button onClick={() => void load()}>Undo changes</button>
+              <button onClick={() => void load()}>{t("Undo changes")}</button>
             </div>
           )}
           {dirty && (
-            <p className="muted">Bills already sold keep the recipe they were sold with. Only new sales use this.</p>
+            <p className="muted">{t("Bills already sold keep the recipe they were sold with. Only new sales use this.")}</p>
           )}
           {error && (
             <p className="error" role="alert">
@@ -261,7 +262,7 @@ export function RecipeEditor({ target, ingredients, onClose, onSaved }: Props) {
               <ol>
                 {versions.map((v) => (
                   <li key={v.id}>
-                    <strong>Version {v.version}</strong>{' '}
+                    <strong>{t("Version")} {v.version}</strong>{' '}
                     <span className="muted">
                       {when(v.effective_from)}
                       {v.created_by_name ? ` by ${v.created_by_name}` : ''}

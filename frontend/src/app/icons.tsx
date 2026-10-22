@@ -35,6 +35,8 @@ export const ICON = {
   ask: 'M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z',
   buy: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4',
   helpers: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z',
+  offers: 'M3 12V4h8l10 10-8 8zM7.5 7.5h.01M14 10l-4 4',
+  outlets: 'M3 21V9l5-3 5 3v12M13 21V12l5-2 3 2v9M6 13h2M6 17h2M16 15h2M16 18h2',
 } as const;
 
 export type IconName = keyof typeof ICON;

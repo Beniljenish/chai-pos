@@ -113,6 +113,7 @@ interface Wasted {
   entries: number;
   items: { name: string; paise: number }[];
   worst_day: { weekday: string; paise: number; top_reason: string } | null;
+  sold_out?: { name: string; times: number }[];
 }
 
 function WastedCard() {
@@ -149,6 +150,20 @@ function WastedCard() {
               </span>
             </p>
           )}
+        </>
+      )}
+      {w && (w.sold_out ?? []).length > 0 && (
+        <>
+          <h3>{t('Sold out most')}</h3>
+          <ul className="sop-list">
+            {w.sold_out!.map((i) => (
+              <li key={i.name}>
+                <span>{i.name}</span>
+                <strong className="num">{t('{n} times', { n: i.times })}</strong>
+              </li>
+            ))}
+          </ul>
+          <p className="muted">{t('Counted when you switched a dish to “sold out” yourself, in the last 4 weeks.')}</p>
         </>
       )}
       <p className="muted">{t('Only losses you wrote down and that count (not ones still waiting for you, or rejected).')}</p>

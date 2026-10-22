@@ -10,6 +10,8 @@ import { AlertsScreen } from "./AlertsScreen";
 import { AskScreen } from "./AskScreen";
 import { BuyScreen } from "./BuyScreen";
 import { HelpersScreen } from "./HelpersScreen";
+import { OffersScreen } from "./OffersScreen";
+import { OutletsScreen } from "./OutletsScreen";
 import { WatchScreen } from "./WatchScreen";
 import { t, useLang } from "../lib/i18n";
 import { KhataScreen } from "./CustomersUI";
@@ -43,7 +45,9 @@ type Section =
   | "watch"
   | "ask"
   | "buy"
-  | "helpers";
+  | "helpers"
+  | "offers"
+  | "outlets";
 // Grouped by what the owner is doing: checking money, looking after stock, or
 // setting the shop up. Twelve sections in one sideways-scrolling row hid most
 // of them on a phone.
@@ -63,6 +67,7 @@ const GROUPS: {
         { id: "watch", label: "Watch" },
         { id: "ask", label: "Ask" },
         { id: "helpers", label: "Helpers" },
+        { id: "outlets", label: "Outlets" },
       ],
     },
     {
@@ -83,6 +88,7 @@ const GROUPS: {
         { id: "staff", label: "Staff" },
         { id: "floor", label: "Floor" },
         { id: "foodcourt", label: "Food court" },
+        { id: "offers", label: "Offers" },
         { id: "tablets", label: "Tablets" },
         { id: "messages", label: "Messages" },
       ],
@@ -215,5 +221,9 @@ function SectionBody({ section, go }: { section: Section; go: (s: Section) => vo
       return <BuyScreen />;
     case "helpers":
       return <HelpersScreen />;
+    case "offers":
+      return <OffersScreen />;
+    case "outlets":
+      return <OutletsScreen />;
   }
 }

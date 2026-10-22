@@ -104,8 +104,8 @@ export function MenuPrices() {
               )}
               <span className="sop-name">
                 <strong>{m.name}</strong> <span className="muted">· {m.category}</span>
-                {!m.is_active && <span className="flag wait"> Off the menu</span>}
-                {m.is_sold_out && <span className="flag bad"> Sold out</span>}
+                {!m.is_active && <span className="flag wait"> {t("Off the menu")}</span>}
+                {m.is_sold_out && <span className="flag bad"> {t("Sold out")}</span>}
               </span>
               <span className="sop-lines num">
                 {formatRupees(m.price_paise)} · GST {formatRate(m.gst_rate_bp)}{' '}
@@ -118,12 +118,12 @@ export function MenuPrices() {
               aria-label={`${m.name}: sold out today`}
               onClick={() => void toggleSoldOut(m)}
             >
-              {m.is_sold_out ? 'Back on' : 'Sold out'}
+              {m.is_sold_out ? 'Back on' : t("Sold out")}
             </button>
           </li>
         ))}
       </ul>
-      <button onClick={() => setEditing('new')}>+ New menu item</button>
+      <button onClick={() => setEditing('new')}>{t("+ New menu item")}</button>
       {editing && (
         <MenuItemEditor
           item={editing === 'new' ? null : editing}
@@ -257,11 +257,11 @@ export function MenuItemEditor({
   return (
     <Sheet title={item ? item.name : 'New menu item'} onClose={onClose}>
       <label>
-        Name
+        {t("Name")}
         <input value={d.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
       </label>
       <label>
-        Category (menu tab)
+        {t("Category (menu tab)")}
         <input value={d.category} maxLength={40} list="menu-categories" onChange={(e) => set({ category: e.target.value })} />
         <datalist id="menu-categories">
           {categories.map((c) => (
@@ -270,11 +270,11 @@ export function MenuItemEditor({
         </datalist>
       </label>
       <label>
-        Price (₹)
+        {t("Price (₹)")}
         <input inputMode="decimal" value={d.price} onChange={(e) => set({ price: e.target.value.replace(/[^0-9.]/g, '') })} />
       </label>
       <label>
-        GST rate
+        {t("GST rate")}
         <select value={d.gst_rate_bp} onChange={(e) => set({ gst_rate_bp: Number(e.target.value) })}>
           {RATES.map((r) => (
             <option key={r.bp} value={r.bp}>
@@ -285,12 +285,12 @@ export function MenuItemEditor({
       </label>
       <label className="check">
         <input type="checkbox" checked={d.tax_inclusive} onChange={(e) => set({ tax_inclusive: e.target.checked })} />
-        Price includes GST (customer pays exactly the menu price)
+        {t("Price includes GST (customer pays exactly the menu price)")}
       </label>
       <fieldset>
-        <legend>What online customers see</legend>
+        <legend>{t("What online customers see")}</legend>
         <label>
-          Short description
+          {t("Short description")}
           <input
             value={d.description}
             maxLength={200}
@@ -319,8 +319,8 @@ export function MenuItemEditor({
           {tamilNote && <p className={tamilNote.ok ? 'muted' : 'error'}>{tamilNote.text}</p>}
           <small className="muted">{t('Customers who choose Tamil see these. Check the words before you save.')}</small>
         </div>
-        <div className="pic-picker" role="group" aria-label="Picture">
-          <span className="pic-title">Picture</span>
+        <div className="pic-picker" role="group" aria-label={t("Picture")}>
+          <span className="pic-title">{t("Picture")}</span>
           <ul>
             {DISH_PICTURES.map((p) => (
               <li key={p.id}>
@@ -341,7 +341,7 @@ export function MenuItemEditor({
             <div className="pic-current">
               <img src={photoSrc(d.photo_url, __API_URL__)} alt="This dish's picture" width={56} height={56} />
               <button type="button" className="quiet" onClick={() => set({ photo_url: '' })}>
-                Remove picture
+                {t("Remove picture")}
               </button>
             </div>
           )}
@@ -373,21 +373,21 @@ export function MenuItemEditor({
             onChange={(e) => set({ photo_url: e.target.value })}
           />
         </label>
-        {!photoOk && <p className="error">The link must start with https://</p>}
+        {!photoOk && <p className="error">{t("The link must start with https://")}</p>}
         <label className="check">
           <input type="checkbox" checked={d.is_veg} onChange={(e) => set({ is_veg: e.target.checked })} />
-          Vegetarian (shows the green mark; unticked shows the red non-veg mark)
+          {t("Vegetarian (shows the green mark; unticked shows the red non-veg mark)")}
         </label>
       </fieldset>
       {item && (
         <label className="check">
           <input type="checkbox" checked={d.is_active} onChange={(e) => set({ is_active: e.target.checked })} />
-          On the menu
+          {t("On the menu")}
         </label>
       )}
       {mods && mods.length > 0 && (
         <fieldset>
-          <legend>Options on the bill</legend>
+          <legend>{t("Options on the bill")}</legend>
           <div className="opt-drinks">
             {mods.map((m) => (
               <label key={m.id} className="check">
@@ -410,17 +410,16 @@ export function MenuItemEditor({
         </fieldset>
       )}
       <p className="muted">
-        GST only matters for a regular-GST shop. Changes reach each tablet when it next refreshes the menu; bills already
-        printed keep their prices.
+        {t("GST only matters for a regular-GST shop. Changes reach each tablet when it next refreshes the menu; bills already printed keep their prices.")}
       </p>
       {!item && !recipeNext && (
-        <p className="muted">After adding it, give it a recipe under Recipes, or its sales will not reduce stock.</p>
+        <p className="muted">{t("After adding it, give it a recipe under Recipes, or its sales will not reduce stock.")}</p>
       )}
       <div className="sheet-actions">
         <button className="primary" disabled={!valid || busy} onClick={() => void save()}>
-          {item ? 'Save' : recipeNext ? 'Next: the recipe' : 'Add to menu'}
+          {item ? t("Save") : recipeNext ? 'Next: the recipe' : 'Add to menu'}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
       {error && (
         <p className="error" role="alert">

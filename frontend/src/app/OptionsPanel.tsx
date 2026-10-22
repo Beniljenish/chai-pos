@@ -20,6 +20,7 @@ import type { Catalogue, Ingredient, Modifier } from '../lib/types';
 import { api } from './apiClient';
 import { Sheet } from './Sheet';
 import { explainError } from './errors';
+import { t } from '../lib/i18n';
 
 type MenuRow = Catalogue['menu_items'][number];
 
@@ -57,8 +58,8 @@ export function OptionsPanel({
 
   return (
     <section aria-labelledby="options-title">
-      <h2 id="options-title">Options on the bill</h2>
-      <p className="muted">Large, Less sugar, Extra ginger… The cashier taps them on a bill line.</p>
+      <h2 id="options-title">{t("Options on the bill")}</h2>
+      <p className="muted">{t("Large, Less sugar, Extra ginger… The cashier taps them on a bill line.")}</p>
       {error && <p className="error">{error}</p>}
       <ul className="opt-list">
         {(mods ?? []).map((m) => {
@@ -68,7 +69,7 @@ export function OptionsPanel({
               <button onClick={() => setEditing(m)}>
                 <span className="sop-name">
                   <strong>{m.name}</strong>
-                  {!m.is_active && <span className="flag wait"> Switched off</span>}
+                  {!m.is_active && <span className="flag wait"> {t("Switched off")}</span>}
                 </span>
                 <span className="sop-lines">{describeOption(m, byId)}</span>
                 <span className={on.length ? 'sop-lines muted' : 'sop-lines warn-text'}>
@@ -79,7 +80,7 @@ export function OptionsPanel({
           );
         })}
       </ul>
-      <button onClick={() => setEditing('new')}>+ New option</button>
+      <button onClick={() => setEditing('new')}>{t("+ New option")}</button>
       {editing && (
         <OptionEditor
           option={editing === 'new' ? null : editing}
@@ -165,16 +166,16 @@ function OptionEditor({
     <Sheet title={option ? option.name : 'New option'} onClose={onClose}>
 
       <label>
-        Name on the bill
-        <input value={d.name} maxLength={40} placeholder="Large" onChange={(e) => set({ name: e.target.value })} />
+        {t("Name on the bill")}
+        <input value={d.name} maxLength={40} placeholder={t("Large")} onChange={(e) => set({ name: e.target.value })} />
       </label>
 
       <fieldset className="opt-row">
-        <legend>Price</legend>
+        <legend>{t("Price")}</legend>
         {dirSelect(d.priceDir, (v) => set({ priceDir: v }), 'Price goes up or down', ['Adds', 'Takes off'])}
         <span aria-hidden="true">₹</span>
         <input
-          aria-label="Price change in rupees"
+          aria-label={t("Price change in rupees")}
           inputMode="decimal"
           placeholder="0"
           value={d.price}
@@ -183,7 +184,7 @@ function OptionEditor({
       </fieldset>
 
       <label>
-        Size (how much of the recipe)
+        {t("Size (how much of the recipe)")}
         <input
           inputMode="decimal"
           value={d.scale}
@@ -196,8 +197,8 @@ function OptionEditor({
       </label>
 
       <fieldset>
-        <legend>Ingredient changes per drink</legend>
-        {d.lines.length === 0 && <p className="muted hint">None. Less sugar takes sugar off here.</p>}
+        <legend>{t("Ingredient changes per drink")}</legend>
+        {d.lines.length === 0 && <p className="muted hint">{t("None. Less sugar takes sugar off here.")}</p>}
         <ul className="recipe-lines opt-lines">
           {d.lines.map((l, i) => {
             const ing = byId[l.ingredient_id];
@@ -208,7 +209,7 @@ function OptionEditor({
                   value={l.ingredient_id}
                   onChange={(e) => setLine(l.key, { ingredient_id: e.target.value })}
                 >
-                  <option value="">Choose…</option>
+                  <option value="">{t("Choose…")}</option>
                   {choices.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -237,12 +238,12 @@ function OptionEditor({
         <button
           onClick={() => set({ lines: [...d.lines, { key: newKey(), ingredient_id: '', dir: 'less', qty: '' }] })}
         >
-          + Add ingredient change
+          {t("+ Add ingredient change")}
         </button>
       </fieldset>
 
       <fieldset>
-        <legend>Offered on</legend>
+        <legend>{t("Offered on")}</legend>
         <div className="opt-drinks">
           {menu.map((m) => (
             <label key={m.id} className="check">
@@ -293,15 +294,15 @@ function OptionEditor({
       {option && (
         <label className="check">
           <input type="checkbox" checked={d.is_active} onChange={(e) => set({ is_active: e.target.checked })} />
-          Switched on (cashiers can tap it)
+          {t("Switched on (cashiers can tap it)")}
         </label>
       )}
-      <p className="muted hint">Bills already sold keep the option as it was when they were sold.</p>
+      <p className="muted hint">{t("Bills already sold keep the option as it was when they were sold.")}</p>
       <div className="sheet-actions">
         <button className="primary" disabled={busy} onClick={() => void save()}>
-          {option ? 'Save' : 'Add option'}
+          {option ? t("Save") : 'Add option'}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
       {error && (
         <p className="error" role="alert">

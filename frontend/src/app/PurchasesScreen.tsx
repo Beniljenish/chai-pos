@@ -13,6 +13,7 @@ import { api } from './apiClient';
 import { explainError } from './errors';
 import { Sheet } from './Sheet';
 import { Loading, LoadError } from './Status';
+import { t } from '../lib/i18n';
 
 interface Supplier {
   id: string;
@@ -89,24 +90,24 @@ export function PurchasesScreen() {
   return (
     <section>
       <header className="manage-head">
-        <h1>Purchases</h1>
+        <h1>{t("Purchases")}</h1>
         <button className="primary" disabled={!suppliers?.length} onClick={() => setSheet('order')}>
-          + Order
+          {t("+ Order")}
         </button>
       </header>
       <p className="muted">
-        Order from a supplier, then receive what actually came: it goes into stock at the price you paid.
+        {t("Order from a supplier, then receive what actually came: it goes into stock at the price you paid.")}
       </p>
       {error && <LoadError error={error} onRetry={() => void load()} />}
       {orders === null && !error && <Loading />}
 
       {orders && (
         <>
-          <h2>Orders</h2>
+          <h2>{t("Orders")}</h2>
           {orders.length === 0 ? (
             <div className="empty-card">
               <p>
-                <strong>No orders yet.</strong> {suppliers?.length ? 'Tap + Order.' : 'Add a supplier first.'}
+                <strong>{t("No orders yet.")}</strong> {suppliers?.length ? 'Tap + Order.' : 'Add a supplier first.'}
               </p>
             </div>
           ) : (
@@ -133,9 +134,9 @@ export function PurchasesScreen() {
       {suppliers && (
         <>
           <div className="manage-head">
-            <h2>Suppliers</h2>
+            <h2>{t("Suppliers")}</h2>
             <button className="quiet" onClick={() => setSheet('supplier')}>
-              + Supplier
+              {t("+ Supplier")}
             </button>
           </div>
           <ul className="sop-list">
@@ -172,25 +173,25 @@ function SupplierSheet({ onClose, onDone }: { onClose(): void; onDone(): void })
     }
   }
   return (
-    <Sheet title="New supplier" onClose={onClose}>
+    <Sheet title={t("New supplier")} onClose={onClose}>
       <label>
-        Name
+        {t("Name")}
         <input value={name} maxLength={80} autoFocus onChange={(e) => setName(e.target.value)} />
       </label>
       <label>
-        Phone (optional)
+        {t("Phone (optional)")}
         <input inputMode="tel" value={phone} maxLength={15} onChange={(e) => setPhone(e.target.value)} />
       </label>
       <label>
-        Note (optional)
+        {t("Note (optional)")}
         <input value={note} maxLength={200} placeholder="Delivers Mon and Thu" onChange={(e) => setNote(e.target.value)} />
       </label>
       {error && <p className="error">{error}</p>}
       <div className="sheet-actions">
         <button className="primary" disabled={!name.trim()} onClick={() => void save()}>
-          Add supplier
+          {t("Add supplier")}
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
     </Sheet>
   );
@@ -257,9 +258,9 @@ function OrderSheet({
 
   const set = (k: number, patch: Partial<DraftLine>) => setLines((ls) => ls.map((l, i) => (i === k ? { ...l, ...patch } : l)));
   return (
-    <Sheet title="New order" onClose={onClose}>
+    <Sheet title={t("New order")} onClose={onClose}>
       <label>
-        Supplier
+        {t("Supplier")}
         <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
           {suppliers.map((s) => (
             <option key={s.id} value={s.id}>
@@ -269,7 +270,7 @@ function OrderSheet({
         </select>
       </label>
       <button className="quiet" onClick={() => void suggest()}>
-        Fill from reorder levels
+        {t("Fill from reorder levels")}
       </button>
       <ul className="po-lines">
         {lines.map((l, k) => (
@@ -291,17 +292,17 @@ function OrderSheet({
             </label>
             {lines.length > 1 && (
               <button className="quiet" onClick={() => setLines((ls) => ls.filter((_, i) => i !== k))} aria-label={`Remove item ${k + 1}`}>
-                Remove
+                {t("Remove")}
               </button>
             )}
           </li>
         ))}
       </ul>
       <button className="quiet" onClick={() => setLines((ls) => [...ls, { ingredientId: ingredients[0]?.id ?? '', qty: '', rupees: '' }])}>
-        + Another item
+        {t("+ Another item")}
       </button>
       <label>
-        Note (optional)
+        {t("Note (optional)")}
         <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
       </label>
       {error && <p className="error">{error}</p>}
@@ -309,7 +310,7 @@ function OrderSheet({
         <button className="primary" disabled={!valid || busy} onClick={() => void save()}>
           Save order ({formatRupees(lines.reduce((a, l) => a + paise(l.rupees), 0))})
         </button>
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>{t("Cancel")}</button>
       </div>
     </Sheet>
   );
@@ -351,7 +352,7 @@ function PoSheet({ po, onClose, onDone }: { po: Po; onClose(): void; onDone(): v
   return (
     <Sheet title={`${po.supplier_name}: ${STATUS[po.status]}`} onClose={onClose}>
       <p className="muted">
-        Ordered {dayTime(po.created_at)}
+        {t("Ordered")} {dayTime(po.created_at)}
         {po.note && ` · ${po.note}`}
       </p>
       <ul className="po-lines">
@@ -398,10 +399,10 @@ function PoSheet({ po, onClose, onDone }: { po: Po; onClose(): void; onDone(): v
       {open && (
         <div className="sheet-actions">
           <button className="primary" disabled={!valid || busy} onClick={() => void act('receive')}>
-            Receive into stock
+            {t("Receive into stock")}
           </button>
           <button className="quiet" disabled={busy} onClick={() => void act('cancel')}>
-            Cancel order
+            {t("Cancel order")}
           </button>
         </div>
       )}

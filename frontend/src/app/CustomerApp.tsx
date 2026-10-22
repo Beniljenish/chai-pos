@@ -14,6 +14,7 @@ import {
   cartCount,
   cartTotal,
   cartFromLines,
+  couponProblem,
   cartItems,
   changeOutletLine,
   dishCount,
@@ -35,6 +36,7 @@ import {
   orderProblem,
   outletsInCart,
   soldOutInCart,
+  totalAfterOffers,
   STATUS_TEXT,
   statusStep,
   usableUsual,
@@ -1265,7 +1267,29 @@ function CartScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
   const blocked = outletIds.some((id) => menus[id] && (!menus[id].open || isPaused(menus[id]) || soldOutInCart(menus[id].items, carts[id]).length > 0));
-  const total = grandTotal(menus, carts);
+  // Offers: the code typed per outlet, and the ones the server has checked for exactly this cart.
+  const [codes, setCodes] = useState<Record<string, string>>({});
+  const [applied, setApplied] = useState<Record<string, { code: string; before: number; total: number; sig: string } | undefined>>({});
+  const [codeError, setCodeError] = useState<Record<string, string | undefined>>({});
+  const cartSig = (id: string) => JSON.stringify(cartItems(carts[id] ?? {}));
+  // A code was checked for one cart: when the dishes change, it must be checked again.
+  const live = (id: string) => (applied[id] && applied[id]!.sig === cartSig(id) ? applied[id] : undefined);
+  const offers = Object.fromEntries(outletIds.map((id) => [id, live(id)]));
+  const total = totalAfterOffers(menus, carts, offers);
+  async function applyCode(id: string) {
+    const code = (codes[id] ?? '').trim();
+    if (!code) return;
+    setCodeError((e) => ({ ...e, [id]: undefined }));
+    try {
+      const r = await publicApi.couponCheck(auth.token, { slug, outlet_id: id, code, items: cartItems(carts[id]) });
+      const before = cartTotal(menus[id].items, carts[id], menus[id].gst_type);
+      setApplied((a) => ({ ...a, [id]: { code, before, total: r.total_paise, sig: cartSig(id) } }));
+    } catch (e) {
+      if (e instanceof PublicError && e.status === 401) return onGuard(e);
+      setApplied((a) => ({ ...a, [id]: undefined }));
+      setCodeError((c) => ({ ...c, [id]: e instanceof PublicError ? couponProblem(e.code, e.message) : t('No signal. Please try again.') }));
+    }
+  }
   const unique = useMemo(() => (id: string) => (requestIds.current[id] ??= crypto.randomUUID()), []);
 
   async function place() {
@@ -1282,6 +1306,7 @@ function CartScreen({
           message_ok: consent,
           pickup_at: pickups[id] ?? null,
           table_name: tableFor(id),
+          coupon_code: offers[id]?.code ?? '',
           items: cartItems(carts[id]),
         });
         results.push({ id, outlet: nameOf(id), key: placed.status_key });
@@ -1316,10 +1341,11 @@ function CartScreen({
       note: (notes[id] ?? '').trim(),
       pickup_at: pickups[id] ?? null,
       table_name: tableFor(id),
+      coupon_code: offers[id]?.code ?? '',
       items: cartItems(carts[id]),
     }));
     // A new payment whenever the cart changes: one id must never mean two different carts.
-    const key = JSON.stringify([orders.map((o) => [o.outlet_id, o.items, o.note, o.pickup_at, o.table_name]), consent]);
+    const key = JSON.stringify([orders.map((o) => [o.outlet_id, o.items, o.note, o.pickup_at, o.table_name, o.coupon_code]), consent]);
     if (checkoutRef.current === null || checkoutRef.current.key !== key) {
       checkoutRef.current = { key, id: crypto.randomUUID() };
     }
@@ -1411,6 +1437,33 @@ function CartScreen({
                 maxLength={120}
               />
             </label>
+            <div className="cx-code">
+              <label>
+                {t('Offer code (optional)')}
+                <input
+                  value={codes[id] ?? ''}
+                  onChange={(e) => setCodes((c) => ({ ...c, [id]: e.target.value.toUpperCase() }))}
+                  maxLength={30}
+                  autoCapitalize="characters"
+                />
+              </label>
+              <button type="button" disabled={!(codes[id] ?? '').trim()} onClick={() => void applyCode(id)}>
+                {t('Apply')}
+              </button>
+              {codeError[id] && (
+                <p className="error" role="alert">
+                  {codeError[id]}
+                </p>
+              )}
+              {offers[id] && (
+                <p className="cx-note" role="status">
+                  {t('Code {code} applied: you save {amount}', {
+                    code: offers[id]!.code.toUpperCase(),
+                    amount: formatRupees(offers[id]!.before - offers[id]!.total),
+                  })}
+                </p>
+              )}
+            </div>
             {tableFor(id) && (
               <p className="cx-note" role="status">
                 {t('Your order will be brought to {table}.', { table: tableFor(id) })}
