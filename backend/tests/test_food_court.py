@@ -169,7 +169,7 @@ def test_a_closed_outlet_shows_closed_and_refuses_orders(client, shop_a, court):
 
 def test_the_public_menu_shows_only_what_a_customer_needs(client, shop_a, court):
     menu = client.get(f"{API}/public/courts/{court['slug']}/outlets/{court['a']}/menu").json()
-    assert set(menu) == {"outlet", "open", "prep_minutes", "gst_type", "items"}
+    assert set(menu) == {"outlet", "open", "paused_until", "prep_minutes", "gst_type", "items"}
     assert all(
         set(i)
         == {
