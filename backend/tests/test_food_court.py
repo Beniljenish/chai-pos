@@ -185,6 +185,8 @@ def test_the_public_menu_shows_only_what_a_customer_needs(client, shop_a, court)
             "description_ta",
             "photo_url",
             "is_veg",
+            "allergens",
+            "spice_level",
             "options",
         }
         for i in menu["items"]

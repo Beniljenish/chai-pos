@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TenantScoped
@@ -197,3 +197,55 @@ class UserLink(IdMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Attendance(IdMixin, TenantScoped, Base):
+    """One stretch of work: clocked in, and (later) out. Written on the server when the person
+    taps clock in/out on the till, so it needs a connection; the owner can correct a mistake."""
+
+    __tablename__ = "attendance"
+    __table_args__ = (
+        CheckConstraint(
+            "clock_out_at IS NULL OR clock_out_at >= clock_in_at", name="ck_attendance_order"
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
+    business_date: Mapped[date] = mapped_column(Date, index=True)
+    clock_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    clock_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    # Set when the owner corrected this entry (who, and when).
+    edited_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SpecialDay(IdMixin, TenantScoped, Base):
+    """A day the owner expects to be different (a festival), to look back at last year's."""
+
+    __tablename__ = "special_days"
+    __table_args__ = (UniqueConstraint("shop_id", "day", "name", name="uq_special_days"),)
+
+    day: Mapped[date] = mapped_column(Date, index=True)
+    name: Mapped[str] = mapped_column(String(60))
+
+
+class AuditEvent(IdMixin, TenantScoped, Base):
+    """Who changed something that matters (a price, a recipe, an offer, a person, GST settings).
+    Append-only: a database trigger refuses any update or delete."""
+
+    __tablename__ = "audit_events"
+
+    at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(40))
+    subject: Mapped[str] = mapped_column(String(120))
+    detail: Mapped[dict] = mapped_column(JSONB, default=dict)

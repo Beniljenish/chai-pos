@@ -269,3 +269,49 @@ def usual(db: Session, customer_id: uuid.UUID, outlet_id: uuid.UUID) -> list[dic
         )
     out.sort(key=lambda r: (-r["times"], r["name"]))
     return out[:USUAL_DISHES]
+
+
+def delete_account(db: Session, c: CustomerAccount, password: str) -> None:
+    """The customer erases their account (README, "9.21"). `db` is a system session.
+
+    What goes: the login (the account is kept only as an anonymous row, because orders, payments
+    and offers point at it and the outlets' books must still add up), the name and number on it,
+    favourites, notification subscriptions, any phone codes for the number, rating comments, and
+    every message still waiting to be sent to them.
+
+    **What stays:** the outlets' own order records. An order's events (name and number as the
+    customer gave them) are append-only and hash-linked, and outlets must keep their sales records
+    for tax; this cannot be removed, and the page says so before the customer confirms."""
+    from sqlalchemy import delete, update
+
+    from app.models import (
+        CustomerFavourite,
+        Message,
+        OnlineOrder,
+        OrderFeedback,
+        PhoneCode,
+        PushSubscription,
+    )
+
+    if not verify_password(password, c.password_hash):
+        raise OnlineError("wrong_password", "Your password is not right", 403)
+    order_ids = list(
+        db.scalars(select(OnlineOrder.order_id).where(OnlineOrder.customer_id == c.id))
+    )
+    if order_ids:
+        db.execute(
+            update(Message)
+            .where(Message.order_id.in_(order_ids), Message.status == "pending")
+            .values(status="failed", last_error="the customer deleted their account")
+        )
+    db.execute(delete(CustomerFavourite).where(CustomerFavourite.customer_id == c.id))
+    db.execute(delete(PushSubscription).where(PushSubscription.customer_id == c.id))
+    db.execute(delete(PhoneCode).where(PhoneCode.phone == c.phone))
+    db.execute(update(OrderFeedback).where(OrderFeedback.customer_id == c.id).values(comment=""))
+    c.name = "Deleted customer"
+    c.phone = f"del-{uuid.uuid4().hex[:10]}"
+    c.password_hash = hash_password(secrets.token_urlsafe(32))
+    c.is_active = False
+    c.phone_verified_at = None
+    c.token_version += 1  # every token stops working
+    db.commit()

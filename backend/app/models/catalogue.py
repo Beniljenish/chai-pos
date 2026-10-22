@@ -121,6 +121,10 @@ class MenuItem(IdMixin, TimestampMixin, TenantScoped, Base):
     photo_url: Mapped[str] = mapped_column(String(500), default="", server_default="")
     is_veg: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     # Tamil name and description, shown to customers who picked Tamil (README, "9.16").
+    # What a customer with an allergy needs to know: comma-separated codes from a fixed list
+    # (services/allergens.py), and how hot it is (0 mild to 3 very hot; null = not said).
+    allergens: Mapped[str] = mapped_column(String(80), default="", server_default="")
+    spice_level: Mapped[int | None] = mapped_column(Integer)
     name_ta: Mapped[str] = mapped_column(String(120), default="", server_default="")
     description_ta: Mapped[str] = mapped_column(String(300), default="", server_default="")
 

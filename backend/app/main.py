@@ -19,6 +19,7 @@ from app.api.v1 import (
     insights,
     links,
     messages,
+    ops,
     orders,
     payments,
     platform,
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(watch.router, prefix="/api/v1")
     app.include_router(coupons.router, prefix="/api/v1")
     app.include_router(links.router, prefix="/api/v1")
+    app.include_router(ops.router, prefix="/api/v1")
 
     @app.get("/health", tags=["ops"])
     def health() -> dict:

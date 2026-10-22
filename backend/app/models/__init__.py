@@ -84,6 +84,8 @@ class User(IdMixin, TimestampMixin, TenantScoped, Base):
     must_change_password: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    # For the attendance pay sheet: paise per hour (null = not set, no pay worked out).
+    hourly_rate_paise: Mapped[int | None] = mapped_column(Integer)
     # Wrong-password lockout (see services/auth.py).
     failed_logins: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -259,6 +261,8 @@ __all__ += ["FoodCourt", "FoodCourtOutlet", "OnlineOrder"]
 from app.models.customer_account import CustomerAccount  # noqa: E402
 from app.models.enhance import (  # noqa: E402
     AiUsage,  # noqa: F401
+    Attendance,  # noqa: F401
+    AuditEvent,  # noqa: F401
     Coupon,  # noqa: F401
     CouponRedemption,  # noqa: F401
     CustomerFavourite,
@@ -268,6 +272,7 @@ from app.models.enhance import (  # noqa: E402
     PushSubscription,
     RateHit,  # noqa: F401
     SoldOutEvent,  # noqa: F401
+    SpecialDay,  # noqa: F401
     UserLink,  # noqa: F401
 )
 from app.models.onlinepay import OnlinePayment, OnlineSettlement  # noqa: E402

@@ -218,6 +218,20 @@ def rename(body: RenameIn, c: Customer = Depends(current_customer)) -> dict:
         raise fail(e) from None
 
 
+class DeleteIn(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/me/delete")
+def delete_me(body: DeleteIn, c: Customer = Depends(current_customer)) -> dict:
+    """Erase this account (needs the password). Outlets keep past orders for their books."""
+    try:
+        customer_accounts.delete_account(c.db, c.account, body.password)
+    except online.OnlineError as e:
+        raise fail(e) from None
+    return {"deleted": True}
+
+
 @router.post("/password")
 def change_password(body: PasswordIn, c: Customer = Depends(current_customer)) -> dict:
     try:

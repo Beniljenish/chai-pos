@@ -135,6 +135,7 @@ class UserOut(ORM):
     is_active: bool
     must_change_password: bool
     locked: bool = False
+    hourly_rate_paise: int | None = None
     created_at: datetime
 
 
@@ -153,6 +154,8 @@ class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     is_active: bool | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
+    # paise per hour, for the attendance pay sheet; 0 clears it
+    hourly_rate_paise: int | None = Field(default=None, ge=0, le=1_000_000)
 
 
 # --- devices ---

@@ -7,7 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from app.models import BaseUnit, IngredientKind, LedgerReason
 
@@ -108,6 +108,15 @@ def _secure_photo(v: str) -> str:
 PhotoLink = Annotated[str, Field(max_length=500), AfterValidator(_secure_photo)]
 
 
+def _allergy_tags(v: list[str]) -> list[str]:
+    from app.services import allergens
+
+    return allergens.clean(v)
+
+
+AllergyTags = Annotated[list[str], AfterValidator(_allergy_tags)]
+
+
 class MenuItemCreate(BaseModel):
     name: Name
     category: Annotated[str, Field(min_length=1, max_length=40)] = "Tea"
@@ -120,6 +129,8 @@ class MenuItemCreate(BaseModel):
     is_veg: bool = True
     name_ta: Annotated[str, Field(max_length=120)] = ""
     description_ta: Annotated[str, Field(max_length=300)] = ""
+    allergens: AllergyTags = Field(default_factory=list)
+    spice_level: Annotated[int, Field(ge=0, le=3)] | None = None
 
 
 class MenuItemUpdate(BaseModel):
@@ -135,6 +146,8 @@ class MenuItemUpdate(BaseModel):
     is_veg: bool | None = None
     name_ta: Annotated[str, Field(max_length=120)] | None = None
     description_ta: Annotated[str, Field(max_length=300)] | None = None
+    allergens: AllergyTags | None = None
+    spice_level: Annotated[int, Field(ge=0, le=3)] | None = None
 
 
 class MenuItemOut(ORM):
@@ -152,6 +165,15 @@ class MenuItemOut(ORM):
     is_veg: bool = True
     name_ta: str = ""
     description_ta: str = ""
+    allergens: list[str] = Field(default_factory=list)
+    spice_level: int | None = None
+
+    @field_validator("allergens", mode="before")
+    @classmethod
+    def _from_text(cls, v):
+        from app.services import allergens
+
+        return allergens.from_text(v) if isinstance(v, str) else v
 
 
 class ModifierIdsIn(BaseModel):

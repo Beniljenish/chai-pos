@@ -50,7 +50,7 @@ from app.models import (
     Shop,
     User,
 )
-from app.services import autosoldout, gst, payments
+from app.services import allergens, autosoldout, gst, payments
 from app.services import orders as order_service
 
 ONLINE_USER_NAME = "Online ordering"  # the stand-in author of customers' orders
@@ -297,6 +297,8 @@ def public_menu(sysdb: Session, slug: str, outlet_id: uuid.UUID) -> dict:
                     "description_ta": i.description_ta,
                     "photo_url": i.photo_url,
                     "is_veg": i.is_veg,
+                    "allergens": allergens.from_text(i.allergens),
+                    "spice_level": i.spice_level,
                     "options": options.get(i.id, []),
                 }
                 for i in items

@@ -49,6 +49,7 @@ from app.schemas_catalogue import (
     RecipeLineOut,
     RecipeOut,
 )
+from app.services import allergens, audit
 from app.services import payments as payments_service
 from app.services import photos as photo_service
 from app.services import recipes as recipe_service
@@ -220,6 +221,9 @@ def set_prep_recipe(
     except recipe_service.RecipeError as e:
         caller.db.rollback()
         raise unprocessable(str(e)) from None
+    audit.record(
+        caller.db, caller.user.id, "recipe_changed", ingredient.name, lines=len(body.lines)
+    )
     commit_or_409(caller.db, "Recipe changed at the same moment by someone else; retry")
     return _recipe_out(recipe_service.resolve_recipe(caller.db, prep_ingredient_id=ingredient.id))
 
@@ -232,8 +236,11 @@ def list_menu_items(caller: Caller = Depends(get_caller)):
 
 @router.post("/menu-items", response_model=MenuItemOut, status_code=201, tags=["menu"])
 def create_menu_item(body: MenuItemCreate, caller: Caller = Depends(require_owner)):
-    item = MenuItem(**body.model_dump())
+    data = body.model_dump()
+    data["allergens"] = allergens.to_text(data["allergens"])
+    item = MenuItem(**data)
     caller.db.add(item)
+    audit.record(caller.db, caller.user.id, "menu_added", item.name, price_paise=item.price_paise)
     commit_or_409(caller.db, "A menu item with that name already exists")
     return item
 
@@ -249,8 +256,27 @@ def update_menu_item(
 ):
     item = get_or_404(caller.db, MenuItem, menu_item_id)
     was_sold_out = item.is_sold_out
-    for field, value in body.model_dump(exclude_unset=True).items():
+    before = {
+        k: getattr(item, k) for k in ("price_paise", "gst_rate_bp", "tax_inclusive", "is_active")
+    }
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("allergens") is not None:
+        changes["allergens"] = allergens.to_text(changes["allergens"])
+    elif "allergens" in changes:
+        del changes["allergens"]
+    for field, value in changes.items():
         setattr(item, field, value)
+    for k, old in before.items():  # money and visibility changes go in the change log
+        if getattr(item, k) != old:
+            audit.record(
+                caller.db,
+                caller.user.id,
+                "menu_changed",
+                item.name,
+                field=k,
+                before=old,
+                after=getattr(item, k),
+            )
     if item.is_sold_out and not was_sold_out:  # the history behind "sold out most"
         caller.db.add(SoldOutEvent(menu_item_id=item.id, business_date=business_date(utcnow())))
     commit_or_409(caller.db, "A menu item with that name already exists")
@@ -294,6 +320,7 @@ def set_menu_recipe(
     except recipe_service.RecipeError as e:
         caller.db.rollback()
         raise unprocessable(str(e)) from None
+    audit.record(caller.db, caller.user.id, "recipe_changed", item.name, lines=len(body.lines))
     commit_or_409(caller.db, "Recipe changed at the same moment by someone else; retry")
     return _recipe_out(recipe_service.resolve_recipe(caller.db, menu_item_id=item.id))
 

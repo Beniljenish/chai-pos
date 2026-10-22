@@ -26,8 +26,8 @@ from app.schemas import (
     UserOut,
     UserUpdate,
 )
+from app.services import audit, email, messages, reports, summary
 from app.services import auth as auth_service
-from app.services import email, messages, reports, summary
 from app.services.online import ONLINE_DEVICE_CODE, ONLINE_USER_NAME
 
 router = APIRouter()
@@ -54,8 +54,28 @@ def get_shop(caller: Caller = Depends(get_caller)):
 def update_shop(body: ShopUpdate, caller: Caller = Depends(require_owner)):
     shop = _current_shop(caller)
     changes = body.model_dump(exclude_unset=True)
+    watched = (
+        "name",
+        "gst_type",
+        "gstin",
+        "report_email",
+        "max_discount_bp",
+        "wastage_approval_paise",
+    )
+    before = {k: getattr(shop, k) for k in watched if k in changes}
     for field, value in changes.items():
         setattr(shop, field, value)
+    for k, old in before.items():
+        new = getattr(shop, k)
+        if new != old:
+            audit.record(
+                caller.db,
+                caller.user.id,
+                "shop_changed",
+                k,
+                before=getattr(old, "value", old),
+                after=getattr(new, "value", new),
+            )
     # Checked on the result, not the request: a PATCH that only flips gst_type
     # must still have a GSTIN on file. Only when GST settings are being changed,
     # so a shop saved before this rule can still be renamed.
@@ -135,6 +155,7 @@ def create_user(body: UserCreate, caller: Caller = Depends(require_owner)):
         must_change_password=True,  # the owner knows it; the person picks their own
     )
     caller.db.add(user)
+    audit.record(caller.db, caller.user.id, "person_added", user.name, role=user.role.value)
     try:
         caller.db.commit()
     except IntegrityError:
@@ -159,6 +180,7 @@ def get_user(user_id: uuid.UUID, caller: Caller = Depends(require_owner)):
 def update_user(user_id: uuid.UUID, body: UserUpdate, caller: Caller = Depends(require_owner)):
     user = _get_user(caller, user_id)
     data = body.model_dump(exclude_unset=True)
+    reset = False
     if user.id == caller.user.id and data.get("is_active") is False:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot deactivate yourself")
     if "password" in data:
@@ -168,6 +190,7 @@ def update_user(user_id: uuid.UUID, body: UserUpdate, caller: Caller = Depends(r
                 "Change your own password with your current one (Change password)",
             )
         new = data.pop("password")
+        reset = True
         problem = auth_service.password_problem(new, user.phone)
         if problem:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, problem)
@@ -181,8 +204,22 @@ def update_user(user_id: uuid.UUID, body: UserUpdate, caller: Caller = Depends(r
         auth_service.revoke_user_sessions(caller.db, user.id)
     if "name" in data:
         data["name"] = data["name"].strip()
+    if "hourly_rate_paise" in data and not data["hourly_rate_paise"]:
+        data["hourly_rate_paise"] = None
     for field, value in data.items():
         setattr(user, field, value)
+    # People changes go in the change log (never the password itself).
+    if reset:
+        audit.record(caller.db, caller.user.id, "password_reset", user.name)
+    if data.get("is_active") is not None:
+        audit.record(
+            caller.db,
+            caller.user.id,
+            "person_switched_on" if data["is_active"] else "person_switched_off",
+            user.name,
+        )
+    if "hourly_rate_paise" in data:
+        audit.record(caller.db, caller.user.id, "pay_rate_changed", user.name)
     caller.db.commit()
     return user
 

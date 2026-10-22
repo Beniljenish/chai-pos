@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.api.common import commit_or_409, get_or_404
 from app.api.deps import Caller, require_owner
 from app.models import Coupon
-from app.services import coupons
+from app.services import audit, coupons
 
 router = APIRouter(tags=["offers"])
 
@@ -68,6 +68,9 @@ def create_coupon(body: CouponIn, caller: Caller = Depends(require_owner)) -> di
             max_uses=body.max_uses,
         )
     )
+    audit.record(
+        caller.db, caller.user.id, "offer_made", body.code, kind=body.kind, value=body.value
+    )
     commit_or_409(caller.db, "You already have a code with that name")
     return {"coupons": coupons.listing(caller.db)}
 
@@ -79,7 +82,15 @@ def change_coupon(
     """Switch an offer off or on, move its last day, or change how many times it may be used.
     What it takes off is not editable: orders already placed used it. Make a new code instead."""
     c = get_or_404(caller.db, Coupon, coupon_id)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(c, field, value)
+    audit.record(
+        caller.db,
+        caller.user.id,
+        "offer_changed",
+        c.code,
+        **{k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in changes.items()},
+    )
     caller.db.commit()
     return {"coupons": coupons.listing(caller.db)}
