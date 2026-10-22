@@ -132,6 +132,7 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
   // section fills the screen with a way back. Tablets: the sidebar and Sales.
   const phone = usePhone();
   const [chosen, setSection] = useState<Section | null>(null);
+  const [find, setFind] = useState("");
   const section: Section | null = chosen ?? (phone ? null : "sales");
   if (phone && section !== null) {
     return (
@@ -150,9 +151,22 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
     <main className={`manage ${section === null ? "manage-home" : ""}`}>
       <nav className="subnav" aria-label="Manage">
         <div className="subnav-lang">
+          <input
+            type="search"
+            className="subnav-find"
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            placeholder={t("Find a section")}
+            aria-label={t("Find a section")}
+          />
           <LangSwitch />
         </div>
-        {GROUPS.map((g) => (
+        {GROUPS.map((g) => ({
+          ...g,
+          sections: g.sections.filter((s) => t(s.label).toLowerCase().includes(find.trim().toLowerCase())),
+        }))
+          .filter((g) => g.sections.length > 0)
+          .map((g) => (
           <div
             key={g.label}
             className="subnav-group"

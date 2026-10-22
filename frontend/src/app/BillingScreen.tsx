@@ -102,6 +102,7 @@ export function BillingScreen() {
   }
 
   function add(menuItemId: string) {
+    navigator.vibrate?.(8); // a tiny tick on phones that support it
     setCart((c) => {
       const same = c.find((l) => l.menuItemId === menuItemId && l.modifierIds.length === 0);
       if (same) return c.map((l) => (l === same ? { ...l, qty: l.qty + 1 } : l));

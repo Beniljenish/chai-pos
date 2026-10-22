@@ -1091,7 +1091,11 @@ function OutletMenu({
                   <li key={i.id} className={`cx-dish ${i.sold_out ? 'gone' : ''}`}>
                     {i.photo_url ? (
                       <img className="cx-photo" src={photoSrc(i.photo_url, __API_URL__)} alt="" loading="lazy" width={62} height={62} />
-                    ) : null}
+                    ) : (
+                      <span className="cx-photo cx-photo-letter" aria-hidden="true">
+                        {dishName(i).trim().charAt(0).toUpperCase()}
+                      </span>
+                    )}
                     <div>
                       <strong>
                         <VegMark veg={i.is_veg} />

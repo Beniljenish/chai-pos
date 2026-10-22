@@ -1252,4 +1252,5 @@ export const TA: Record<string, string> = {
   'Offer saved': 'சலுகை சேமிக்கப்பட்டது',
   'Your orders and rewards will show up here.': 'உங்கள் ஆர்டர்களும் பரிசுகளும் இங்கே தெரியும்.',
   'Bills you save on this tablet will show up here.': 'இந்த டேப்லெட்டில் சேமிக்கும் பில்கள் இங்கே தெரியும்.',
+  'Find a section': 'பிரிவைத் தேடு',
 };

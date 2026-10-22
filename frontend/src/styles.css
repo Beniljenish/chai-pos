@@ -6039,3 +6039,123 @@ summary.button.secondary {
 .where-sub > a {
   flex: none;
 }
+
+/* ======================================================================
+ * Design system v2 (README 9.24). One layer over the tokens above: calmer
+ * neutrals, hairline borders, one focus ring, outlined "Add", press feedback.
+ * ====================================================================== */
+:root {
+  --steel: #f6f6f9;
+  --line: #e9e7f0;
+  --steel-deep: #e2dfeb;
+  --radius-panel: 16px;
+  --shadow: 0 1px 2px rgba(20, 18, 31, 0.04), 0 2px 8px rgba(20, 18, 31, 0.05);
+  --focus: 0 0 0 3px rgba(75, 31, 143, 0.35);
+}
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+button,
+.tile,
+a.button,
+summary {
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+button:active:not(:disabled),
+.tile:active {
+  transform: scale(0.98);
+}
+.content > main,
+.content > .cx {
+  animation: screen-in 0.18s ease-out;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content > main,
+  .content > .cx {
+    animation: none;
+  }
+  button:active:not(:disabled),
+  .tile:active {
+    transform: none;
+  }
+}
+
+/* Manage: the language switch is a small control, not a list row */
+.subnav .subnav-lang .lang-switch button {
+  min-height: 32px;
+  width: auto;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  border-radius: 0;
+  flex: none;
+}
+
+/* Till tiles: money lines up */
+.tile-price,
+.tile-rate {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Customer menu: consistent rows, a letter tile when a dish has no photo, outlined Add */
+.cx-dish {
+  min-height: 84px;
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.cx-photo-letter {
+  display: grid;
+  place-items: center;
+  color: var(--brand);
+  font-weight: 800;
+  font-size: 1.5rem;
+}
+.cx-add,
+.cx-step button {
+  width: 44px;
+  min-height: 44px;
+  border-radius: 12px;
+}
+.cx-add {
+  background: #fff;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+}
+.cx-add:active:not(:disabled) {
+  background: #fdeef3;
+}
+.cx-add.wide {
+  width: auto;
+  min-width: 72px;
+}
+.cx-who {
+  background: transparent;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding-bottom: var(--s3);
+}
+.cx-who button {
+  background: var(--brand-soft);
+}
+
+.subnav-lang {
+  gap: var(--s2);
+  align-items: center;
+}
+.subnav .subnav-find {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.9rem;
+}
