@@ -6089,7 +6089,7 @@ button:active:not(:disabled),
 
 /* Manage: the language switch is a small control, not a list row */
 .subnav .subnav-lang .lang-switch button {
-  min-height: 32px;
+  min-height: 40px;
   width: auto;
   padding: 0 12px;
   font-size: 0.85rem;
@@ -6158,4 +6158,156 @@ button:active:not(:disabled),
   border-radius: 999px;
   background: var(--paper);
   font-size: 0.9rem;
+}
+
+/* ======================================================================
+ * Audit fixes (README 9.25): nothing may push a phone screen sideways,
+ * and every control is a comfortable target.
+ * ====================================================================== */
+.manage-body,
+.cx,
+.manage {
+  min-width: 0;
+}
+.manage-body {
+  overflow-wrap: anywhere;
+}
+/* Messages: long links and one-line headers wrap inside their card */
+.void-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+.void-list li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Shop & GST: a dish's name and its sold-out switch share a row without widening the page */
+.sop-list li:has(> .sold-toggle) > button:first-child {
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+}
+.sold-toggle {
+  max-width: 45%;
+  white-space: normal;
+}
+/* Food court: table QR codes scale to their cell */
+.fc-table-qrs {
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
+}
+.fc-table-qrs svg {
+  max-width: 100%;
+  height: auto;
+}
+/* Targets: the account link and the stepper on a tile get a bigger hit area than they look */
+button.account {
+  position: relative;
+}
+button.account::after {
+  content: '';
+  position: absolute;
+  inset: -12px -8px;
+}
+.lang-switch button {
+  min-height: 40px;
+}
+.tile-less {
+  min-height: 36px;
+  height: 36px;
+  width: 36px;
+  top: 8px;
+  right: 40px;
+}
+
+/* A destructive button: white on red. Only the quiet text link is red on nothing. */
+button.danger:not(.link) {
+  background: var(--chilli);
+  color: #fff;
+}
+button.link.danger {
+  background: none;
+  border: 0;
+  min-height: 44px;
+  padding: 0;
+  margin-top: var(--s2);
+  color: var(--chilli);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Tablet sidebar: the sound switch is an icon here too, and the shop block wraps instead of clipping */
+@media (min-width: 601px) {
+  .topbar .sound-switch {
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    justify-content: center;
+    align-items: center;
+  }
+  .sound-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .where strong,
+  .where .muted,
+  .where-device {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+  .where-sub {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+/* Manage list: search on its own row, language switch under it */
+.subnav-lang {
+  flex-wrap: wrap;
+}
+.subnav .subnav-find {
+  flex: 1 1 100%;
+}
+/* Customer: favourites and My orders are real targets */
+.cx-heart {
+  width: 44px;
+  min-height: 44px;
+}
+.cx-who button {
+  min-height: 44px;
+}
+
+/* Tablet sidebar: the shop name and the device line never overlap */
+@media (min-width: 601px) {
+  .where {
+    gap: 2px;
+    max-height: none;
+  }
+  .where strong {
+    display: block;
+    -webkit-line-clamp: unset;
+    max-height: none;
+    line-height: 1.25;
+    font-size: 0.8rem;
+  }
+  .where .muted {
+    display: block;
+    line-height: 1.25;
+  }
+}
+@media (min-width: 601px) {
+  .where strong,
+  .where-device {
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: auto;
+  }
+  .where strong {
+    font-size: 0.72rem;
+  }
 }
