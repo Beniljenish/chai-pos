@@ -107,6 +107,10 @@ test('a customer signs up, orders from two outlets in one cart and follows the t
   // can open Anna's (an outlet that has not opened cannot be ordered from)
   await admin.reload();
   await expect(admin.getByRole('heading', { name: 'Food courts' })).toBeVisible();
+  // the operator's overview: a scorecard row per outlet, and a settlement sheet to pay from
+  await expect(admin.getByRole('region', { name: 'Overview' })).toBeVisible();
+  await expect(admin.getByRole('table', { name: 'E2E Food Court scorecard' })).toBeVisible();
+  await expect(admin.getByRole('button', { name: 'Download settlement sheet (CSV)' })).toBeVisible();
   outlets = admin.getByRole('region', { name: 'E2E Food Court' }).getByRole('list', { name: 'Outlets of E2E Food Court' });
   await expect(outlets.getByText('Taking orders')).toHaveCount(1);
   const anna = outlets.getByRole('listitem').filter({ hasText: 'E2E Anna Biryani' });

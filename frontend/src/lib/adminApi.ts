@@ -1,6 +1,7 @@
 /** The super admin's calls (/api/v1/platform). Its own small client: a super admin has no
  * shop, no tablet and no offline queue, and its token lives only in this browser tab. */
 
+import type { Overview, SettlementRow } from './operator';
 import type { Statement } from './statement';
 
 export interface AdminOutlet {
@@ -115,6 +116,8 @@ export const adminApi = {
       method: 'PATCH',
       body: JSON.stringify({ fee_bp: feeBp }),
     }),
+  overview: (t: string, from: string, to: string) => call<Overview>(`/overview?from=${from}&to=${to}`, t),
+  settlement: (t: string) => call<{ rows: SettlementRow[] }>('/settlement', t),
   statement: (t: string, courtId: string, outletId: string, from: string, to: string) =>
     call<Statement>(`/courts/${courtId}/outlets/${outletId}/statement?from=${from}&to=${to}`, t),
   refund: (t: string, ref: string) => call<{ refunds_due: RefundDue[] }>('/refunds', t, body({ ref })),

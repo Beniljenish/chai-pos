@@ -47,6 +47,16 @@ export interface Usual {
   times: number;
 }
 
+/** Order together: friends add their own dishes; the host pays for all (README, "9.21"). */
+export interface GroupState {
+  token: string;
+  court_slug: string;
+  status: 'open' | 'closed';
+  is_host: boolean;
+  members: { name: string; is_me: boolean; is_host: boolean }[];
+  lines: { member: string; mine: boolean; outlet_id: string; menu_item_id: string; modifier_ids: string[]; qty: number }[];
+}
+
 export interface PlacedOrder {
   order_id: string;
   token: string;
@@ -123,6 +133,8 @@ export interface HistoryRow {
   total_paise: number;
   status_key: string;
   paid_online: boolean;
+  coupon_code?: string;
+  discount_paise?: number;
   rating: number | null;
 }
 
@@ -227,6 +239,15 @@ export const publicApi = {
   /** Erase the account (needs the password). Outlets keep past orders for their books. */
   deleteAccount: (token: string, password: string) =>
     call<{ deleted: boolean }>('/customer/me/delete', post({ password }), token),
+  groupCreate: (token: string, slug: string) => call<GroupState>('/customer/groups', post({ slug }), token),
+  groupJoin: (token: string, group: string) => call<GroupState>(`/customer/groups/${encodeURIComponent(group)}/join`, post({}), token),
+  groupState: (token: string, group: string) => call<GroupState>(`/customer/groups/${encodeURIComponent(group)}`, undefined, token),
+  groupLines: (
+    token: string,
+    group: string,
+    lines: { outlet_id: string; menu_item_id: string; modifier_ids: string[]; qty: number }[],
+  ) => call<GroupState>(`/customer/groups/${encodeURIComponent(group)}/lines`, { method: 'PUT', body: JSON.stringify({ lines }) }, token),
+  groupClose: (token: string, group: string) => call<GroupState>(`/customer/groups/${encodeURIComponent(group)}/close`, post({}), token),
   usual: (token: string, outletId: string) =>
     call<{ usual: Usual[] }>(`/customer/usual?outlet_id=${encodeURIComponent(outletId)}`, undefined, token),
   // ---- paying in the app: one payment for the whole cart, orders placed once it is paid

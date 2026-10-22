@@ -18,6 +18,7 @@ import {
   type RefundDue,
 } from '../lib/adminApi';
 import { Qr } from './Qr';
+import { AdminOverview } from './AdminOverview';
 import { StatementPanel } from './StatementPanel';
 import { Sheet } from './Sheet';
 
@@ -244,6 +245,7 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
         })
       )}
 
+      <AdminOverview token={token} onSignedOut={onSignedOut} />
       <OnlineMoney token={token} onSignedOut={onSignedOut} />
       <CustomerReset token={token} onSignedOut={onSignedOut} />
 

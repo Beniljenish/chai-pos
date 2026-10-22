@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { boardPath, courtPath, isPaused } from '../lib/foodcourt';
-import { t } from '../lib/i18n';
+import { getLang, t } from '../lib/i18n';
 import { slotLabel, tableLink } from '../lib/pickup';
 import { formatRupees } from '../lib/gst';
 import type { FoodCourtView } from '../lib/types';
@@ -16,6 +16,61 @@ import { StatementPanel } from './StatementPanel';
 import type { Statement } from '../lib/statement';
 import { Loading, LoadError } from './Status';
 import { useSession } from './session';
+
+interface Summary {
+  enough: boolean;
+  comments: number;
+  needed?: number;
+  summary?: string;
+  themes?: { theme: string; mentions: number; mood: 'good' | 'bad' | 'mixed' }[];
+}
+
+/** "What customers say": a few lines from the written comments of the last four weeks. */
+function FeedbackSummary() {
+  const [s, setS] = useState<Summary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    setError(null);
+    try {
+      setS(await api.post<Summary>(`/ai/feedback-summary?lang=${getLang()}`, {}));
+    } catch (e) {
+      setError(explainError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="fc-feedback">
+      <button disabled={busy} onClick={() => void run()}>
+        ✨ {t('What customers say')}
+      </button>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {s && !s.enough && (
+        <p className="muted">{t('Needs at least {n} written comments in the last 4 weeks; there are {have}.', { n: s.needed ?? 5, have: s.comments })}</p>
+      )}
+      {s?.enough && (
+        <>
+          <p>{s.summary}</p>
+          <ul>
+            {(s.themes ?? []).map((th) => (
+              <li key={th.theme}>
+                <span aria-hidden="true">{th.mood === 'good' ? '👍' : th.mood === 'bad' ? '👎' : '↔'}</span> {th.theme}{' '}
+                <span className="muted">({t('{n} mentions', { n: th.mentions })})</span>
+              </li>
+            ))}
+          </ul>
+          <p className="muted">{t('Written by the AI from your customers’ comments. Read the comments too.')}</p>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function FoodCourtScreen() {
   const [v, setV] = useState<FoodCourtView | null>(null);
@@ -244,6 +299,7 @@ export function FoodCourtScreen() {
               <h2>
                 {v.ratings.average} ★ <span className="muted">from {v.ratings.count} rating{v.ratings.count === 1 ? '' : 's'}</span>
               </h2>
+              <FeedbackSummary />
               <ul>
                 {v.ratings.recent
                   .filter((r) => r.comment)

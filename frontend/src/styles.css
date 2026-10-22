@@ -5798,3 +5798,73 @@ button.danger,
 .cx-delete {
   margin-top: 0.75rem;
 }
+
+.cx-group-bar {
+  margin: 0.5rem 0;
+}
+.cx-group-members {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+.cx-group-members ul {
+  margin: 0.15rem 0 0.5rem 1rem;
+  padding: 0;
+  list-style: none;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-receipt,
+  .print-receipt * {
+    visibility: visible;
+  }
+  .print-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+
+.admin-score {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.admin-score th,
+.admin-score td {
+  text-align: left;
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--line, #ebe6f2);
+}
+.heatmap {
+  display: grid;
+  gap: 2px;
+  margin: 0.5rem 0 1rem;
+  overflow-x: auto;
+}
+.heat-row {
+  display: grid;
+  grid-template-columns: 2.4rem repeat(24, minmax(10px, 1fr));
+  gap: 2px;
+  align-items: center;
+}
+.heat-day {
+  font-size: 0.75rem;
+}
+.heat {
+  display: block;
+  height: 16px;
+  border-radius: 3px;
+  background: #f1eef7;
+}
+.heat-1 { background: #d9cdef; }
+.heat-2 { background: #b49be0; }
+.heat-3 { background: #8460c9; }
+.heat-4 { background: #3b1468; }
+.heat-scale small {
+  font-size: 0.65rem;
+  color: var(--muted, #666);
+}

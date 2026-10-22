@@ -66,6 +66,8 @@ import { dishDescription, dishName, getLang, t, useLang } from '../lib/i18n';
 import { ALLERGENS, allergenLabel, spiceLabel, withoutAllergens } from '../lib/allergens';
 import { photoSrc } from '../lib/dishPictures';
 import { slotLabel, tableFromSearch, type Slot } from '../lib/pickup';
+import { GroupBar } from './GroupBar';
+import { OrderReceipt } from './OrderReceipt';
 import { LangSwitch } from './LangSwitch';
 
 // ---- what the phone remembers (every read and write may fail: private windows)
@@ -888,6 +890,19 @@ function CourtFlow({
       </header>
       <Who account={auth.account} onOrders={onOrders} />
       {court?.location && <p className="muted cx-where">{court.location}</p>}
+      {court !== null && (
+        <GroupBar
+          slug={slug}
+          token={auth.token}
+          carts={carts}
+          menus={menus}
+          loadMenu={loadMenu}
+          onMerge={(next) => {
+            updateCarts(next);
+            setView('cart');
+          }}
+        />
+      )}
       {court === null ? (
         <p className="muted" role="status">
           {t("Loading…")}
@@ -1986,6 +2001,7 @@ function Orders({
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [receipt, setReceipt] = useState<HistoryRow | null>(null);
 
   const load = useCallback(() => {
     publicApi
@@ -2042,6 +2058,9 @@ function Orders({
                 )}
               </span>
             </button>
+            <button className="cx-again" onClick={() => setReceipt(o)} aria-label={t('Receipt for {token}', { token: o.token })}>
+              {t('Receipt')}
+            </button>
             {o.lines.length > 0 && (
               <button className="cx-again" onClick={() => onReorder(o)} aria-label={t('Order {token} again', { token: o.token })}>
                 {t("↻ Order again")}
@@ -2050,6 +2069,7 @@ function Orders({
           </li>
         ))}
       </ul>
+      {receipt && <OrderReceipt order={receipt} onClose={() => setReceipt(null)} />}
       <section className="cx-group" aria-label={t("Account")}>
         <h2>
           {auth.account.name} · {auth.account.phone}

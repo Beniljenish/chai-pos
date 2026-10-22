@@ -226,6 +226,8 @@ def history(db: Session, customer_id: uuid.UUID, limit: int = 50) -> list[dict]:
                 ),
                 "status_key": online.status_key(oo.shop_id, order.id),
                 "paid_online": oo.payment_id is not None,
+                "coupon_code": oo.coupon_code,
+                "discount_paise": oo.discount_paise,
                 "rating": rating,
             }
         )
