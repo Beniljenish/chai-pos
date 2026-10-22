@@ -4,6 +4,7 @@
  * allow sound after a tap, so each tablet has one "Sound" switch (remembered on the tablet).
  */
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { announce } from '../lib/announce';
 import { chime, unlockSound } from '../lib/chime';
 import { db } from '../lib/db';
@@ -26,6 +27,8 @@ function soundWanted(): boolean {
 }
 
 export function OnlineOrderAlert({ onOpen }: { onOpen(): void }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setSlot(document.getElementById('topbar-slot')), []);
   useLang();
   const { sync, worker } = useSession();
   const [sound, setSound] = useState(soundWanted);
@@ -81,8 +84,7 @@ export function OnlineOrderAlert({ onOpen }: { onOpen(): void }) {
     }
   }
 
-  return (
-    <>
+  const switchButton = (
       <button
         className={`sound-switch ${sound ? 'on' : ''}`}
         role="switch"
@@ -90,8 +92,17 @@ export function OnlineOrderAlert({ onOpen }: { onOpen(): void }) {
         onClick={toggle}
         title={t("Ring when a customer's online order arrives")}
       >
-        <span aria-hidden="true">{sound ? '🔔' : '🔕'}</span> {t("Sound")} {sound ? 'on' : 'off'}
+        <span aria-hidden="true">{sound ? '🔔' : '🔕'}</span>{' '}
+        <span className="sound-text">
+          {t("Sound")} {sound ? 'on' : 'off'}
+        </span>
       </button>
+  );
+
+  return (
+    <>
+      {/* In the top bar when there is one (no extra row on a phone), else where it is called */}
+      {slot ? createPortal(switchButton, slot) : switchButton}
       {fresh.length > 0 && (
         <button
           className="online-alert"

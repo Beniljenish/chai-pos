@@ -44,6 +44,8 @@ import {
   type PayChoice,
 } from '../lib/foodcourt';
 import { chime, unlockSound } from '../lib/chime';
+import { EmptyState } from './EmptyState';
+import { Loading } from './Status';
 import { formatRupees } from '../lib/gst';
 import { enablePush, pushState, type PushState } from '../lib/push';
 import { Sheet } from './Sheet';
@@ -2038,11 +2040,7 @@ function Orders({
           {t("Could not load your orders.")} <button onClick={load}>{t("Try again")}</button>
         </p>
       )}
-      {rows === null && !failed && (
-        <p className="muted" role="status">
-          {t("Loading…")}
-        </p>
-      )}
+      {rows === null && !failed && <Loading />}
       {rewards.length > 0 && (
         <section className="cx-rewards" aria-label={t("Your rewards")}>
           <h2>{t("Your rewards")}</h2>
@@ -2059,7 +2057,12 @@ function Orders({
           </ul>
         </section>
       )}
-      {rows && rows.length === 0 && <p className="cx-note">{t("You have not ordered yet.")}</p>}
+      {rows && rows.length === 0 && (
+        <EmptyState
+          title={t("You have not ordered yet.")}
+          hint={t("Your orders and rewards will show up here.")}
+        />
+      )}
       <ul className="cx-list" aria-label={t("Orders")}>
         {rows?.map((o) => (
           <li key={o.status_key} className="cx-order-row">

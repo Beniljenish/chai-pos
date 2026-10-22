@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { rupeesToPaise } from '../lib/foodcourt';
 import { t } from '../lib/i18n';
+import { toast } from '../lib/toast';
 import { cleanCode, offerState, offerText, type Offer } from '../lib/offers';
 import { api } from './apiClient';
 import { explainError } from './errors';
@@ -60,6 +61,7 @@ export function OffersScreen() {
         max_uses: uses === '' ? null : Number(uses),
       });
       setOffers(r.coupons);
+      toast(t('Offer saved'));
       setAdding(false);
       setCode('');
       setMin('');

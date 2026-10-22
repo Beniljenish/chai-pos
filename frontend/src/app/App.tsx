@@ -98,8 +98,11 @@ function Shell() {
         />
         <div className="where">
           <strong>{catalogue?.shop.name ?? "Taptallow"}</strong>
-          <span className="muted">
-            {device?.name} ({device?.code}), <AccountButton />
+          <span className="muted where-sub">
+            <span className="where-device">
+              {device?.name} ({device?.code}),
+            </span>{" "}
+            <AccountButton />
           </span>
         </div>
         <nav className="tabs" aria-label={t("Screens")}>
@@ -142,6 +145,7 @@ function Shell() {
             )}
           </button>
         </nav>
+        <span id="topbar-slot" className="topbar-slot" />
         <SyncBadge />
         <button className="quiet logout" onClick={logout}>
           <Icon name="logout" />

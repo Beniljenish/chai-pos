@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { boardPath, courtPath, isPaused } from '../lib/foodcourt';
 import { getLang, t } from '../lib/i18n';
+import { toast } from '../lib/toast';
 import { slotLabel, tableLink } from '../lib/pickup';
 import { formatRupees } from '../lib/gst';
 import type { FoodCourtView } from '../lib/types';
@@ -116,6 +117,7 @@ export function FoodCourtScreen() {
     setError(null);
     try {
       setV(await api.patch<FoodCourtView>('/food-court/me', body));
+      toast(t('Saved'));
     } catch (e) {
       setError(explainError(e));
     } finally {

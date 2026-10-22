@@ -85,9 +85,10 @@ export function LoginScreen() {
         <button className="primary" disabled={busy}>
           {busy ? t("Logging in…") : t("Log in")}
         </button>
-        <p className="login-customer">
-          {t("Want to order food at a food court?")} <a href="/order">{t("Create a customer account or log in")}</a>
-        </p>
+        <p className="login-customer">{t("Want to order food at a food court?")}</p>
+        <a className="button secondary login-customer-link" href="/order">
+          {t("Create a customer account or log in")}
+        </a>
       </form>
     </main>
   );

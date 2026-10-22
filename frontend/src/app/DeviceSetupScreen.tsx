@@ -64,7 +64,7 @@ export function DeviceSetupScreen() {
 
         {devices && devices.length > 0 && (
           <details className="reuse">
-            <summary>This tablet was set up before</summary>
+            <summary className="button secondary">This tablet was set up before</summary>
             <p className="warn">
               Choose its old name only if this is the same tablet (for example after clearing the browser).
               Never pick a name another tablet is using: both would print the same invoice numbers.

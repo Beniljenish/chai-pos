@@ -3,6 +3,7 @@ import '@fontsource/plus-jakarta-sans/700.css';
 import '@fontsource/plus-jakarta-sans/800.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ToastHost } from './app/ToastHost';
 import { AdminApp } from './app/AdminApp';
 import { BoardApp } from './app/BoardApp';
 import { App } from './app/App';
@@ -33,5 +34,6 @@ createRoot(document.getElementById('root')!).render(
         <App />
       </SessionProvider>
     )}
+    <ToastHost />
   </StrictMode>,
 );

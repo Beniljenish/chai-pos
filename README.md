@@ -902,6 +902,9 @@ Decisions and trade-offs, in the order they were built.
 
 **Migration** `a7c2e5b8d013` (additive: `coupons.customer_id`, `food_court_outlets.loyalty_every/loyalty_reward_paise`; no new table, so RLS is unchanged). Apply to Supabase by hand before merging.
 
+### 9.23 Polish round: phone top bar, Today header, login, empty states, "Saved" toast
+Found by screenshotting the live app at 390 px, not by guessing. **Fixed:** the Today title wrapped to four lines beside the language switch and its buttons were cut off (the title is now "Today"; the switch and buttons share one row that scrolls sideways with a fade); the sound switch sat on its own row under the top bar (it now renders into the top bar through a portal as an icon, keeping its accessible name "Sound on/off"); the shop name is cut off (two lines allowed); the account link was clipped by the ellipsis once the sound icon took space, which made it untappable and broke an e2e test (only the device name truncates now); the login customer link is a real secondary button; "This tablet was set up before" is a real button. **Added:** an `EmptyState` (title, hint, action) on Today and My orders, a loading skeleton on My orders (the existing `Loading` from `Status.tsx`), and a small "Saved" toast (`lib/toast.ts`, `ToastHost`) on food-court settings and new offers. The toast host is deliberately not `role="status"`: the app's own messages use that role and tests look them up by it. **Not done:** an automated accessibility scan (axe) and a full pass over every Manage screen's spacing; both are worth doing before the pilot.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.

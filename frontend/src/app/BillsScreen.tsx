@@ -1,3 +1,4 @@
+import { EmptyState } from './EmptyState';
 import { useEffect, useState } from 'react';
 import { businessDate } from '../lib/billing';
 import { db, type LocalBill } from '../lib/db';
@@ -69,7 +70,9 @@ export function BillsScreen() {
     <main className="bills">
       <header className="bills-head">
         <div className="manage-head">
-          <h1>{t("Today on this tablet")}</h1>
+          <h1>{t("Today")}</h1>
+        </div>
+        <div className="head-row">
           <LangSwitch />
           <span className="head-actions">
             <button className="quiet" onClick={() => setCustomers(true)}>
@@ -129,7 +132,10 @@ export function BillsScreen() {
       </header>
       <ShiftPanel />
       {bills.length === 0 ? (
-        <p className="empty">{t("No bills yet today.")}</p>
+        <EmptyState
+          title={t("No bills yet today.")}
+          hint={t("Bills you save on this tablet will show up here.")}
+        />
       ) : (
         <ul className="bill-list">
           {bills.map((b) => (
