@@ -3,6 +3,7 @@
  * so only the owner may set one up: two tablets sharing a series would print
  * duplicate invoice numbers.
  */
+import { t } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { HttpError, NetworkError } from '../lib/api';
 import type { Device } from '../lib/types';
@@ -29,7 +30,7 @@ export function DeviceSetupScreen() {
     return (
       <main className="centered">
         <div className="panel">
-          <h1>This tablet is not set up yet</h1>
+          <h1>{t("This tablet is not set up yet")}</h1>
           <p>Ask the owner to log in once on this tablet and set it up. After that, anyone can log in here.</p>
           <button onClick={logout}>Log out</button>
         </div>
@@ -52,19 +53,19 @@ export function DeviceSetupScreen() {
   return (
     <main className="centered">
       <div className="panel setup">
-        <h1>Set up this tablet</h1>
+        <h1>{t("Set up this tablet")}</h1>
         <p>Give it a name staff will recognise. It gets its own invoice numbers.</p>
         <label>
           Tablet name
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Front counter" />
         </label>
         <button className="primary" onClick={register} disabled={busy}>
-          Set up as a new tablet
+          {t("Set up as a new tablet")}
         </button>
 
         {devices && devices.length > 0 && (
           <details className="reuse">
-            <summary className="button secondary">This tablet was set up before</summary>
+            <summary className="button secondary">{t("This tablet was set up before")}</summary>
             <p className="warn">
               Choose its old name only if this is the same tablet (for example after clearing the browser).
               Never pick a name another tablet is using: both would print the same invoice numbers.

@@ -2,6 +2,7 @@
  * Owner: what needs attention, worked out by the server from the day's records
  * (drawer, voids, discounts, waiting wastage, ingredient prices, recipe use).
  */
+import { t } from '../lib/i18n';
 import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { groupAlerts, URGENCY_LABEL } from '../lib/alerts';
@@ -50,7 +51,7 @@ export function AlertsScreen({ onOpen }: { onOpen: (section: string) => void }) 
       {items === null ? (
         !error && <Loading />
       ) : items.length === 0 ? (
-        <p className="alerts-clear">Nothing needs you right now.</p>
+        <p className="alerts-clear">{t("Nothing needs you right now.")}</p>
       ) : (
         groupAlerts(items).map((g) => (
           <section key={g.label} aria-label={g.label}>

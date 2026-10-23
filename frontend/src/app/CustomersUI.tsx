@@ -165,7 +165,7 @@ export function CustomerDetail({ id, onClose, onBack }: { id: string; onClose():
               <div className="chips" role="group" aria-label="Paid by">
                 {MODES.map((m) => (
                   <button key={m.mode} className="chip" aria-pressed={mode === m.mode} onClick={() => setMode(m.mode)}>
-                    {m.label}
+                    {t(m.label)}
                   </button>
                 ))}
               </div>

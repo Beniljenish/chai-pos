@@ -2,6 +2,7 @@
  * Sales: the chosen day beside the same weekday a week earlier, and the last
  * seven days against the seven before. Read-only, one /reports/range call.
  */
+import { t } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { change, changeText, weekPairs, type DayTotal } from '../lib/compare';
 import { formatRupees } from '../lib/gst';
@@ -48,7 +49,7 @@ export function WeekCompare({ day, today }: { day: string; today: string }) {
     <section className="week-compare" aria-label="Compared with last week">
       <p className="week-line">
         {partDay ? (
-          <span className="delta same">Today so far</span>
+          <span className="delta same">{t("Today so far")}</span>
         ) : (
           <span className={`delta ${tone(money)}`}>{changeText(money) || 'No sales to compare'}</span>
         )}

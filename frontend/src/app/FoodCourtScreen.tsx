@@ -162,7 +162,7 @@ export function FoodCourtScreen() {
 
           <div className="panel-inline fc-switch">
             <div>
-              <strong>Taking online orders</strong>
+              <strong>{t("Taking online orders")}</strong>
               <p className="muted">
                 {v.accepting_orders
                   ? 'Customers can order from your outlet. New orders appear on your Tables screen.'
@@ -387,11 +387,11 @@ export function FoodCourtScreen() {
                   <dd className="num">{formatRupees(v.online_money.paid_paise)}</dd>
                 </div>
                 <div>
-                  <dt>Already paid to you</dt>
+                  <dt>{t("Already paid to you")}</dt>
                   <dd className="num">{formatRupees(v.online_money.settled_paise)}</dd>
                 </div>
                 <div className="fc-owed">
-                  <dt>Still due to you</dt>
+                  <dt>{t("Still due to you")}</dt>
                   <dd className="num">{formatRupees(v.online_money.owed_paise)}</dd>
                 </div>
               </dl>
@@ -408,7 +408,7 @@ export function FoodCourtScreen() {
           <section className="fc-qr-card" aria-label="QR code to print">
             <Qr text={link} />
             <strong>{court.name}</strong>
-            <span className="muted">Scan to order</span>
+            <span className="muted">{t("Scan to order")}</span>
             <code>{link}</code>
           </section>
           <button className="quiet" onClick={() => window.print()}>
@@ -439,7 +439,7 @@ export function FoodCourtScreen() {
             </section>
           )}
 
-          <h2>Outlets in this food court</h2>
+          <h2>{t("Outlets in this food court")}</h2>
           <ul className="sop-list">
             {(v.outlets ?? []).map((o) => (
               <li key={o.id} className="fc-outlet">
@@ -452,7 +452,7 @@ export function FoodCourtScreen() {
               </li>
             ))}
           </ul>
-          <p className="muted">To join or leave a food court, ask its administrator.</p>
+          <p className="muted">{t("To join or leave a food court, ask its administrator.")}</p>
         </>
       )}
     </section>

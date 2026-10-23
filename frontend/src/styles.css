@@ -6321,8 +6321,8 @@ button.link.danger {
 }
 .hint-btn {
   position: relative;
-  min-height: 28px;
-  min-width: 28px;
+  min-height: 36px;
+  min-width: 36px;
   padding: 0 6px;
   border: 0;
   background: transparent;
@@ -6363,4 +6363,26 @@ button.link.danger {
   padding: 0 var(--s3);
   display: inline-flex;
   align-items: center;
+}
+
+/* While an app's code arrives (first open only): the brand ground, no flash of white */
+.app-loading {
+  min-height: 100dvh;
+  background: var(--steel);
+}
+
+/* "Start shift now" and similar buttons in a narrow column: a rounded rectangle, never a pill that wraps into a circle */
+.shift-panel .shift-actions button {
+  border-radius: 12px;
+  white-space: normal;
+  text-align: center;
+  max-width: 100%;
+}
+/* A lone button (no shift open yet) takes the whole row instead of a third of it */
+.shift-panel .shift-actions button:only-of-type {
+  grid-column: 1 / -1;
+}
+.topbar .sync-badge {
+  flex: none;
+  max-width: 45%;
 }

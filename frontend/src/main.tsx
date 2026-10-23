@@ -1,16 +1,19 @@
 import '@fontsource/plus-jakarta-sans/500.css';
 import '@fontsource/plus-jakarta-sans/700.css';
 import '@fontsource/plus-jakarta-sans/800.css';
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ToastHost } from './app/ToastHost';
-import { AdminApp } from './app/AdminApp';
-import { BoardApp } from './app/BoardApp';
-import { App } from './app/App';
-import { CustomerApp } from './app/CustomerApp';
 import { boardSlugFromPath, courtSlugFromPath, isOrderHome } from './lib/foodcourt';
-import { SessionProvider } from './app/session';
 import './styles.css';
+
+// Each audience downloads only its own app: a customer scanning a table QR does not load the
+// till, Manage or the admin page. All chunks are still precached by the service worker, so the
+// till opens offline as before.
+const StaffRoot = lazy(() => import('./app/StaffRoot').then((m) => ({ default: m.StaffRoot })));
+const AdminApp = lazy(() => import('./app/AdminApp').then((m) => ({ default: m.AdminApp })));
+const BoardApp = lazy(() => import('./app/BoardApp').then((m) => ({ default: m.BoardApp })));
+const CustomerApp = lazy(() => import('./app/CustomerApp').then((m) => ({ default: m.CustomerApp })));
 
 // A food court's QR opens /order/<court>, and /order is the customer front door: the
 // customer's pages (their own account), none of the staff app. Everything else is the staff app.
@@ -23,6 +26,7 @@ const admin = /^\/admin\/?$/.test(window.location.pathname);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <Suspense fallback={<div className="app-loading" aria-busy="true" />}>
     {admin ? (
       <AdminApp />
     ) : board ? (
@@ -30,10 +34,9 @@ createRoot(document.getElementById('root')!).render(
     ) : court || orderHome ? (
       <CustomerApp slug={court} />
     ) : (
-      <SessionProvider>
-        <App />
-      </SessionProvider>
+      <StaffRoot />
     )}
+    </Suspense>
     <ToastHost />
   </StrictMode>,
 );

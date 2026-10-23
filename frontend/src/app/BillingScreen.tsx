@@ -378,7 +378,7 @@ export function BillingScreen() {
                   }}
                 >
                   <Icon name={mode} size={20} />
-                  <span>{label}</span>
+                  <span>{t(label)}</span>
                 </button>
               ))}
             </div>

@@ -270,7 +270,7 @@ export function TablesScreen() {
           ))}
 
           <section className="floor-area" aria-label="Takeaway and delivery">
-            <h2>Takeaway and delivery</h2>
+            <h2>{tr("Takeaway and delivery")}</h2>
             {otherOrders.length === 0 ? (
               <p className="muted">None running.</p>
             ) : (
@@ -468,8 +468,8 @@ function OrderScreen({
     return (
       <main className="centered">
         <div className="panel">
-          <h1>This order is closed</h1>
-          <p>It was settled or cancelled on another tablet.</p>
+          <h1>{tr("This order is closed")}</h1>
+          <p>{tr("It was settled or cancelled on another tablet.")}</p>
           <button className="primary" onClick={() => onBack()}>
             Back to tables
           </button>
@@ -801,7 +801,7 @@ function OrderScreen({
               </>
             )}
 
-            {!draft.length && !state?.lines.length && <p className="empty">Tap items on the menu to start a round.</p>}
+            {!draft.length && !state?.lines.length && <p className="empty">{tr("Tap items on the menu to start a round.")}</p>}
           </div>
 
           <div className="till-foot">
@@ -834,7 +834,7 @@ function OrderScreen({
                 </div>
               </>
             )}
-            {draft.length > 0 && priced?.totals && <p className="tax-note">Send or clear the new round before the bill.</p>}
+            {draft.length > 0 && priced?.totals && <p className="tax-note">{tr("Send or clear the new round before the bill.")}</p>}
             <div className="order-more">
               {start.orderType === 'dine_in' && state && (
                 <button className="quiet" onClick={() => setOverlay({ kind: 'move' })}>
@@ -995,11 +995,11 @@ function OrderScreen({
               Offer {offer.code} is on this bill: {formatRupees(offer.discount_paise)} off.
             </p>
           )}
-          {!billed && <p className="muted">The bill was not printed; the receipt printed now is the customer&apos;s bill.</p>}
+          {!billed && <p className="muted">{tr("The bill was not printed; the receipt printed now is the customer's bill.")}</p>}
           <div className="payment" role="radiogroup" aria-label="Payment">
             {PAYMENT_MODES.map(({ mode, label: l }) => (
               <button key={mode} role="radio" aria-checked={payment === mode} onClick={() => setPayment(mode)}>
-                {l}
+                {tr(l)}
               </button>
             ))}
           </div>

@@ -2,6 +2,7 @@
  * Owner: what each item costs to make and keeps. Cost = the current recipe at
  * the latest price paid for each ingredient; revenue is the price without GST.
  */
+import { t } from '../lib/i18n';
 import { Hint } from './Hint';
 import { useCallback, useEffect, useState } from 'react';
 import { formatRupees } from '../lib/gst';
@@ -88,7 +89,7 @@ export function MarginScreen() {
               );
             })}
           </ul>
-          {items.length === 0 && <p className="muted">No items on the menu yet.</p>}
+          {items.length === 0 && <p className="muted">{t("No items on the menu yet.")}</p>}
           <p className="muted">Pink is under 50% kept, amber up to 67%, green above.</p>
         </>
       )}

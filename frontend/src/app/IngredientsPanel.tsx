@@ -89,7 +89,7 @@ export function IngredientsPanel({ ingredients, onChanged }: { ingredients: Ingr
                     void run(() => api.patch(`/ingredients/${i.id}`, { scales_with_size: !e.target.checked }))
                   }
                 />
-                Same amount for every size (cups, lids, straws)
+                {t("Same amount for every size (cups, lids, straws)")}
               </label>
               {i.kind === 'raw' &&
                 (packFor === i.id ? (

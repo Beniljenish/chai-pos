@@ -1,4 +1,5 @@
 /** What needs the owner, as counts for Manage: pure, tested in attention.test.ts. */
+import { t } from './i18n';
 
 export interface Attention {
   /** Stock rows below their reorder level, or below zero. */
@@ -20,9 +21,9 @@ export type Urgency = 'act' | 'look';
 /** Manage row id -> badge text and colour; rows with nothing to say are absent. */
 export function badgesFor(a: Attention): Record<string, { text: string; urgency: Urgency }> {
   const out: Record<string, { text: string; urgency: Urgency }> = {};
-  if (a.alerts > 0) out.alerts = { text: `${a.alerts} new`, urgency: 'act' };
-  if (a.lowStock > 0) out.stock = { text: `${a.lowStock} low`, urgency: 'act' };
-  if (a.toApprove > 0) out.dayend = { text: `${a.toApprove} to approve`, urgency: 'act' };
-  if (a.owing > 0) out.khata = { text: `${a.owing} owe${a.owing === 1 ? 's' : ''}`, urgency: 'look' };
+  if (a.alerts > 0) out.alerts = { text: t('{n} new', { n: a.alerts }), urgency: 'act' };
+  if (a.lowStock > 0) out.stock = { text: t('{n} low', { n: a.lowStock }), urgency: 'act' };
+  if (a.toApprove > 0) out.dayend = { text: t('{n} to approve', { n: a.toApprove }), urgency: 'act' };
+  if (a.owing > 0) out.khata = { text: a.owing === 1 ? t('1 owes') : t('{n} owe', { n: a.owing }), urgency: 'look' };
   return out;
 }
