@@ -42,6 +42,7 @@ test('owner: Tamil switch, Watch, Buy by note, Ask, a dish in Tamil, a bill hist
   // ---- Manage in Tamil; the new sections are there
   await page.locator('.tabs').getByRole('button', { name: 'நிர்வாகம்' }).click();
   const nav = page.locator('.subnav');
+  await nav.locator('.subnav-more').click(); // the less-used sections are behind "show all"
   for (const label of ['கண்காணிப்பு', 'கேள்', 'வாங்கல்']) await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
 
   // back to English for the rest of the checks

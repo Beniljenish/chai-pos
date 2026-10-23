@@ -14,6 +14,7 @@ import {
   saveToken,
   savedToken,
   type AdminCourt,
+  type AppErrorRow,
   type OutletMoney,
   type RefundDue,
 } from '../lib/adminApi';
@@ -248,6 +249,7 @@ function Courts({ token, onSignedOut }: { token: string; onSignedOut(): void }) 
       <AdminOverview token={token} onSignedOut={onSignedOut} />
       <OnlineMoney token={token} onSignedOut={onSignedOut} />
       <CustomerReset token={token} onSignedOut={onSignedOut} />
+      <ErrorLog token={token} onSignedOut={onSignedOut} />
 
       {sheet?.kind === 'court' && (
         <NewCourt
@@ -463,6 +465,61 @@ function OnlineMoney({ token, onSignedOut }: { token: string; onSignedOut(): voi
 }
 
 /** A customer forgot their password: type their number, read the temporary one to them. */
+/** What broke in the last 30 days, newest first: the app's own error monitoring. */
+function ErrorLog({ token, onSignedOut }: { token: string; onSignedOut(): void }) {
+  const [rows, setRows] = useState<AppErrorRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const load = useCallback(() => {
+    adminApi
+      .errors(token)
+      .then((r) => {
+        setRows(r.errors);
+        setError(null);
+      })
+      .catch((err) => {
+        if (err instanceof AdminError && err.status === 401) onSignedOut();
+        else setError(err instanceof AdminError ? err.message : 'Could not reach the server.');
+      });
+  }, [token, onSignedOut]);
+  useEffect(load, [load]);
+  return (
+    <section className="admin-court" aria-label="Errors">
+      <h2>
+        Errors {rows ? `(${rows.length})` : ''}{' '}
+        <button className="quiet" onClick={load}>
+          Refresh
+        </button>
+      </h2>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {rows && rows.length === 0 && <p className="muted">Nothing broke in the last 30 days.</p>}
+      <ul className="error-log">
+        {rows?.map((e) => (
+          <li key={e.id}>
+            <button className="quiet" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>
+              <span className={`tag ${e.source}`}>{e.source === 'server' ? 'Server' : 'App'}</span>
+              <strong>{e.message}</strong>
+              <small className="muted">
+                {new Date(e.at).toLocaleString('en-IN')} · {e.place || '—'}
+              </small>
+            </button>
+            {open === e.id && (
+              <pre className="error-detail">
+                {e.detail || '(no detail)'}
+                {e.agent ? `\n\n${e.agent}` : ''}
+              </pre>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function CustomerReset({ token, onSignedOut }: { token: string; onSignedOut(): void }) {
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);

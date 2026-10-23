@@ -261,6 +261,7 @@ __all__ += ["FoodCourt", "FoodCourtOutlet", "OnlineOrder"]
 from app.models.customer_account import CustomerAccount  # noqa: E402
 from app.models.enhance import (  # noqa: E402
     AiUsage,  # noqa: F401
+    AppError,  # noqa: F401
     Attendance,  # noqa: F401
     AuditEvent,  # noqa: F401
     Coupon,  # noqa: F401

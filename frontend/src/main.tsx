@@ -4,6 +4,8 @@ import '@fontsource/plus-jakarta-sans/800.css';
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ToastHost } from './app/ToastHost';
+import { CrashScreen } from './app/CrashScreen';
+import { installErrorReporting } from './lib/reportError';
 import { boardSlugFromPath, courtSlugFromPath, isOrderHome } from './lib/foodcourt';
 import './styles.css';
 
@@ -24,8 +26,11 @@ const orderHome = isOrderHome(window.location.pathname); // /order: log in, then
 const board = boardSlugFromPath(window.location.pathname);
 const admin = /^\/admin\/?$/.test(window.location.pathname);
 
+installErrorReporting();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <CrashScreen>
     <Suspense fallback={<div className="app-loading" aria-busy="true" />}>
     {admin ? (
       <AdminApp />
@@ -37,6 +42,7 @@ createRoot(document.getElementById('root')!).render(
       <StaffRoot />
     )}
     </Suspense>
+    </CrashScreen>
     <ToastHost />
   </StrictMode>,
 );

@@ -57,4 +57,9 @@ def daily(authorization: str | None = Header(default=None), today: date | None =
         stats = email.deliver_pending(mark_system(db), limit=1000)
     with SessionLocal() as db:
         stats["messages"] = messages.deliver_pending(mark_system(db), limit=1000)
+    with SessionLocal() as db:
+        from app.services import errors
+
+        stats["errors_swept"] = errors.sweep(mark_system(db))
+        db.commit()
     return {"shops": queued, "date": yesterday.isoformat(), "weekly": bool(week), **stats}

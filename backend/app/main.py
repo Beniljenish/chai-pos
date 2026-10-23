@@ -1,7 +1,8 @@
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1 import (
@@ -31,6 +32,7 @@ from app.api.v1 import (
 )
 from app.core.config import get_settings
 from app.db.session import engine
+from app.services import errors
 
 logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","msg":"%(message)s"}')
 
@@ -44,6 +46,13 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+    @app.exception_handler(Exception)
+    async def crashed(request: Request, exc: Exception) -> JSONResponse:
+        # Anything no route handled: logged for the platform admin, then the usual plain 500.
+        errors.record_exception(exc, f"{request.method} {request.url.path}")
+        return JSONResponse({"detail": "Something went wrong on our side"}, status_code=500)
+
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1")
     app.include_router(catalogue.router, prefix="/api/v1")

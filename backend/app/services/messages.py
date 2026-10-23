@@ -9,9 +9,11 @@ Only customers who agreed, for that number, are messaged (`message_ok` on the
 order). The phone number is read from the order when sending and is never
 written to the outbox, to logs, or into an error message.
 
-The provider is behind a Transport (to, text, idempotency key) -> provider id:
-Inkbox's iMessage API when INKBOX_API_KEY is set; otherwise nothing is sent and
-the row is marked "logged" so the owner can read it on the Messages screen.
+The provider is behind a Transport (to, text, idempotency key) -> provider id. In order of
+preference: WhatsApp through Twilio, SMS through Twilio, Inkbox's iMessage API (few Indian
+customers have iMessage, so it is the last choice). CUSTOMER_MESSAGES_CHANNEL can force one.
+With none set up nothing is sent and the row is marked "logged" so the owner can read it on
+the Messages screen.
 """
 
 import hashlib
@@ -51,11 +53,44 @@ def set_transport(transport: Transport | None) -> None:
     _override = transport
 
 
+def channel() -> str:
+    """Which provider customer messages go through: whatsapp, sms, inkbox, or log (none)."""
+    from app.services import twilio_sender
+
+    s = get_settings()
+    usable = {
+        "whatsapp": twilio_sender.whatsapp_on(),
+        "sms": twilio_sender.sms_on(),
+        "inkbox": bool(s.inkbox_api_key),
+    }
+    forced = s.customer_messages_channel.strip().lower()
+    if forced:
+        return forced if usable.get(forced) else "log"
+    return next((name for name, ok in usable.items() if ok), "log")
+
+
+def _twilio(kind: str) -> Transport:
+    from app.services import twilio_sender
+
+    def send(to: str, text: str, key: str) -> str:
+        try:
+            return twilio_sender.send(to, text, kind)
+        except twilio_sender.SendError as e:
+            raise SendError(str(e)) from None
+
+    return send
+
+
 def _transport() -> Transport | None:
     if _override is not None:
         return _override
     s = get_settings()
-    return _inkbox(s.inkbox_api_key, s.inkbox_identity_id) if s.inkbox_api_key else None
+    picked = channel()
+    if picked in ("whatsapp", "sms"):
+        return _twilio(picked)
+    if picked == "inkbox":
+        return _inkbox(s.inkbox_api_key, s.inkbox_identity_id)
+    return None
 
 
 def _inkbox(api_key: str, identity_id: str) -> Transport:

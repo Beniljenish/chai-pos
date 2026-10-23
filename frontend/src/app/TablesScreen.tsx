@@ -533,12 +533,12 @@ function OrderScreen({
       await reload();
       void worker?.kick();
       const printer = await loadPrinter(db);
-      if (!printer.printKot) return onBack(`KOT ${kotNo} sent for ${label}`);
+      if (!printer.printKot) return onBack(tr('KOT {no} sent for {name}', { no: kotNo, name: label }));
       setOverlay({
         kind: 'ticket',
         title: `KOT ${kotNo}`,
         autoPrint: true,
-        then: `KOT ${kotNo} sent for ${label}`,
+        then: tr('KOT {no} sent for {name}', { no: kotNo, name: label }),
         rows: kotRows({ kind: 'KOT', kotNo, label, at: new Date().toISOString(), byName, covers, lines }, printer.width),
       });
     });
@@ -552,9 +552,9 @@ function OrderScreen({
       const printer = await loadPrinter(db);
       setOverlay({
         kind: 'ticket',
-        title: `Bill for ${label}`,
+        title: tr('Bill for {name}', { name: label }),
         autoPrint: printer.autoPrint,
-        then: `Bill printed for ${label}`,
+        then: tr('Bill printed for {name}', { name: label }),
         rows: billSummaryRows(
           {
             label,
@@ -643,8 +643,8 @@ function OrderScreen({
           <div className="order-title">
             <h1>{label}</h1>
             <span className="muted">
-              {state ? `${minutesOpen(state)} min` : 'New order'}
-              {covers ? ` · ${covers} guests` : ''}
+              {state ? tr('{n} min', { n: minutesOpen(state) }) : tr('New order')}
+              {covers ? ` · ${tr('{n} guests', { n: covers })}` : ''}
               {state?.kots.length ? ` · ${state.kots.length} KOT${state.kots.length > 1 ? 's' : ''}` : ''}
             </span>
           </div>
@@ -683,7 +683,7 @@ function OrderScreen({
         <button className="till-handle" onClick={() => setTillOpen((o) => !o)} aria-expanded={tillOpen}>
           <span>
             {draftCount
-              ? `${draftCount} new, not sent`
+              ? tr('{n} new, not sent', { n: draftCount })
               : sentCount
                 ? `${label}: ${sentCount} item${sentCount > 1 ? 's' : ''}`
                 : 'Nothing ordered'}
@@ -756,7 +756,7 @@ function OrderScreen({
                   })}
                 </ul>
                 <button className="primary save kot" disabled={busy} onClick={() => void sendRound()}>
-                  {busy ? 'Sending…' : `Send to kitchen (${draftCount})`}
+                  {busy ? tr('Sending…') : tr('Send to kitchen ({n})', { n: draftCount })}
                 </button>
               </>
             )}
@@ -910,12 +910,12 @@ function OrderScreen({
               await act(db, orderId, 'cancel_order', { reason }, by);
               void worker?.kick();
               const printer = await loadPrinter(db);
-              if (!left.length || !printer.printKot) return onBack(`${label}: order cancelled`);
+              if (!left.length || !printer.printKot) return onBack(tr('{name}: order cancelled', { name: label }));
               setOverlay({
                 kind: 'ticket',
                 title: 'Cancel order',
                 autoPrint: true,
-                then: `${label}: order cancelled`,
+                then: tr('{name}: order cancelled', { name: label }),
                 rows: kotRows(
                   {
                     kind: 'CANCEL',
@@ -944,7 +944,7 @@ function OrderScreen({
               await act(db, orderId, 'move', { table_id: tableId }, by);
               void worker?.kick();
               setOverlay(null);
-              onBack(`${label} moved to ${name}`);
+              onBack(tr('{name} moved to {to}', { name: label, to: name }));
             })
           }
         />
@@ -985,7 +985,7 @@ function OrderScreen({
         />
       )}
       {overlay?.kind === 'settle' && priced?.totals && (
-        <Sheet title={`Settle ${label}`} onClose={() => setOverlay(null)}>
+        <Sheet title={tr('Settle {name}', { name: label })} onClose={() => setOverlay(null)}>
           <p className="settle-total">
             <span>To pay</span>
             <strong className="num">{formatRupees(priced.totals.total)}</strong>
@@ -1048,7 +1048,7 @@ function OrderScreen({
             const [next, ...rest] = overlay.more ?? [];
             if (next) return setOverlay({ kind: 'receipt', bill: next, more: rest });
             setOverlay(null);
-            onBack(`${label} settled: ${overlay.bill.invoiceNo}${overlay.more === undefined ? '' : ' (split)'}`);
+            onBack(`${tr('{name} settled', { name: label })}: ${overlay.bill.invoiceNo}${overlay.more === undefined ? '' : ` (${tr('split')})`}`);
           }}
         />
       )}
@@ -1132,7 +1132,7 @@ function CancelLineSheet({
   const [qty, setQty] = useState(1);
   const [reason, setReason] = useState('');
   return (
-    <Sheet title={`Cancel ${line.name}`} onClose={onClose}>
+    <Sheet title={tr('Cancel {name}', { name: line.name })} onClose={onClose}>
       <p className="muted">
         Sent to the kitchen on KOT {line.kot_no}. The owner sees every cancellation with its reason.
         {billed && ' The bill was already printed: it will need printing again.'}
@@ -1233,7 +1233,7 @@ function ConsentCheck({ phone, checked, onChange }: { phone: string; checked: bo
   return (
     <label className="check">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      Customer agrees to get the receipt and &quot;order ready&quot; on this number by iMessage
+      {tr("Customer agrees to get the receipt and \"order ready\" on this number by WhatsApp or SMS")}
     </label>
   );
 }
@@ -1402,7 +1402,7 @@ function SplitBillSheet({
           disabled={!parts || busy}
           onClick={() => parts && onSettle(parts.map((p, k) => ({ lines: p.lines, payment: pay[k], discountPaise: p.discountPaise })))}
         >
-          {parts ? `Settle ${count} bills and print` : 'Every bill needs an item'}
+          {parts ? tr('Settle {n} bills and print', { n: count }) : tr('Every bill needs an item')}
         </button>
         <button onClick={onClose}>Back</button>
       </div>

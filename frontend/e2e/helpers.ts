@@ -35,7 +35,11 @@ export async function expectPhoneBars(page: Page) {
 export async function openSection(page: Page, name: string) {
   const back = page.getByRole('button', { name: 'Back to Manage' });
   if (await back.isVisible()) await back.click();
-  await page.locator('.subnav').getByRole('button', { name, exact: true }).click();
+  const nav = page.locator('.subnav');
+  const button = nav.getByRole('button', { name, exact: true });
+  // Rarely used sections wait behind "Show all": open the full list first.
+  if (!(await button.isVisible())) await nav.locator('.subnav-more').click();
+  await button.click();
 }
 
 /**

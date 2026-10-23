@@ -248,3 +248,11 @@ def make_refund(body: RefundIn, a: Admin = Depends(current_admin)) -> dict:
     """Give money back to a customer through Razorpay."""
     _run(onlinepay.refund, a.db, body.ref)
     return {"refunds_due": onlinepay.refunds_due(a.db)}
+
+
+@router.get("/errors")
+def recent_errors(a: Admin = Depends(current_admin)) -> dict:
+    """What broke lately, newest first: server crashes and errors from people's apps."""
+    from app.services import errors
+
+    return {"errors": errors.recent(a.db)}

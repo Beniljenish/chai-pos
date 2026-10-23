@@ -15,7 +15,7 @@
   --brand-press: #2a0e4b;
   --brand-soft: #f1eaf8;
   --brand-ink: #d8c8ec; /* quiet text on jamun */
-  --accent: #e23e72;
+  --accent: #d6336a;
   --accent-press: #c42a5d;
   --leaf: #13865a; /* "done / fine": sent, matched, eating */
   --leaf-press: #0f6c49;
@@ -2995,7 +2995,7 @@ h1 {
   --steel: #f6f5f9;
   --line: #ece9f2;
   --ink-soft: #625d76;
-  --ink-faint: #9a96aa;
+  --ink-faint: #726d88; /* 4.9:1 on white (was #9a96aa, 2.9:1) */
   /* Every card that uses --shadow also gets a 1 px hairline, so cards read
      as cards on white and on the grey ground alike. */
   --shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(23, 18, 43, 0.04), 0 2px 8px rgba(23, 18, 43, 0.04);
@@ -3262,8 +3262,8 @@ body {
 }
 .tone-0 { background: #fde8ef; color: #c42a5d; }
 .tone-1 { background: #efe6fb; color: #5a2a96; }
-.tone-2 { background: #fff1d6; color: #a7650a; }
-.tone-3 { background: #e3f5ec; color: #13865a; }
+.tone-2 { background: #fff1d6; color: #935806; }
+.tone-3 { background: #e3f5ec; color: #0f7a50; }
 .tone-4 { background: #e5eefc; color: #2c5cc5; }
 .tile-name {
   font-size: 0.98rem;
@@ -4544,7 +4544,7 @@ button.save {
   margin-left: 6px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--accent, #e23e72);
+  background: var(--accent, #d6336a);
   color: #fff;
   font-size: 0.72rem;
 }
@@ -4785,7 +4785,7 @@ button.save {
 }
 .cx-heart.on,
 .heart {
-  color: #e23e72;
+  color: #d6336a;
 }
 .cx-add.wide {
   width: auto;
@@ -4942,7 +4942,7 @@ button.save {
   padding: var(--s3) var(--s4);
   border: none;
   border-radius: 14px;
-  background: #e23e72;
+  background: #d6336a;
   color: #fff;
   text-align: left;
   animation: online-pulse 1.6s ease-in-out infinite;
@@ -5767,7 +5767,7 @@ button.save {
 }
 .cx-tag {
   background: var(--tsoft, #fff4de);
-  color: var(--tur, #c77d0a);
+  color: var(--tur, #935806);
   border-radius: 99px;
   padding: 1px 8px;
   font-size: 0.8rem;
@@ -6385,4 +6385,69 @@ button.link.danger {
 .topbar .sync-badge {
   flex: none;
   max-width: 45%;
+}
+
+/* Admin: the error log */
+.error-log {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.error-log button {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  overflow-wrap: anywhere;
+}
+.error-log .tag {
+  justify-self: start;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--chilli-soft);
+  color: var(--chilli);
+}
+.error-log .tag.app {
+  background: var(--turmeric-soft);
+  color: var(--turmeric);
+}
+.error-detail {
+  margin: var(--s1) 0 0;
+  padding: var(--s3);
+  max-height: 240px;
+  overflow: auto;
+  background: var(--steel);
+  border-radius: 12px;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+}
+
+/* Manage: everyday sections first, the rest one tap away */
+.subnav .subnav-more {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--s2);
+  border: 1px dashed var(--steel-deep);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--brand);
+  font-weight: 700;
+  justify-content: center;
+}
+
+/* Contrast (README 9.28): every text colour meets WCAG AA 4.5:1 on its background.
+ * Pink action buttons 4.6:1 (was 4.1), "done" green on its tint 4.8:1 (was 4.1). */
+:root {
+  --accent: #d6336a;
+  --accent-press: #b8285a;
+  --leaf: #0f7a50;
+  --turmeric: #935806; /* "waiting" amber text: 5.3:1 on its tint (was 3.0:1) */
 }

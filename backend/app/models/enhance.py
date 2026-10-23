@@ -302,3 +302,21 @@ class GroupLine(IdMixin, Base):
     menu_item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     modifier_ids: Mapped[list] = mapped_column(JSONB, default=list)
     qty: Mapped[int] = mapped_column(Integer)
+
+
+class AppError(IdMixin, Base):
+    """Something that broke, on the server or in someone's app (README, "9.28"). Kept 30 days
+    for the platform admin to read. Never holds a phone number or a password: text is scrubbed
+    before it is written."""
+
+    __tablename__ = "app_errors"
+
+    at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    source: Mapped[str] = mapped_column(String(10))  # "server" or "app"
+    shop_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    place: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    message: Mapped[str] = mapped_column(String(500))
+    detail: Mapped[str] = mapped_column(String(4000), default="", server_default="")
+    agent: Mapped[str] = mapped_column(String(200), default="", server_default="")

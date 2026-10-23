@@ -26,7 +26,7 @@ def outbox(caller: Caller = Depends(require_owner)) -> dict:
         for o in caller.db.scalars(select(Order).where(Order.id.in_({m.order_id for m in rows})))
     }
     return {
-        "provider": "inkbox" if messages._transport() is not None else "log",
+        "provider": "inkbox" if messages._override is not None else messages.channel(),
         "messages": [
             {
                 "id": m.id,

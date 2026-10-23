@@ -9,7 +9,7 @@ is decided by the food court's own outlet list, never by anything sent.
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -151,3 +151,40 @@ def order_status(status_key: str, response: Response):
         return online.public_order(status_key)
     except online.OnlineError as e:
         raise fail(e) from None
+
+
+class AppErrorIn(BaseModel):
+    message: str = Field(max_length=2000)
+    place: str = Field(default="", max_length=500)
+    detail: str = Field(default="", max_length=8000)
+
+
+@router.post("/app-errors", status_code=204)
+def app_error(body: AppErrorIn, request: Request, db: Session = Depends(system_db)) -> Response:
+    """An error someone's app ran into (README, "9.28"). No login: it can happen before one, and
+    a broken page must still be able to say so. Limited per address so it cannot fill the log."""
+    from datetime import timedelta
+
+    from app.api.v1.customer_accounts import client_ip
+    from app.services import errors, ratelimit
+
+    try:
+        ratelimit.hit(
+            db,
+            f"apperr:{client_ip(request)}",
+            limit=30,
+            window=timedelta(hours=1),
+            message="Too many reports",
+        )
+        db.commit()
+    except ratelimit.RateLimited:
+        db.rollback()
+        return Response(status_code=204)  # dropped quietly: the page has nothing to do about it
+    errors.record(
+        "app",
+        body.message,
+        place=body.place,
+        detail=body.detail,
+        agent=request.headers.get("user-agent", ""),
+    )
+    return Response(status_code=204)

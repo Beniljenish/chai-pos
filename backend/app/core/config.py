@@ -46,7 +46,11 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_sms_from: str = ""  # a Twilio number in +91... form, or a Messaging Service id (MG...)
-    twilio_whatsapp_from: str = ""  # the sender's WhatsApp number, +14155238886 for the sandbox
+    twilio_whatsapp_from: str = ""
+    # Customer receipts and "order ready": whatsapp, sms or inkbox; empty = the first one set up.
+    customer_messages_channel: str = (
+        ""  # the sender's WhatsApp number, +14155238886 for the sandbox
+    )
     # Where customers open receipt links (this API's public address).
     public_api_url: str = "https://chai-pos-api.vercel.app/api/v1"
     # Razorpay (test mode first). Empty key = online payments switched off; the

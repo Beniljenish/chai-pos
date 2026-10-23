@@ -32,7 +32,7 @@ const KIND: Record<OutboxMessage['kind'], string> = { receipt: 'Receipt', ready:
 
 
 export function MessagesScreen() {
-  const [data, setData] = useState<{ provider: 'inkbox' | 'log'; messages: OutboxMessage[] } | null>(null);
+  const [data, setData] = useState<{ provider: 'whatsapp' | 'sms' | 'inkbox' | 'log'; messages: OutboxMessage[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -73,12 +73,11 @@ export function MessagesScreen() {
         )}
       </header>
       <Hint>
-        Receipts and &quot;order ready&quot; go by iMessage to customers who agreed when their number was taken (Tables →
-        Customer). Only the last four digits are shown here.
+        {t("Receipts and \"order ready\" go by WhatsApp or SMS to customers who agreed when their number was taken. Only the last four digits are shown here.")}
       </Hint>
       {data?.provider === 'log' && (
         <p className="warn">
-          {t("Sending is not set up yet: messages are written here but not sent. Adding the Inkbox key on the server turns sending on.")}
+          {t("Sending is not set up yet: messages are written here but not sent. Adding the Twilio keys on the server (WhatsApp or SMS) turns sending on.")}
         </p>
       )}
       {error && <LoadError error={error} onRetry={() => void load()} />}

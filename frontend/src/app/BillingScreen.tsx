@@ -201,7 +201,8 @@ export function BillingScreen() {
   const canCollectOnline = Boolean(catalogue?.shop.online_payments) && (payment === 'upi' || payment === 'card');
 
   return (
-    <div className="billing">
+    <main className="billing">
+      <h1 className="sr-only">{t("New bill")}</h1>
       {shift && user && shift.openedById !== user.id && shiftsOn(catalogue?.shop.cash_shifts) && (
         <p className="shift-note" role="note">
           {t("Billing into {name}'s shift. Taking over the drawer? End it under Today first.", { name: shift.openedByName })}
@@ -480,6 +481,6 @@ export function BillingScreen() {
           }}
         />
       )}
-    </div>
+    </main>
   );
 }

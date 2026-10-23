@@ -4,6 +4,16 @@
 import type { Overview, SettlementRow } from './operator';
 import type { Statement } from './statement';
 
+export interface AppErrorRow {
+  id: string;
+  at: string;
+  source: 'server' | 'app';
+  place: string;
+  message: string;
+  detail: string;
+  agent: string;
+}
+
 export interface AdminOutlet {
   id: string;
   name: string;
@@ -121,6 +131,8 @@ export const adminApi = {
   statement: (t: string, courtId: string, outletId: string, from: string, to: string) =>
     call<Statement>(`/courts/${courtId}/outlets/${outletId}/statement?from=${from}&to=${to}`, t),
   refund: (t: string, ref: string) => call<{ refunds_due: RefundDue[] }>('/refunds', t, body({ ref })),
+  /** What broke lately: server crashes and errors people's apps reported. */
+  errors: (t: string) => call<{ errors: AppErrorRow[] }>('/errors', t),
   /** A forgotten customer password: returns a temporary one, once, for the admin to read out. */
   resetCustomer: (t: string, phone: string) =>
     call<{ name: string; phone: string; temporary_password: string }>('/customers/reset-password', t, body({ phone })),

@@ -108,6 +108,33 @@ const GROUPS: {
     },
   ];
 
+// The everyday sections. The rest (helpers, change log, attendance...) wait behind "Show all"
+// so a small shop is not faced with 25 rows; search and a section with news still show them.
+const EVERYDAY = new Set<Section>([
+  "alerts",
+  "sales",
+  "reports",
+  "khata",
+  "stock",
+  "buy",
+  "dayend",
+  "recipes",
+  "shop",
+  "staff",
+  "floor",
+  "foodcourt",
+  "offers",
+]);
+const SHOW_ALL_KEY = "taptallow.manage.all";
+
+function readShowAll(): boolean {
+  try {
+    return localStorage.getItem(SHOW_ALL_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 const PHONE = "(max-width: 600px)";
 
 /** True on a phone-sized screen, and kept up to date if the window is resized. */
@@ -133,6 +160,19 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
   const phone = usePhone();
   const [chosen, setSection] = useState<Section | null>(null);
   const [find, setFind] = useState("");
+  const [showAll, setShowAllState] = useState(readShowAll);
+  const setShowAll = (on: boolean) => {
+    setShowAllState(on);
+    try {
+      localStorage.setItem(SHOW_ALL_KEY, on ? "1" : "0");
+    } catch {
+      /* fine: it resets next time */
+    }
+  };
+  const query = find.trim().toLowerCase();
+  const visible = (id: Section) =>
+    query ? true : showAll || EVERYDAY.has(id) || Boolean(badges[id]) || chosen === id;
+  const hiddenCount = GROUPS.reduce((n, g) => n + g.sections.filter((s) => !visible(s.id)).length, 0);
   const section: Section | null = chosen ?? (phone ? null : "sales");
   if (phone && section !== null) {
     return (
@@ -149,6 +189,7 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
   }
   return (
     <main className={`manage ${section === null ? "manage-home" : ""}`}>
+      <h1 className="sr-only">{t("Manage")}</h1>
       <nav className="subnav" aria-label="Manage">
         <div className="subnav-lang">
           <input
@@ -163,7 +204,7 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
         </div>
         {GROUPS.map((g) => ({
           ...g,
-          sections: g.sections.filter((s) => t(s.label).toLowerCase().includes(find.trim().toLowerCase())),
+          sections: g.sections.filter((s) => visible(s.id) && t(s.label).toLowerCase().includes(query)),
         }))
           .filter((g) => g.sections.length > 0)
           .map((g) => (
@@ -201,6 +242,11 @@ export function ManageScreen({ attention }: { attention?: Attention }) {
             </div>
           </div>
         ))}
+        {!query && (hiddenCount > 0 || showAll) && (
+          <button className="subnav-more" onClick={() => setShowAll(!showAll)}>
+            {showAll ? t("Fewer sections") : t("Show all sections ({n} more)", { n: hiddenCount })}
+          </button>
+        )}
       </nav>
       {section !== null && (
         <div className="manage-body">

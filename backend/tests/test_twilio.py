@@ -107,3 +107,33 @@ def test_the_owners_summary_goes_by_whatsapp_when_it_is_set_up(client, shop_a, t
     _, data, _ = twilio.calls[0]
     assert data["To"] == "whatsapp:+919840077777" and data["Body"].startswith("Shop A")
     assert messages._override is None
+
+
+def test_customer_messages_prefer_whatsapp_then_sms_then_imessage(twilio, monkeypatch):
+    from app.services import messages
+
+    s = get_settings()
+    assert messages.channel() == "whatsapp"
+    monkeypatch.setattr(s, "twilio_whatsapp_from", "")
+    assert messages.channel() == "sms"
+    monkeypatch.setattr(s, "twilio_sms_from", "")
+    monkeypatch.setattr(s, "inkbox_api_key", "ik-test")
+    assert messages.channel() == "inkbox"
+    monkeypatch.setattr(s, "inkbox_api_key", "")
+    assert messages.channel() == "log" and messages._transport() is None
+
+
+def test_a_forced_channel_that_is_not_set_up_sends_nothing(twilio, monkeypatch):
+    from app.services import messages
+
+    monkeypatch.setattr(get_settings(), "customer_messages_channel", "inkbox")
+    assert messages.channel() == "log"
+    monkeypatch.setattr(get_settings(), "customer_messages_channel", "sms")
+    assert messages.channel() == "sms"
+
+
+def test_a_customer_message_goes_out_through_twilio(twilio):
+    from app.services import messages
+
+    sent_id = messages._transport()("+919840012345", "Your order is ready", "key-1")
+    assert sent_id  # the fake Twilio's message id

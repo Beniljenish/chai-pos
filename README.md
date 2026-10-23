@@ -919,6 +919,21 @@ Measured first: a script counted the visible words on every phone screen and lis
 
 **Tamil.** `scripts/ui-audit-tamil.mjs` runs the layout audit with the app in Tamil. It found no sideways scroll, but by eye: the long Tamil "Sent" squeezed the shop name in the phone top bar (shorter word, and the badge is capped at 45%); "Start shift now" wrapped into a three-line circle (a lone button now takes the row); the payment buttons, the Manage badges ("2 new", "1 owes") and 20 hard-coded headings and notes on Tables, Food court, Alerts, Margin and tablet setup were still English. All translated. **Deliberately English:** the composition-scheme declaration printed on a bill (statutory wording), menu and option names (the shop's own data), and the admin page. **Still to do:** a native speaker should read the Tamil; several Tables-screen status messages (KOT sent, order cancelled) are still English.
 
+### 9.28 From the drawbacks review: error log, WhatsApp/SMS, simpler Manage, accessibility
+**Error log** (`services/errors.py`, admin page → Errors). There was no monitoring: a crash in a shop was invisible until the owner phoned. Now every unhandled server error is recorded (method, path, the traceback) and the app reports its own errors: uncaught ones, failed promises, and a screen that crashes, which now shows "Something went wrong · Reload" instead of a blank page (bills already saved on the device are untouched). Reports go to `POST /public/app-errors` with no login (it may break before one), capped at 30 an hour per address, at most 5 per page load and each once. Text is scrubbed before it is stored: digit runs become "[number]", anything after password/token/secret is hidden; only the URL path is sent, never the query. Kept 30 days (the daily job sweeps). The platform admin reads it; shop owners do not. **Trade-off:** no alerts, you look at the list. A hosted service such as Sentry adds alerts and grouping; it can be added later with its own key.
+
+**Customer messages over WhatsApp or SMS.** Receipts and "order ready" went by iMessage only, which few Indian customers have. The channel is now picked in order: WhatsApp (Twilio), SMS (Twilio), then Inkbox iMessage; `CUSTOMER_MESSAGES_CHANNEL` can force one. Twilio still needs the owner's DLT (SMS) and WhatsApp business approvals before messages reach Indian phones (9.20).
+
+**Simpler Manage.** 13 everyday sections show; the other 12 (Watch, Ask, Helpers, Outlets, Special days, Margin, Prices paid, Purchases, Attendance, Changes, Tablets, Messages) sit behind "Show all sections (12 more)", remembered on the device. A hidden section with news (a badge) still shows, and search finds every section.
+
+**Accessibility.** `e2e/zz-a11y.spec.ts` runs axe-core on login, till, Today, Tables, Manage, Sales, Stock, Day end and the customer log-in and fails on serious problems. It found text below the WCAG AA contrast ratio (4.5:1): the pink action buttons (4.1), the grey device line (2.9), the green "Sent" badge (4.1) and amber warnings (3.0). The colours are darkened just enough (pink #d6336a, grey #726d88, green #0f7a50, amber #935806). The till and Manage gained a page heading for screen readers.
+
+**Tamil:** the Tables screen's status messages (KOT sent, settled, moved, cancelled, send to kitchen) now translate.
+
+**Not done, and why:** merging to `main` (the owner's rule is no PRs unless asked; it deploys and needs the migrations applied); Mumbai region and paid hosting plans (the owner's accounts); live updates instead of polling (Vercel functions time out on long connections); a CSS rewrite (risk for little visible gain); Safari testing (no WebKit in this environment).
+
+**Migration** `b8d3f6c9e124` (new table `app_errors`, row-level security on). Apply to Supabase by hand before merging, after `a7c2e5b8d013`.
+
 ## Phase 10: the v1 gaps (adherence trend, wastage approval, shift counts)
 
 Three things the spec lists for v1 that make the day-end number trustworthy. All on **Manage → Day end** for the owner.
